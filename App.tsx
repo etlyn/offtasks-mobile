@@ -1,0 +1,77 @@
+import React from 'react';
+import { ActivityIndicator, StatusBar, View } from 'react-native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { enableScreens } from 'react-native-screens';
+
+import { AuthProvider, useAuth } from '@/providers/AuthProvider';
+import { TasksProvider } from '@/providers/TasksProvider';
+import { palette } from '@/theme/colors';
+import { LoginScreen } from '@/screens/LoginScreen';
+import { AppNavigator } from '@/navigation/AppNavigator';
+
+enableScreens();
+
+const Stack = createNativeStackNavigator();
+
+const navigationTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: palette.background,
+    card: palette.surface,
+    text: palette.textPrimary,
+    border: palette.surface,
+    primary: palette.accent,
+  },
+};
+
+const LoadingScreen = () => (
+  <View
+    style={{
+      flex: 1,
+      backgroundColor: palette.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}
+  >
+    <ActivityIndicator size="large" color={palette.accent} />
+  </View>
+);
+
+const RootNavigator = () => {
+  const { session, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <NavigationContainer theme={navigationTheme}>
+      <StatusBar barStyle="light-content" />
+      {session ? (
+        <TasksProvider>
+          <AppNavigator />
+        </TasksProvider>
+      ) : (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Auth" component={LoginScreen} />
+        </Stack.Navigator>
+      )}
+    </NavigationContainer>
+  );
+};
+
+const App = () => (
+  <GestureHandlerRootView style={{ flex: 1 }}>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <RootNavigator />
+      </AuthProvider>
+    </SafeAreaProvider>
+  </GestureHandlerRootView>
+);
+
+export default App;

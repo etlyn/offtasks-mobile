@@ -1,0 +1,32 @@
+import React from 'react';
+import Svg, { Path, Rect } from 'react-native-svg';
+import type { StyleProp, ViewStyle } from 'react-native';
+
+interface LogoProps {
+  size?: number;
+  style?: StyleProp<ViewStyle>;
+}
+
+export const Logo = ({ size = 48, style }: LogoProps) => (
+  <Svg width={size} height={size} viewBox="0 0 48 48" fill="none" style={style}>
+    <Path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M10.6472 0C4.76691 0 0 4.76692 0 10.6472V26.9238H48V10.6472C48 4.76691 43.2331 0 37.3528 0H10.6472Z"
+      fill="#A5EEDE"
+    />
+    <Path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M0 25.3052V37.3528C0 43.2331 4.76691 48 10.6472 48H37.3528C43.2331 48 48 43.2331 48 37.3528V25.3052H0Z"
+      fill="#01767B"
+    />
+    <Rect x="5.38312" y="4.6217" width="37.221" height="36.1204" rx="7.60514" fill="#FAFAFA" />
+    <Path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M9.14901 13.3593C8.96503 13.4723 9.13396 13.7187 9.65992 14.1048C12.9589 16.5263 14.5336 18.4036 20.2917 26.7793C23.7854 31.8613 23.7487 31.8162 24.087 31.4499C24.25 31.2733 26.1578 28.4658 27.2394 26.8108C29.3621 23.5624 30.6886 21.5854 31.1785 20.9396C32.9715 18.5762 34.4279 16.9903 37.0396 14.5571C37.9571 13.7024 37.9814 13.4256 37.1176 13.6703C36.9971 13.7044 36.2069 13.8695 35.3617 14.0372C29.9017 15.1201 26.7736 16.77 24.8387 19.5873C24.0513 20.734 23.9545 20.7629 23.4316 20.0073C21.2008 16.7837 17.6807 14.9239 11.6195 13.7666C10.9985 13.648 10.2223 13.4959 9.89452 13.4284C9.20145 13.286 9.25954 13.2914 9.14901 13.3593Z"
+      fill="#012B2D"
+    />
+  </Svg>
+);
