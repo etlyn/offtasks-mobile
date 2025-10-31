@@ -28,9 +28,9 @@ export const DashboardHeader = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.topRow}>
+      <View style={styles.row}>
         <View style={styles.logoWrapper}>
-          <Logo size={40} />
+          <Logo size={32} />
         </View>
         <View style={styles.centerContent}>
           <Text style={styles.dayLabel}>{dayLabel}</Text>
@@ -45,7 +45,7 @@ export const DashboardHeader = ({
             activeOpacity={0.8}
             disabled={!onButtonPress}
           >
-            <Feather name={iconName} size={22} color={palette.slate900} />
+            <Feather name={iconName} size={18} color={palette.slate900} />
           </TouchableOpacity>
         ) : (
           <View style={styles.menuButtonPlaceholder} />

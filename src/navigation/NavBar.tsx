@@ -61,7 +61,10 @@ export const NavBar: React.FC<BottomTabHeaderProps> = ({ navigation, route, opti
   const showBack = navigation.canGoBack();
 
   return (
-    <View style={[styles.wrapper, { paddingTop: insets.top + 12, paddingBottom: insets.bottom > 0 ? 8 : 12 }]}> 
+    <View
+      pointerEvents="box-none"
+      style={[styles.wrapper, { paddingTop: insets.top + 12, paddingBottom: insets.bottom > 0 ? 8 : 12 }]}
+    >
       {dashboardGroup ? (
         <DashboardHeader
           dayLabel={groupLabels[dashboardGroup]}
@@ -70,7 +73,7 @@ export const NavBar: React.FC<BottomTabHeaderProps> = ({ navigation, route, opti
           onButtonPress={showBack ? handleBackPress : handleMenuPress}
         />
       ) : (
-        <View style={styles.content}>
+        <View style={styles.fallbackCard}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={showBack ? 'Go back' : 'Open navigation menu'}
@@ -80,7 +83,7 @@ export const NavBar: React.FC<BottomTabHeaderProps> = ({ navigation, route, opti
             <Feather name={showBack ? 'arrow-left' : 'menu'} size={18} color={palette.slate900} />
           </Pressable>
 
-          <Text style={styles.title} numberOfLines={1}>
+          <Text style={styles.fallbackTitle} numberOfLines={1}>
             {title}
           </Text>
 
@@ -100,31 +103,48 @@ export const NavBar: React.FC<BottomTabHeaderProps> = ({ navigation, route, opti
 
 const styles = StyleSheet.create({
   wrapper: {
-    backgroundColor: palette.lightSurface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: palette.lightBorder,
-    paddingHorizontal: 20,
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
+    paddingHorizontal: 16,
+    zIndex: 20,
   },
   iconButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.lightMuted,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderWidth: 1,
-    borderColor: palette.lightBorder,
+    borderColor: 'rgba(148, 163, 184, 0.18)',
+    shadowColor: 'rgba(15, 23, 42, 0.12)',
+    shadowOpacity: 1,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    elevation: 6,
   },
   iconButtonPressed: {
     opacity: 0.85,
   },
-  title: {
+  fallbackCard: {
+    width: '100%',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.16)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    shadowColor: 'rgba(15, 23, 42, 0.25)',
+    shadowOpacity: 1,
+    shadowOffset: { width: 0, height: 12 },
+    shadowRadius: 24,
+    elevation: 14,
+  },
+  fallbackTitle: {
     flex: 1,
     textAlign: 'center',
     fontSize: 16,

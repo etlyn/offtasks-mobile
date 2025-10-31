@@ -21,6 +21,7 @@ const HomeTabs = () => (
     initialRouteName="Today"
     screenOptions={{
       header: (props) => <NavBar {...props} />, // custom header bar
+      headerTransparent: true,
       tabBarHideOnKeyboard: true,
     }}
     tabBar={(props) => <TabNav {...props} />}
