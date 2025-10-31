@@ -52,8 +52,9 @@ export const createTask = async (params: {
   target_group: TaskGroup;
   userId: string;
   date: string;
+  priority?: number;
 }) => {
-  const { content, target_group, userId, date } = params;
+  const { content, target_group, userId, date, priority = 0 } = params;
 
   const { error } = await supabaseClient.from('tasks').insert([
     {
@@ -61,7 +62,7 @@ export const createTask = async (params: {
       target_group,
       user_id: userId,
       date,
-      priority: 0,
+  priority,
       isComplete: false,
     },
   ]);

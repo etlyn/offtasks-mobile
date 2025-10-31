@@ -1,7 +1,6 @@
 import * as React from 'react';
 import {
   Alert,
-  Dimensions,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -9,7 +8,6 @@ import {
   RefreshControl,
   ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -17,16 +15,22 @@ import {
 import Feather from 'react-native-vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { DashboardHeader } from '@/components/DashboardHeader';
-import { TaskQuickList } from '@/components/TaskQuickList';
+import { DashboardHeader } from '@/components/dashboard-header';
+import { TaskQuickList } from '@/components/task-quick-list';
 import { createTask, deleteTask, updateTask } from '@/lib/supabase';
 import { getAdjacentDay, getToday } from '@/hooks/useDate';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTasks } from '@/providers/TasksProvider';
-import type { Task, TaskGroup } from '@/types/task';
+import type { Task } from '@/types/task';
 import { palette } from '@/theme/colors';
 
-type DashboardGroup = Exclude<TaskGroup, 'close'>;
+import { styles, SHEET_MAX_HEIGHT } from './Dashboard.styles';
+import type {
+  DashboardGroup,
+  DashboardScreenProps,
+  GroupSegment,
+  PriorityOption,
+} from './Dashboard.types';
 
 const groupLabels: Record<DashboardGroup, string> = {
   today: 'Today',
@@ -40,18 +44,18 @@ const groupCaptions: Record<DashboardGroup, string> = {
   upcoming: 'Stage future tasks so nothing falls through the cracks.',
 };
 
-const groupSegments: { key: DashboardGroup; label: string }[] = [
+const groupSegments: GroupSegment[] = [
   { key: 'today', label: 'Today' },
   { key: 'tomorrow', label: 'Tomorrow' },
   { key: 'upcoming', label: 'Upcoming' },
 ];
 
-const priorityOptions = [
+const priorityOptions: PriorityOption[] = [
   {
     value: 0,
     label: 'None',
     description: 'Keep this task unprioritised.',
-    icon: 'minus-circle' as const,
+    icon: 'minus-circle',
     tint: '#64748b',
     background: 'rgba(100, 116, 139, 0.12)',
   },
@@ -59,7 +63,7 @@ const priorityOptions = [
     value: 1,
     label: 'Low',
     description: 'Good to do when you have the time.',
-    icon: 'arrow-down-left' as const,
+    icon: 'arrow-down-left',
     tint: '#0891b2',
     background: 'rgba(8, 145, 178, 0.12)',
   },
@@ -67,7 +71,7 @@ const priorityOptions = [
     value: 2,
     label: 'Medium',
     description: 'Important but not urgent.',
-    icon: 'minus' as const,
+    icon: 'minus',
     tint: '#6366f1',
     background: 'rgba(99, 102, 241, 0.12)',
   },
@@ -75,16 +79,13 @@ const priorityOptions = [
     value: 3,
     label: 'High',
     description: 'Handle this before everything else.',
-    icon: 'alert-triangle' as const,
+    icon: 'alert-triangle',
     tint: '#f97316',
     background: 'rgba(249, 115, 22, 0.12)',
   },
 ];
 
 const presetCategories = ['Work', 'Personal', 'Home', 'Shopping', 'Health', 'Finance'];
-
-const windowHeight = Dimensions.get('window').height;
-const SHEET_MAX_HEIGHT = windowHeight * 0.7;
 
 const dateForGroup = (group: DashboardGroup) => {
   switch (group) {
@@ -99,15 +100,7 @@ const dateForGroup = (group: DashboardGroup) => {
   }
 };
 
-interface TasksScreenProps {
-  route?: {
-    params?: {
-      group?: DashboardGroup;
-    };
-  };
-}
-
-export const TasksScreen = ({ route }: TasksScreenProps) => {
+export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   const { tasks, loading, refresh } = useTasks();
   const { session } = useAuth();
   const insets = useSafeAreaInsets();
@@ -146,7 +139,8 @@ export const TasksScreen = ({ route }: TasksScreenProps) => {
     return categories.filter((name) => name.toLowerCase().includes(normalizedQuery));
   }, [categories, normalizedQuery]);
 
-  const canCreateCategory = normalizedQuery.length > 0 &&
+  const canCreateCategory =
+    normalizedQuery.length > 0 &&
     !categories.some((name) => name.toLowerCase() === normalizedQuery);
 
   const selectedPriorityOption = React.useMemo(
@@ -333,127 +327,127 @@ export const TasksScreen = ({ route }: TasksScreenProps) => {
               >
                 <Feather name="x" size={18} color={palette.slate600} />
               </Pressable>
-                <ScrollView
-                  style={styles.modalScroll}
-                  contentContainerStyle={styles.modalScrollContent}
-                  keyboardShouldPersistTaps="handled"
-                  keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-                  automaticallyAdjustKeyboardInsets
-                  showsVerticalScrollIndicator={false}
-                >
-                  <Text style={styles.sheetTitle}>New Task</Text>
-                  <Text style={styles.sheetSubtitle}>What needs to be done?</Text>
+              <ScrollView
+                style={styles.modalScroll}
+                contentContainerStyle={styles.modalScrollContent}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                automaticallyAdjustKeyboardInsets
+                showsVerticalScrollIndicator={false}
+              >
+                <Text style={styles.sheetTitle}>New Task</Text>
+                <Text style={styles.sheetSubtitle}>What needs to be done?</Text>
 
-                  <View style={styles.sheetSection}>
-                    <Text style={styles.sheetLabel}>Task</Text>
-                    <TextInput
-                      style={styles.sheetInput}
-                      placeholder="What needs to happen?"
-                      placeholderTextColor={palette.slate600}
-                      value={newTaskContent}
-                      onChangeText={setNewTaskContent}
-                      editable={!submitting}
-                      multiline
-                      textAlignVertical="top"
-                    />
-                  </View>
+                <View style={styles.sheetSection}>
+                  <Text style={styles.sheetLabel}>Task</Text>
+                  <TextInput
+                    style={styles.sheetInput}
+                    placeholder="What needs to happen?"
+                    placeholderTextColor={palette.slate600}
+                    value={newTaskContent}
+                    onChangeText={setNewTaskContent}
+                    editable={!submitting}
+                    multiline
+                    textAlignVertical="top"
+                  />
+                </View>
 
-                  <View style={styles.sheetSection}>
-                    <Text style={styles.sheetLabel}>When</Text>
-                    <View style={styles.segmentGroup}>
-                      {groupSegments.map((segment) => {
-                        const isSelected = composerGroup === segment.key;
-                        return (
-                          <Pressable
-                            key={segment.key}
-                            style={({ pressed }) => [
-                              styles.segment,
-                              isSelected && styles.segmentSelected,
-                              pressed && styles.segmentPressed,
-                            ]}
-                            onPress={() => setComposerGroup(segment.key)}
-                          >
-                            <Text style={[styles.segmentLabel, isSelected && styles.segmentLabelSelected]}>
-                              {segment.label}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </View>
-
-                  <View style={styles.metaRow}>
-                    <View style={styles.metaColumn}>
-                      <Text style={styles.sheetLabel}>Priority</Text>
-                      <Pressable
-                        style={({ pressed }) => [
-                          styles.metaButton,
-                          pressed && styles.metaButtonPressed,
-                        ]}
-                        onPress={() => setPrioritySheetVisible(true)}
-                      >
-                        <View
-                          style={[
-                            styles.metaIcon,
-                            {
-                              borderColor: selectedPriorityOption.tint,
-                              backgroundColor: selectedPriorityOption.background,
-                            },
+                <View style={styles.sheetSection}>
+                  <Text style={styles.sheetLabel}>When</Text>
+                  <View style={styles.segmentGroup}>
+                    {groupSegments.map((segment) => {
+                      const isSelected = composerGroup === segment.key;
+                      return (
+                        <Pressable
+                          key={segment.key}
+                          style={({ pressed }) => [
+                            styles.segment,
+                            isSelected && styles.segmentSelected,
+                            pressed && styles.segmentPressed,
                           ]}
+                          onPress={() => setComposerGroup(segment.key)}
                         >
-                          <Feather
-                            name={selectedPriorityOption.icon}
-                            size={18}
-                            color={selectedPriorityOption.tint}
-                          />
-                        </View>
-                        <View style={styles.metaCopy}>
-                          <Text style={styles.metaTitle}>{selectedPriorityOption.label}</Text>
-                          <Text style={styles.metaSubtitle}>{selectedPriorityOption.description}</Text>
-                        </View>
-                        <Feather name="chevron-right" size={18} color={palette.slate600} />
-                      </Pressable>
-                    </View>
-
-                    <View style={styles.metaColumn}>
-                      <Text style={styles.sheetLabel}>Category</Text>
-                      <Pressable
-                        style={({ pressed }) => [
-                          styles.metaButton,
-                          pressed && styles.metaButtonPressed,
-                        ]}
-                        onPress={() => setCategorySheetVisible(true)}
-                      >
-                        <View style={[styles.metaIcon, styles.metaIconNeutral]}>
-                          <Feather name="tag" size={18} color={palette.slate600} />
-                        </View>
-                        <View style={styles.metaCopy}>
-                          <Text style={styles.metaTitle}>{selectedCategory ?? 'None'}</Text>
-                          <Text style={styles.metaSubtitle}>
-                            {selectedCategory ? 'Assigned to this list' : 'Optional organisation'}
+                          <Text style={[styles.segmentLabel, isSelected && styles.segmentLabelSelected]}>
+                            {segment.label}
                           </Text>
-                        </View>
-                        <Feather name="chevron-right" size={18} color={palette.slate600} />
-                      </Pressable>
-                    </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                <View style={styles.metaRow}>
+                  <View style={styles.metaColumn}>
+                    <Text style={styles.sheetLabel}>Priority</Text>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.metaButton,
+                        pressed && styles.metaButtonPressed,
+                      ]}
+                      onPress={() => setPrioritySheetVisible(true)}
+                    >
+                      <View
+                        style={[
+                          styles.metaIcon,
+                          {
+                            borderColor: selectedPriorityOption.tint,
+                            backgroundColor: selectedPriorityOption.background,
+                          },
+                        ]}
+                      >
+                        <Feather
+                          name={selectedPriorityOption.icon}
+                          size={18}
+                          color={selectedPriorityOption.tint}
+                        />
+                      </View>
+                      <View style={styles.metaCopy}>
+                        <Text style={styles.metaTitle}>{selectedPriorityOption.label}</Text>
+                        <Text style={styles.metaSubtitle}>{selectedPriorityOption.description}</Text>
+                      </View>
+                      <Feather name="chevron-right" size={18} color={palette.slate600} />
+                    </Pressable>
                   </View>
 
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Create task"
-                    style={({ pressed }) => [
-                      styles.createButton,
-                      (!newTaskContent.trim() || submitting) && styles.createButtonDisabled,
-                      pressed && newTaskContent.trim() && !submitting && styles.createButtonPressed,
-                    ]}
-                    onPress={handleCreateTask}
-                    disabled={!newTaskContent.trim() || submitting}
-                  >
-                    <Text style={styles.createButtonLabel}>
-                      {submitting ? 'Creating…' : 'Create Task'}
-                    </Text>
-                  </Pressable>
-                </ScrollView>
+                  <View style={styles.metaColumn}>
+                    <Text style={styles.sheetLabel}>Category</Text>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.metaButton,
+                        pressed && styles.metaButtonPressed,
+                      ]}
+                      onPress={() => setCategorySheetVisible(true)}
+                    >
+                      <View style={[styles.metaIcon, styles.metaIconNeutral]}>
+                        <Feather name="tag" size={18} color={palette.slate600} />
+                      </View>
+                      <View style={styles.metaCopy}>
+                        <Text style={styles.metaTitle}>{selectedCategory ?? 'None'}</Text>
+                        <Text style={styles.metaSubtitle}>
+                          {selectedCategory ? 'Assigned to this list' : 'Optional organisation'}
+                        </Text>
+                      </View>
+                      <Feather name="chevron-right" size={18} color={palette.slate600} />
+                    </Pressable>
+                  </View>
+                </View>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Create task"
+                  style={({ pressed }) => [
+                    styles.createButton,
+                    (!newTaskContent.trim() || submitting) && styles.createButtonDisabled,
+                    pressed && newTaskContent.trim() && !submitting && styles.createButtonPressed,
+                  ]}
+                  onPress={handleCreateTask}
+                  disabled={!newTaskContent.trim() || submitting}
+                >
+                  <Text style={styles.createButtonLabel}>
+                    {submitting ? 'Creating…' : 'Create Task'}
+                  </Text>
+                </Pressable>
+              </ScrollView>
             </View>
           </View>
         </View>
@@ -467,9 +461,9 @@ export const TasksScreen = ({ route }: TasksScreenProps) => {
       >
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.modalFlex} onPress={() => setPrioritySheetVisible(false)} />
-            <View
-              style={[styles.optionSheet, { paddingBottom: insets.bottom + 24, maxHeight: SHEET_MAX_HEIGHT }]}
-            >
+          <View
+            style={[styles.optionSheet, { paddingBottom: insets.bottom + 24, maxHeight: SHEET_MAX_HEIGHT }]}
+          >
             <View style={styles.sheetHandle} />
             <Text style={styles.optionTitle}>Select Priority</Text>
             <Text style={styles.optionSubtitle}>
@@ -592,309 +586,3 @@ export const TasksScreen = ({ route }: TasksScreenProps) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: palette.lightBackground,
-  },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: 20,
-    gap: 28,
-  },
-  fab: {
-    position: 'absolute',
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.mint,
-    shadowColor: palette.mint,
-    shadowOpacity: 0.5,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 10,
-  },
-  fabPressed: {
-    transform: [{ scale: 0.98 }],
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.4)',
-    justifyContent: 'flex-end',
-  },
-  sheetContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  keyboardAvoid: {
-    width: '100%',
-  },
-  modalWrapper: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalFlex: {
-    flex: 1,
-  },
-  modalSheet: {
-    backgroundColor: palette.lightSurface,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderWidth: 1,
-    borderColor: palette.lightBorder,
-    shadowColor: palette.lightShadow,
-    shadowOpacity: 1,
-    shadowOffset: { width: 0, height: -8 },
-    shadowRadius: 24,
-    elevation: 24,
-    maxHeight: SHEET_MAX_HEIGHT,
-  },
-  modalScroll: {
-    flexGrow: 0,
-    maxHeight: SHEET_MAX_HEIGHT - 120,
-  },
-  modalScrollContent: {
-    paddingBottom: 16,
-  },
-  sheetHandle: {
-    alignSelf: 'center',
-    width: 48,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: palette.lightBorder,
-    marginBottom: 16,
-  },
-  sheetClose: {
-    position: 'absolute',
-    top: 20,
-    right: 24,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.lightMuted,
-  },
-  sheetTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: palette.slate900,
-    marginBottom: 4,
-  },
-  sheetSubtitle: {
-    marginBottom: 20,
-    color: palette.slate600,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  sheetSection: {
-    marginBottom: 20,
-  },
-  sheetLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: palette.slate600,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 12,
-  },
-  sheetInput: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: palette.lightBorder,
-    backgroundColor: palette.lightMuted,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    minHeight: 100,
-    maxHeight: 140,
-    color: palette.slate900,
-  },
-  segmentGroup: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  segment: {
-    flex: 1,
-    height: 48,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: palette.lightBorder,
-    backgroundColor: palette.lightSurface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  segmentSelected: {
-    backgroundColor: palette.mintMuted,
-    borderColor: palette.mint,
-  },
-  segmentPressed: {
-    opacity: 0.85,
-  },
-  segmentLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: palette.slate600,
-  },
-  segmentLabelSelected: {
-    color: palette.mintStrong,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 20,
-    flexWrap: 'wrap',
-  },
-  metaColumn: {
-    flexBasis: '48%',
-    flexGrow: 1,
-    gap: 12,
-  },
-  metaButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: palette.lightBorder,
-    borderRadius: 18,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    backgroundColor: palette.lightSurface,
-  },
-  metaButtonPressed: {
-    opacity: 0.9,
-  },
-  metaIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  metaIconNeutral: {
-    borderColor: palette.lightBorder,
-    backgroundColor: palette.lightMuted,
-  },
-  metaCopy: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  metaTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: palette.slate900,
-  },
-  metaSubtitle: {
-    fontSize: 13,
-    color: palette.slate600,
-    marginTop: 2,
-  },
-  createButton: {
-    marginTop: 8,
-    borderRadius: 16,
-    backgroundColor: palette.mint,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  createButtonDisabled: {
-    backgroundColor: palette.mintMuted,
-  },
-  createButtonPressed: {
-    transform: [{ scale: 0.98 }],
-  },
-  createButtonLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: palette.lightSurface,
-  },
-  optionSheet: {
-    backgroundColor: palette.lightSurface,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderWidth: 1,
-    borderColor: palette.lightBorder,
-    shadowColor: palette.lightShadow,
-    shadowOpacity: 1,
-    shadowOffset: { width: 0, height: -8 },
-    shadowRadius: 24,
-    elevation: 24,
-    maxHeight: SHEET_MAX_HEIGHT,
-  },
-  optionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: palette.slate900,
-    textAlign: 'center',
-  },
-  optionSubtitle: {
-    marginTop: 6,
-    fontSize: 14,
-    color: palette.slate600,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  optionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: palette.lightBorder,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginBottom: 12,
-    backgroundColor: palette.lightSurface,
-  },
-  optionItemActive: {
-    borderColor: palette.mint,
-  },
-  optionItemPressed: {
-    opacity: 0.9,
-  },
-  optionCopy: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  optionLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: palette.slate900,
-  },
-  optionCaption: {
-    fontSize: 13,
-    color: palette.slate600,
-    marginTop: 2,
-  },
-  categorySearch: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderColor: palette.lightBorder,
-    borderRadius: 16,
-    backgroundColor: palette.lightMuted,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 16,
-  },
-  categoryInput: {
-    flex: 1,
-    fontSize: 15,
-    color: palette.slate900,
-    paddingVertical: 0,
-  },
-  categoryList: {
-    maxHeight: 260,
-  },
-});
