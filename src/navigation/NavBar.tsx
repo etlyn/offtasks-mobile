@@ -58,7 +58,7 @@ export const NavBar: React.FC<BottomTabHeaderProps> = ({ navigation, route, opti
     handleMenuPress();
   }, [handleMenuPress, navigation]);
 
-  const showBack = navigation.canGoBack();
+  const showBack = false; //disable back button in NavBar.
 
   return (
     <View
