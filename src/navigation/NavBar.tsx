@@ -5,10 +5,28 @@ import Feather from 'react-native-vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { DashboardHeader } from '@/components/dashboard-header';
+import { useTasks } from '@/providers/TasksProvider';
 import { palette } from '@/theme/colors';
+
+type DashboardGroupKey = 'today' | 'tomorrow' | 'upcoming';
+
+const dashboardRouteToGroup: Record<string, DashboardGroupKey | undefined> = {
+  Today: 'today',
+  Tomorrow: 'tomorrow',
+  Upcoming: 'upcoming',
+};
+
+const groupLabels: Record<DashboardGroupKey, string> = {
+  today: 'Today',
+  tomorrow: 'Tomorrow',
+  upcoming: 'Upcoming',
+};
+
 
 export const NavBar: React.FC<BottomTabHeaderProps> = ({ navigation, route, options }) => {
   const insets = useSafeAreaInsets();
+  const { tasks } = useTasks();
 
   const title =
     typeof options.headerTitle === 'string'
@@ -16,6 +34,12 @@ export const NavBar: React.FC<BottomTabHeaderProps> = ({ navigation, route, opti
       : typeof options.title === 'string'
       ? options.title
       : route.name;
+
+  const dashboardGroup = dashboardRouteToGroup[route.name];
+  const dashboardTasks = dashboardGroup ? tasks?.[dashboardGroup] ?? [] : [];
+  const totalCount = dashboardTasks.length;
+  const completedCount = dashboardTasks.filter((task) => task.isComplete).length;
+  const summary = totalCount > 0 ? `${completedCount} of ${totalCount}` : 'Nothing scheduled';
 
   const handleMenuPress = React.useCallback(() => {
     const parent = navigation.getParent();
@@ -38,29 +62,38 @@ export const NavBar: React.FC<BottomTabHeaderProps> = ({ navigation, route, opti
 
   return (
     <View style={[styles.wrapper, { paddingTop: insets.top + 12, paddingBottom: insets.bottom > 0 ? 8 : 12 }]}> 
-      <View style={styles.content}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={showBack ? 'Go back' : 'Open navigation menu'}
-          onPress={showBack ? handleBackPress : handleMenuPress}
-          style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
-        >
-          <Feather name={showBack ? 'arrow-left' : 'menu'} size={18} color={palette.slate900} />
-        </Pressable>
+      {dashboardGroup ? (
+        <DashboardHeader
+          dayLabel={groupLabels[dashboardGroup]}
+          summary={summary}
+          buttonIcon={showBack ? 'arrow-left' : 'menu'}
+          onButtonPress={showBack ? handleBackPress : handleMenuPress}
+        />
+      ) : (
+        <View style={styles.content}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={showBack ? 'Go back' : 'Open navigation menu'}
+            onPress={showBack ? handleBackPress : handleMenuPress}
+            style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
+          >
+            <Feather name={showBack ? 'arrow-left' : 'menu'} size={18} color={palette.slate900} />
+          </Pressable>
 
-        <Text style={styles.title} numberOfLines={1}>
-          {title}
-        </Text>
+          <Text style={styles.title} numberOfLines={1}>
+            {title}
+          </Text>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Open navigation menu"
-          onPress={handleMenuPress}
-          style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
-        >
-          <Feather name="menu" size={18} color={palette.slate900} />
-        </Pressable>
-      </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open navigation menu"
+            onPress={handleMenuPress}
+            style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
+          >
+            <Feather name="menu" size={18} color={palette.slate900} />
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 };

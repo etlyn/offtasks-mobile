@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
 import Feather from 'react-native-vector-icons/Feather';
 
 import { Logo } from '@/components/branding/Logo';
@@ -12,14 +11,20 @@ export interface DashboardHeaderProps {
   dayLabel: string;
   summary: string;
   caption?: string;
+  onButtonPress?: () => void;
+  buttonIcon?: 'menu' | 'arrow-left';
+  showButton?: boolean;
 }
 
-export const DashboardHeader = ({ dayLabel, summary, caption }: DashboardHeaderProps) => {
-  const navigation = useNavigation();
-
-  const handleToggleDrawer = React.useCallback(() => {
-    navigation.dispatch(DrawerActions.toggleDrawer());
-  }, [navigation]);
+export const DashboardHeader = ({
+  dayLabel,
+  summary,
+  caption,
+  onButtonPress,
+  buttonIcon = 'menu',
+  showButton = true,
+}: DashboardHeaderProps) => {
+  const iconName = buttonIcon === 'arrow-left' ? 'arrow-left' : 'menu';
 
   return (
     <View style={styles.container}>
@@ -31,15 +36,20 @@ export const DashboardHeader = ({ dayLabel, summary, caption }: DashboardHeaderP
           <Text style={styles.dayLabel}>{dayLabel}</Text>
           <Text style={styles.summary}>{summary}</Text>
         </View>
-        <TouchableOpacity
-          onPress={handleToggleDrawer}
-          accessibilityRole="button"
-          accessibilityLabel="Open navigation menu"
-          style={styles.menuButton}
-          activeOpacity={0.8}
-        >
-          <Feather name="menu" size={22} color={palette.slate900} />
-        </TouchableOpacity>
+        {showButton ? (
+          <TouchableOpacity
+            onPress={onButtonPress}
+            accessibilityRole="button"
+            accessibilityLabel={iconName === 'arrow-left' ? 'Go back' : 'Open navigation menu'}
+            style={[styles.menuButton, !onButtonPress && styles.menuButtonDisabled]}
+            activeOpacity={0.8}
+            disabled={!onButtonPress}
+          >
+            <Feather name={iconName} size={22} color={palette.slate900} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.menuButtonPlaceholder} />
+        )}
       </View>
 
       {caption ? <Text style={styles.caption}>{caption}</Text> : null}

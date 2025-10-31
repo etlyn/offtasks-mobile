@@ -15,7 +15,6 @@ import {
 import Feather from 'react-native-vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { DashboardHeader } from '@/components/dashboard-header';
 import { TaskQuickList } from '@/components/task-quick-list';
 import { createTask, deleteTask, updateTask } from '@/lib/supabase';
 import { getAdjacentDay, getToday } from '@/hooks/useDate';
@@ -31,18 +30,6 @@ import type {
   GroupSegment,
   PriorityOption,
 } from './Dashboard.types';
-
-const groupLabels: Record<DashboardGroup, string> = {
-  today: 'Today',
-  tomorrow: 'Tomorrow',
-  upcoming: 'Upcoming',
-};
-
-const groupCaptions: Record<DashboardGroup, string> = {
-  today: 'Lock in on what you promised yourself for today.',
-  tomorrow: 'Preview tomorrow to stay one step ahead.',
-  upcoming: 'Stage future tasks so nothing falls through the cracks.',
-};
 
 const groupSegments: GroupSegment[] = [
   { key: 'today', label: 'Today' },
@@ -107,12 +94,6 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
 
   const activeGroup = route?.params?.group ?? 'tomorrow';
   const activeTasks = tasks[activeGroup] ?? [];
-
-  const completedCount = React.useMemo(
-    () => activeTasks.filter((task) => task.isComplete).length,
-    [activeTasks]
-  );
-  const totalCount = activeTasks.length;
 
   const [composerVisible, setComposerVisible] = React.useState(false);
   const [newTaskContent, setNewTaskContent] = React.useState('');
@@ -263,11 +244,8 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
     }
   }, [activeGroup, composerVisible]);
 
-  const summaryLabel = totalCount > 0 ? `${completedCount} of ${totalCount}` : 'Nothing scheduled';
-  const caption = groupCaptions[activeGroup];
-
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 12 }]}> 
+    <View style={[styles.root, { paddingTop: 12 }]}> 
       <StatusBar barStyle="dark-content" backgroundColor="transparent" />
       <ScrollView
         style={styles.scroll}
@@ -282,8 +260,6 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
           />
         }
       >
-        <DashboardHeader dayLabel={groupLabels[activeGroup]} summary={summaryLabel} caption={caption} />
-
         <TaskQuickList
           tasks={activeTasks}
           onToggle={handleToggleTask}

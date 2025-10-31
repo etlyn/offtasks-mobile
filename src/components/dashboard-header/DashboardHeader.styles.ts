@@ -49,6 +49,13 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  menuButtonDisabled: {
+    opacity: 0.5,
+  },
+  menuButtonPlaceholder: {
+    width: 48,
+    height: 48,
+  },
   caption: {
     marginTop: 24,
     fontSize: 15,
