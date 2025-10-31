@@ -98,7 +98,7 @@ export const TasksScreen = ({ route }: TasksScreenProps) => {
   const { tasks, loading, refresh } = useTasks();
   const { session } = useAuth();
   const insets = useSafeAreaInsets();
-  const headerOffset = insets.top + 120;
+  const headerOffset = insets.top + 108;
 
   const activeGroup = route?.params?.group ?? 'tomorrow';
   const activeTasks = tasks[activeGroup] ?? [];
@@ -260,7 +260,6 @@ export const TasksScreen = ({ route }: TasksScreenProps) => {
 
   return (
     <View style={styles.root}>
-      <StatusBar translucent barStyle="dark-content" backgroundColor="transparent" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[

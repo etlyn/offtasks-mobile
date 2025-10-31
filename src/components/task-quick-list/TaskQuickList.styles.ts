@@ -3,19 +3,6 @@ import { StyleSheet } from 'react-native';
 import { palette } from '@/theme/colors';
 
 export const styles = StyleSheet.create({
-  card: {
-    borderRadius: 28,
-    backgroundColor: palette.lightSurface,
-    borderWidth: 1,
-    borderColor: palette.lightBorder,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    shadowColor: palette.lightShadow,
-    shadowOpacity: 1,
-    shadowOffset: { width: 0, height: 16 },
-    shadowRadius: 32,
-    elevation: 18,
-  },
   centeredCard: {
     alignItems: 'center',
     justifyContent: 'center',

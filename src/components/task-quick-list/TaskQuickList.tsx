@@ -23,7 +23,7 @@ export const TaskQuickList = ({ tasks, onToggle, onLongPress, loading }: TaskQui
 
   if (loading) {
     return (
-      <View style={[styles.card, styles.centeredCard]}>
+      <View style={styles.centeredCard}>
         <ActivityIndicator size="small" color={palette.mint} />
       </View>
     );
@@ -31,14 +31,14 @@ export const TaskQuickList = ({ tasks, onToggle, onLongPress, loading }: TaskQui
 
   if (orderedTasks.length === 0) {
     return (
-      <View style={[styles.card, styles.centeredCard]}>
+      <View style={styles.centeredCard}>
         <Text style={styles.emptyState}>Nothing planned yet. Tap + to queue a new task.</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.card}>
+    <View>
       {orderedTasks.map((task, index) => (
         <TaskQuickRow
           key={task.id}

@@ -91,7 +91,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   const { tasks, loading, refresh } = useTasks();
   const { session } = useAuth();
   const insets = useSafeAreaInsets();
-  const headerOffset = insets.top + 120;
+  const headerOffset = insets.top + 108;
 
   const activeGroup = route?.params?.group ?? 'tomorrow';
   const activeTasks = tasks[activeGroup] ?? [];
