@@ -1,17 +1,5 @@
 import * as React from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StatusBar,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, StatusBar, View } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -23,13 +11,15 @@ import { useTasks } from '@/providers/TasksProvider';
 import type { Task } from '@/types/task';
 import { palette } from '@/theme/colors';
 
-import { styles, SHEET_MAX_HEIGHT } from './Dashboard.styles';
+import { styles } from './Dashboard.styles';
 import type {
   DashboardGroup,
   DashboardScreenProps,
   GroupSegment,
   PriorityOption,
 } from './Dashboard.types';
+import { TaskComposerModal } from './components/TaskComposerModal';
+import { CategorySheetModal } from './components/CategorySheetModal';
 
 const groupSegments: GroupSegment[] = [
   { key: 'today', label: 'Today' },
@@ -101,7 +91,6 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   const [submitting, setSubmitting] = React.useState(false);
   const [composerGroup, setComposerGroup] = React.useState<DashboardGroup>(activeGroup);
   const [selectedPriority, setSelectedPriority] = React.useState<number>(0);
-  const [prioritySheetVisible, setPrioritySheetVisible] = React.useState(false);
   const [categorySheetVisible, setCategorySheetVisible] = React.useState(false);
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null);
   const [categoryQuery, setCategoryQuery] = React.useState('');
@@ -186,7 +175,6 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
     setComposerGroup(activeGroup);
     setSelectedCategory(null);
     setCategoryQuery('');
-    setPrioritySheetVisible(false);
     setCategorySheetVisible(false);
   }, [activeGroup]);
 
@@ -220,7 +208,6 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
 
   const handleSelectPriority = React.useCallback((value: number) => {
     setSelectedPriority(value);
-    setPrioritySheetVisible(false);
   }, []);
 
   const handleSelectCategory = React.useCallback((value: string) => {
@@ -287,284 +274,37 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
         <Feather name="plus" size={24} color={palette.lightSurface} />
       </Pressable>
 
-      <Modal
+      <TaskComposerModal
         visible={composerVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={closeComposer}
-        presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
-      >
-        <View style={styles.modalBackdrop}>
-          <Pressable style={styles.modalFlex} onPress={closeComposer} />
-          <View style={styles.sheetContainer} pointerEvents="box-none">
-            <View
-              style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}
-            >
-              <View style={styles.sheetHandle} />
-              <Pressable
-                style={styles.sheetClose}
-                onPress={closeComposer}
-                accessibilityRole="button"
-                accessibilityLabel="Close task composer"
-              >
-                <Feather name="x" size={18} color={palette.slate600} />
-              </Pressable>
-              <ScrollView
-                style={styles.modalScroll}
-                contentContainerStyle={styles.modalScrollContent}
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-                automaticallyAdjustKeyboardInsets
-                showsVerticalScrollIndicator={false}
-              >
-                <Text style={styles.sheetTitle}>New Task</Text>
-                <Text style={styles.sheetSubtitle}>What needs to be done?</Text>
+        onClose={closeComposer}
+        insetBottom={insets.bottom}
+        newTaskContent={newTaskContent}
+        onChangeTaskContent={setNewTaskContent}
+        composerGroup={composerGroup}
+        onChangeGroup={setComposerGroup}
+        groupSegments={groupSegments}
+        priorityOptions={priorityOptions}
+        onSelectPriority={handleSelectPriority}
+        onOpenCategorySheet={() => setCategorySheetVisible(true)}
+        selectedPriorityOption={selectedPriorityOption}
+        selectedCategory={selectedCategory}
+        submitting={submitting}
+        onSubmit={handleCreateTask}
+      />
 
-                <View style={styles.sheetSection}>
-                  <Text style={styles.sheetLabel}>Task</Text>
-                  <TextInput
-                    style={styles.sheetInput}
-                    placeholder="What needs to happen?"
-                    placeholderTextColor={palette.slate600}
-                    value={newTaskContent}
-                    onChangeText={setNewTaskContent}
-                    editable={!submitting}
-                    multiline
-                    textAlignVertical="top"
-                  />
-                </View>
-
-                <View style={styles.sheetSection}>
-                  <Text style={styles.sheetLabel}>When</Text>
-                  <View style={styles.segmentGroup}>
-                    {groupSegments.map((segment) => {
-                      const isSelected = composerGroup === segment.key;
-                      return (
-                        <Pressable
-                          key={segment.key}
-                          style={({ pressed }) => [
-                            styles.segment,
-                            isSelected && styles.segmentSelected,
-                            pressed && styles.segmentPressed,
-                          ]}
-                          onPress={() => setComposerGroup(segment.key)}
-                        >
-                          <Text style={[styles.segmentLabel, isSelected && styles.segmentLabelSelected]}>
-                            {segment.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-
-                <View style={styles.metaRow}>
-                  <View style={styles.metaColumn}>
-                    <Text style={styles.sheetLabel}>Priority</Text>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.metaButton,
-                        pressed && styles.metaButtonPressed,
-                      ]}
-                      onPress={() => setPrioritySheetVisible(true)}
-                    >
-                      <View
-                        style={[
-                          styles.metaIcon,
-                          {
-                            borderColor: selectedPriorityOption.tint,
-                            backgroundColor: selectedPriorityOption.background,
-                          },
-                        ]}
-                      >
-                        <Feather
-                          name={selectedPriorityOption.icon}
-                          size={18}
-                          color={selectedPriorityOption.tint}
-                        />
-                      </View>
-                      <View style={styles.metaCopy}>
-                        <Text style={styles.metaTitle}>{selectedPriorityOption.label}</Text>
-                        <Text style={styles.metaSubtitle}>{selectedPriorityOption.description}</Text>
-                      </View>
-                      <Feather name="chevron-right" size={18} color={palette.slate600} />
-                    </Pressable>
-                  </View>
-
-                  <View style={styles.metaColumn}>
-                    <Text style={styles.sheetLabel}>Category</Text>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.metaButton,
-                        pressed && styles.metaButtonPressed,
-                      ]}
-                      onPress={() => setCategorySheetVisible(true)}
-                    >
-                      <View style={[styles.metaIcon, styles.metaIconNeutral]}>
-                        <Feather name="tag" size={18} color={palette.slate600} />
-                      </View>
-                      <View style={styles.metaCopy}>
-                        <Text style={styles.metaTitle}>{selectedCategory ?? 'None'}</Text>
-                        <Text style={styles.metaSubtitle}>
-                          {selectedCategory ? 'Assigned to this list' : 'Optional organisation'}
-                        </Text>
-                      </View>
-                      <Feather name="chevron-right" size={18} color={palette.slate600} />
-                    </Pressable>
-                  </View>
-                </View>
-
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Create task"
-                  style={({ pressed }) => [
-                    styles.createButton,
-                    (!newTaskContent.trim() || submitting) && styles.createButtonDisabled,
-                    pressed && newTaskContent.trim() && !submitting && styles.createButtonPressed,
-                  ]}
-                  onPress={handleCreateTask}
-                  disabled={!newTaskContent.trim() || submitting}
-                >
-                  <Text style={styles.createButtonLabel}>
-                    {submitting ? 'Creating…' : 'Create Task'}
-                  </Text>
-                </Pressable>
-              </ScrollView>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={prioritySheetVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setPrioritySheetVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <Pressable style={styles.modalFlex} onPress={() => setPrioritySheetVisible(false)} />
-          <View
-            style={[styles.optionSheet, { paddingBottom: insets.bottom + 24, maxHeight: SHEET_MAX_HEIGHT }]}
-          >
-            <View style={styles.sheetHandle} />
-            <Text style={styles.optionTitle}>Select Priority</Text>
-            <Text style={styles.optionSubtitle}>
-              Set how urgent this task feels for future you.
-            </Text>
-            {priorityOptions.map((option) => {
-              const isActive = selectedPriority === option.value;
-              return (
-                <Pressable
-                  key={option.value}
-                  style={({ pressed }) => [
-                    styles.optionItem,
-                    isActive && styles.optionItemActive,
-                    pressed && styles.optionItemPressed,
-                  ]}
-                  onPress={() => handleSelectPriority(option.value)}
-                >
-                  <View
-                    style={[
-                      styles.metaIcon,
-                      {
-                        borderColor: option.tint,
-                        backgroundColor: option.background,
-                      },
-                    ]}
-                  >
-                    <Feather name={option.icon} size={18} color={option.tint} />
-                  </View>
-                  <View style={styles.optionCopy}>
-                    <Text style={styles.optionLabel}>{option.label}</Text>
-                    <Text style={styles.optionCaption}>{option.description}</Text>
-                  </View>
-                  {isActive && <Feather name="check" size={18} color={palette.mintStrong} />}
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
+      <CategorySheetModal
         visible={categorySheetVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setCategorySheetVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <KeyboardAvoidingView
-            behavior={Platform.select({ ios: 'padding', android: undefined })}
-            style={styles.modalWrapper}
-          >
-            <Pressable style={styles.modalFlex} onPress={() => setCategorySheetVisible(false)} />
-            <View
-              style={[styles.optionSheet, { paddingBottom: insets.bottom + 24, maxHeight: SHEET_MAX_HEIGHT }]}
-            >
-              <View style={styles.sheetHandle} />
-              <Text style={styles.optionTitle}>Select Category</Text>
-              <Text style={styles.optionSubtitle}>
-                Keep similar work grouped for quicker scanning.
-              </Text>
-              <View style={styles.categorySearch}>
-                <Feather name="search" size={18} color={palette.slate600} />
-                <TextInput
-                  style={styles.categoryInput}
-                  placeholder="Search or create…"
-                  placeholderTextColor={palette.slate600}
-                  value={categoryQuery}
-                  onChangeText={setCategoryQuery}
-                  editable={!submitting}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                />
-              </View>
-              <ScrollView style={styles.categoryList} keyboardShouldPersistTaps="handled">
-                {canCreateCategory && (
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.optionItem,
-                      pressed && styles.optionItemPressed,
-                    ]}
-                    onPress={handleAddCategory}
-                  >
-                    <View style={[styles.metaIcon, styles.metaIconNeutral]}>
-                      <Feather name="plus" size={18} color={palette.slate600} />
-                    </View>
-                    <View style={styles.optionCopy}>
-                      <Text style={styles.optionLabel}>Add “{categoryQuery.trim()}”</Text>
-                      <Text style={styles.optionCaption}>Create a reusable category.</Text>
-                    </View>
-                  </Pressable>
-                )}
-                {filteredCategories.map((category) => {
-                  const isActive = selectedCategory === category;
-                  return (
-                    <Pressable
-                      key={category}
-                      style={({ pressed }) => [
-                        styles.optionItem,
-                        isActive && styles.optionItemActive,
-                        pressed && styles.optionItemPressed,
-                      ]}
-                      onPress={() => handleSelectCategory(category)}
-                    >
-                      <View style={[styles.metaIcon, styles.metaIconNeutral]}>
-                        <Feather name="tag" size={18} color={palette.slate600} />
-                      </View>
-                      <View style={styles.optionCopy}>
-                        <Text style={styles.optionLabel}>{category}</Text>
-                        <Text style={styles.optionCaption}>Tap to assign this category.</Text>
-                      </View>
-                      {isActive && <Feather name="check" size={18} color={palette.mintStrong} />}
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+        insetBottom={insets.bottom}
+        categoryQuery={categoryQuery}
+        onCategoryQueryChange={setCategoryQuery}
+        filteredCategories={filteredCategories}
+        canCreateCategory={canCreateCategory}
+        onCreateCategory={handleAddCategory}
+        selectedCategory={selectedCategory}
+        onSelectCategory={handleSelectCategory}
+        submitting={submitting}
+        onClose={() => setCategorySheetVisible(false)}
+      />
     </View>
   );
 };
