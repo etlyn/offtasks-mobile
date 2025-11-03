@@ -19,7 +19,6 @@ import type {
   PriorityOption,
 } from './Dashboard.types';
 import { TaskComposerModal } from './components/TaskComposerModal';
-import { CategorySheetModal } from './components/CategorySheetModal';
 
 const groupSegments: GroupSegment[] = [
   { key: 'today', label: 'Today' },
@@ -64,6 +63,12 @@ const priorityOptions: PriorityOption[] = [
 
 const presetCategories = ['Work', 'Personal', 'Home', 'Shopping', 'Health', 'Finance'];
 
+const normalizeCategory = (value: string) =>
+  value
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/(^|\s)\w/g, (match) => match.toUpperCase());
+
 const dateForGroup = (group: DashboardGroup) => {
   switch (group) {
     case 'today':
@@ -91,9 +96,8 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   const [submitting, setSubmitting] = React.useState(false);
   const [composerGroup, setComposerGroup] = React.useState<DashboardGroup>(activeGroup);
   const [selectedPriority, setSelectedPriority] = React.useState<number>(0);
-  const [categorySheetVisible, setCategorySheetVisible] = React.useState(false);
-  const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null);
   const [categoryQuery, setCategoryQuery] = React.useState('');
+  const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null);
   const [customCategories, setCustomCategories] = React.useState<string[]>([]);
 
   const categories = React.useMemo(() => {
@@ -101,23 +105,22 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
     return Array.from(new Set(merged.map((name) => name.trim()))).filter(Boolean);
   }, [customCategories]);
 
-  const normalizedQuery = categoryQuery.trim().toLowerCase();
+  const trimmedCategoryQuery = categoryQuery.trim();
+  const normalizedCategoryQuery = trimmedCategoryQuery.toLowerCase();
 
   const filteredCategories = React.useMemo(() => {
-    if (!normalizedQuery) {
+    if (!normalizedCategoryQuery) {
       return categories;
     }
-    return categories.filter((name) => name.toLowerCase().includes(normalizedQuery));
-  }, [categories, normalizedQuery]);
+
+    return categories.filter((category) =>
+      category.toLowerCase().includes(normalizedCategoryQuery)
+    );
+  }, [categories, normalizedCategoryQuery]);
 
   const canCreateCategory =
-    normalizedQuery.length > 0 &&
-    !categories.some((name) => name.toLowerCase() === normalizedQuery);
-
-  const selectedPriorityOption = React.useMemo(
-    () => priorityOptions.find((option) => option.value === selectedPriority) ?? priorityOptions[0],
-    [selectedPriority]
-  );
+    trimmedCategoryQuery.length > 0 &&
+    !categories.some((category) => category.toLowerCase() === normalizedCategoryQuery);
 
   const handleRefresh = React.useCallback(() => {
     refresh();
@@ -163,8 +166,8 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
     }
     setComposerGroup(activeGroup);
     setSelectedPriority(0);
-    setSelectedCategory(null);
     setCategoryQuery('');
+    setSelectedCategory(null);
     setComposerVisible(true);
   }, [activeGroup, session?.user?.id]);
 
@@ -173,9 +176,8 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
     setNewTaskContent('');
     setSelectedPriority(0);
     setComposerGroup(activeGroup);
-    setSelectedCategory(null);
     setCategoryQuery('');
-    setCategorySheetVisible(false);
+    setSelectedCategory(null);
   }, [activeGroup]);
 
   const handleCreateTask = React.useCallback(async () => {
@@ -210,21 +212,38 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
     setSelectedPriority(value);
   }, []);
 
-  const handleSelectCategory = React.useCallback((value: string) => {
-    setSelectedCategory(value);
-    setCategorySheetVisible(false);
-  }, []);
+  const handleCategorySubmit = React.useCallback(
+    (category: string) => {
+      const normalised = normalizeCategory(category);
+      if (!normalised) {
+        return;
+      }
 
-  const handleAddCategory = React.useCallback(() => {
-    if (!normalizedQuery) {
-      return;
-    }
-    const formatted = normalizedQuery.replace(/\s+/g, ' ').trim();
-    const capitalised = formatted.replace(/(^|\s)\w/g, (match) => match.toUpperCase());
-    setCustomCategories((prev) => (prev.includes(capitalised) ? prev : [...prev, capitalised]));
-    setSelectedCategory(capitalised);
-    setCategorySheetVisible(false);
-  }, [normalizedQuery]);
+      if (!categories.includes(normalised)) {
+        setCustomCategories((prev) => (prev.includes(normalised) ? prev : [...prev, normalised]));
+      }
+
+      setSelectedCategory(normalised);
+      setCategoryQuery('');
+    },
+    [categories]
+  );
+
+  const handleCreateCategory = React.useCallback(() => {
+    handleCategorySubmit(categoryQuery);
+  }, [categoryQuery, handleCategorySubmit]);
+
+  const handleSelectCategory = React.useCallback(
+    (category: string) => {
+      handleCategorySubmit(category);
+    },
+    [handleCategorySubmit]
+  );
+
+  const handleClearCategory = React.useCallback(() => {
+    setSelectedCategory(null);
+    setCategoryQuery('');
+  }, []);
 
   React.useEffect(() => {
     if (composerVisible) {
@@ -285,25 +304,17 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
         groupSegments={groupSegments}
         priorityOptions={priorityOptions}
         onSelectPriority={handleSelectPriority}
-        onOpenCategorySheet={() => setCategorySheetVisible(true)}
-        selectedPriorityOption={selectedPriorityOption}
+        selectedPriority={selectedPriority}
         selectedCategory={selectedCategory}
+        onClearCategory={handleClearCategory}
         submitting={submitting}
         onSubmit={handleCreateTask}
-      />
-
-      <CategorySheetModal
-        visible={categorySheetVisible}
-        insetBottom={insets.bottom}
         categoryQuery={categoryQuery}
         onCategoryQueryChange={setCategoryQuery}
         filteredCategories={filteredCategories}
         canCreateCategory={canCreateCategory}
-        onCreateCategory={handleAddCategory}
-        selectedCategory={selectedCategory}
+        onCreateCategory={handleCreateCategory}
         onSelectCategory={handleSelectCategory}
-        submitting={submitting}
-        onClose={() => setCategorySheetVisible(false)}
       />
     </View>
   );

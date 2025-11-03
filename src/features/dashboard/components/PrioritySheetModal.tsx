@@ -1,5 +1,14 @@
 import * as React from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 
 import type { PriorityOption } from '../Dashboard.types';
@@ -33,17 +42,20 @@ export const PrioritySheetModal: React.FC<PrioritySheetModalProps> = ({
     >
       <View style={dashboardStyles.modalBackdrop}>
         <Pressable style={dashboardStyles.modalFlex} onPress={onClose} />
-        <View style={dashboardStyles.sheetContainer} pointerEvents="box-none">
+        <KeyboardAvoidingView
+          behavior={Platform.select({ ios: 'padding', android: undefined })}
+          style={dashboardStyles.modalWrapper}
+        >
           <View
             style={[
               priorityStyles.sheet,
               {
-                paddingBottom: Math.max(insetBottom, 16) + 16,
+                paddingBottom: insetBottom + 24,
+                maxHeight: SHEET_MAX_HEIGHT,
               },
             ]}
           >
             <View style={dashboardStyles.sheetHandle} />
-
             <View style={priorityStyles.headerRow}>
               <Text style={priorityStyles.title}>Select Priority</Text>
               <Pressable
@@ -55,12 +67,12 @@ export const PrioritySheetModal: React.FC<PrioritySheetModalProps> = ({
                   pressed && priorityStyles.closeButtonPressed,
                 ]}
               >
-                <Feather name="x" size={16} color={palette.slate600} />
+                <Feather name="x" size={18} color={palette.slate600} />
               </Pressable>
             </View>
             <Text style={priorityStyles.subtitle}>Choose the priority level for this task</Text>
 
-            <View style={priorityStyles.list}>
+            <ScrollView style={priorityStyles.list} keyboardShouldPersistTaps="handled">
               {options.map((option, index) => {
                 const isActive = selectedPriority === option.value;
                 return (
@@ -68,10 +80,9 @@ export const PrioritySheetModal: React.FC<PrioritySheetModalProps> = ({
                     key={option.value}
                     onPress={() => onSelect(option.value)}
                     style={({ pressed }) => [
-                      priorityStyles.optionCard,
-                      isActive && priorityStyles.optionCardActive,
-                      pressed && priorityStyles.optionCardPressed,
-                      index !== options.length - 1 && priorityStyles.optionCardSpacer,
+                      priorityStyles.optionItem,
+                      isActive && priorityStyles.optionItemActive,
+                      pressed && priorityStyles.optionItemPressed,
                     ]}
                   >
                     <View
@@ -83,7 +94,7 @@ export const PrioritySheetModal: React.FC<PrioritySheetModalProps> = ({
                         },
                       ]}
                     >
-                      <Feather name={option.icon} size={16} color={option.tint} />
+                      <Feather name={option.icon} size={18} color={option.tint} />
                     </View>
                     <View style={priorityStyles.optionCopy} pointerEvents="none">
                       <Text
@@ -99,13 +110,13 @@ export const PrioritySheetModal: React.FC<PrioritySheetModalProps> = ({
                         </Text>
                       )}
                     </View>
-                    {isActive && <Feather name="check" size={18} color={palette.mint} />}
+                    {isActive && <Feather name="check" size={18} color={palette.mintStrong} />}
                   </Pressable>
                 );
               })}
-            </View>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -113,107 +124,95 @@ export const PrioritySheetModal: React.FC<PrioritySheetModalProps> = ({
 
 const priorityStyles = StyleSheet.create({
   sheet: {
-    marginHorizontal: 16,
-    borderRadius: 24,
     backgroundColor: palette.lightSurface,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(226, 232, 240, 0.6)',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    maxHeight: SHEET_MAX_HEIGHT,
-    shadowColor: 'rgba(15, 23, 42, 0.18)',
+    borderColor: palette.lightBorder,
+    shadowColor: palette.lightShadow,
     shadowOpacity: 1,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: -10 },
-    elevation: 20,
+    shadowOffset: { width: 0, height: -8 },
+    shadowRadius: 24,
+    elevation: 24,
+    width: '100%',
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 6,
   },
   title: {
-    flex: 1,
     fontSize: 18,
-    lineHeight: 24,
     fontWeight: '700',
     color: palette.slate900,
     textAlign: 'center',
+    flex: 1,
   },
   closeButton: {
-    position: 'absolute',
-    right: -4,
-    top: -4,
     width: 32,
     height: 32,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(148, 163, 184, 0.18)',
+    backgroundColor: 'rgba(148, 163, 184, 0.12)',
   },
   closeButtonPressed: {
-    backgroundColor: 'rgba(148, 163, 184, 0.28)',
+    backgroundColor: 'rgba(148, 163, 184, 0.2)',
   },
   subtitle: {
-    marginTop: 14,
+    marginTop: 6,
     fontSize: 14,
-    lineHeight: 20,
-    color: '#717182',
+    color: palette.slate600,
     textAlign: 'center',
+    marginBottom: 20,
   },
   list: {
-    marginTop: 24,
+    maxHeight: 260,
   },
-  optionCard: {
+  optionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 18,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(226, 232, 240, 0.8)',
-    backgroundColor: 'rgba(248, 250, 255, 0.95)',
-    minHeight: 56,
-    width: '100%',
-  },
-  optionCardSpacer: {
+    borderColor: palette.lightBorder,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     marginBottom: 12,
+    backgroundColor: palette.lightSurface,
   },
-  optionCardActive: {
-    backgroundColor: '#e2e8f0',
-    shadowColor: 'rgba(15, 23, 42, 0.16)',
-    shadowOpacity: 1,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 10,
+  optionItemActive: {
+    borderColor: palette.mint,
   },
-  optionCardPressed: {
+  optionItemPressed: {
     opacity: 0.9,
   },
   optionIcon: {
     width: 36,
     height: 36,
-    borderRadius: 14,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    marginRight: 14,
+    marginRight: 12,
   },
   optionCopy: {
     flex: 1,
+    marginLeft: 12,
   },
   optionLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: palette.slate600,
+    color: palette.slate900,
   },
   optionLabelActive: {
     color: palette.slate900,
   },
   optionCaption: {
-    marginTop: 2,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 13,
     color: palette.slate600,
+    marginTop: 2,
   },
 });

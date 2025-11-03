@@ -46,6 +46,8 @@ export const CategorySheetModal: React.FC<CategorySheetModalProps> = ({
       visible={visible}
       transparent
       animationType="slide"
+      statusBarTranslucent
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : 'overFullScreen'}
       onRequestClose={onClose}
     >
       <View style={styles.modalBackdrop}>
