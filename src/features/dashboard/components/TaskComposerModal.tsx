@@ -43,6 +43,7 @@ interface TaskComposerModalProps {
   canCreateCategory: boolean;
   onCreateCategory: () => void;
   onSelectCategory: (category: string) => void;
+  mode?: 'create' | 'edit';
 }
 
 export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
@@ -68,11 +69,16 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
     canCreateCategory,
     onCreateCategory,
     onSelectCategory,
+    mode = 'create',
   } = props;
 
   const disableSubmit = !newTaskContent.trim() || submitting;
   const insets = useSafeAreaInsets();
   const [categorySheetVisible, setCategorySheetVisible] = React.useState(false);
+  const isEditMode = mode === 'edit';
+  const headerTitle = isEditMode ? 'Update Task' : 'New Task';
+  const submitLabel = isEditMode ? 'Save Changes' : 'Create Task';
+  const submittingLabel = isEditMode ? 'Updating…' : 'Creating…';
 
   const priorityMeta = React.useMemo(
     () =>
@@ -147,7 +153,7 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
             ]}
           >
             <View style={composerStyles.header}>
-              <Text style={composerStyles.title}>New Task</Text>
+              <Text style={composerStyles.title}>{headerTitle}</Text>
               <Pressable
                 style={({ pressed }) => [
                   composerStyles.closeButton,
@@ -295,7 +301,7 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
                 disabled={disableSubmit}
               >
                 <Text style={composerStyles.submitButtonText}>
-                  {submitting ? 'Creating…' : 'Create Task'}
+                  {submitting ? submittingLabel : submitLabel}
                 </Text>
               </Pressable>
             </ScrollView>

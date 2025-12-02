@@ -77,4 +77,22 @@ export const styles = StyleSheet.create({
     color: '#9f9fa9',
     textDecorationLine: 'line-through',
   },
+  deleteActionContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingRight: 6,
+    paddingVertical: 6,
+  },
+  deleteAction: {
+    width: 64,
+    height: '100%',
+    borderRadius: 18,
+    backgroundColor: palette.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteActionPressed: {
+    opacity: 0.85,
+  },
 });

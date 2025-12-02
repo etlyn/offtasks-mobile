@@ -92,6 +92,8 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   const activeTasks = tasks[activeGroup] ?? [];
 
   const [composerVisible, setComposerVisible] = React.useState(false);
+  const [composerMode, setComposerMode] = React.useState<'create' | 'edit'>('create');
+  const [editingTask, setEditingTask] = React.useState<Task | null>(null);
   const [newTaskContent, setNewTaskContent] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
   const [composerGroup, setComposerGroup] = React.useState<DashboardGroup>(activeGroup);
@@ -159,11 +161,36 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
     [refresh]
   );
 
+  const handleEditTask = React.useCallback(
+    (task: Task) => {
+      if (!session?.user?.id) {
+        return;
+      }
+
+      const groupOverride = groupSegments.some((segment) => segment.key === task.target_group)
+        ? (task.target_group as DashboardGroup)
+        : activeGroup;
+
+      setComposerMode('edit');
+      setEditingTask(task);
+      setNewTaskContent(task.content);
+      setComposerGroup(groupOverride);
+      setSelectedPriority(task.priority ?? 0);
+      setCategoryQuery('');
+      setSelectedCategory(null);
+      setComposerVisible(true);
+    },
+    [activeGroup, session?.user?.id]
+  );
+
   const openComposer = React.useCallback(() => {
     if (!session?.user?.id) {
       Alert.alert('Not signed in', 'Sign in to add tasks.');
       return;
     }
+    setComposerMode('create');
+    setEditingTask(null);
+    setNewTaskContent('');
     setComposerGroup(activeGroup);
     setSelectedPriority(0);
     setCategoryQuery('');
@@ -178,9 +205,11 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
     setComposerGroup(activeGroup);
     setCategoryQuery('');
     setSelectedCategory(null);
+    setComposerMode('create');
+    setEditingTask(null);
   }, [activeGroup]);
 
-  const handleCreateTask = React.useCallback(async () => {
+  const handleSubmitTask = React.useCallback(async () => {
     if (!session?.user?.id) {
       return;
     }
@@ -192,21 +221,33 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
 
     setSubmitting(true);
     try {
-      await createTask({
-        content: trimmed,
-        target_group: composerGroup,
-        userId: session.user.id,
-        date: dateForGroup(composerGroup),
-        priority: selectedPriority,
-      });
+      if (composerMode === 'edit' && editingTask) {
+        await updateTask(editingTask.id, {
+          content: trimmed,
+          target_group: composerGroup,
+          priority: selectedPriority,
+          date: dateForGroup(composerGroup),
+        });
+      } else {
+        await createTask({
+          content: trimmed,
+          target_group: composerGroup,
+          userId: session.user.id,
+          date: dateForGroup(composerGroup),
+          priority: selectedPriority,
+        });
+      }
       closeComposer();
       await refresh();
     } catch (error) {
-      Alert.alert('Could not create task', (error as Error).message);
+      Alert.alert(
+        composerMode === 'edit' ? 'Could not update task' : 'Could not create task',
+        (error as Error).message
+      );
     } finally {
       setSubmitting(false);
     }
-  }, [closeComposer, composerGroup, newTaskContent, refresh, selectedPriority, session?.user?.id, submitting]);
+  }, [closeComposer, composerGroup, composerMode, editingTask, newTaskContent, refresh, selectedPriority, session?.user?.id, submitting]);
 
   const handleSelectPriority = React.useCallback((value: number) => {
     setSelectedPriority(value);
@@ -246,10 +287,10 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   }, []);
 
   React.useEffect(() => {
-    if (composerVisible) {
+    if (composerVisible && composerMode === 'create') {
       setComposerGroup(activeGroup);
     }
-  }, [activeGroup, composerVisible]);
+  }, [activeGroup, composerMode, composerVisible]);
 
   return (
     <View style={styles.root}>
@@ -275,7 +316,8 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
         <TaskQuickList
           tasks={activeTasks}
           onToggle={handleToggleTask}
-          onLongPress={handleDeleteTask}
+          onLongPress={handleEditTask}
+          onDelete={handleDeleteTask}
           loading={loading && activeTasks.length === 0}
         />
       </ScrollView>
@@ -308,13 +350,14 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
         selectedCategory={selectedCategory}
         onClearCategory={handleClearCategory}
         submitting={submitting}
-        onSubmit={handleCreateTask}
+    onSubmit={handleSubmitTask}
         categoryQuery={categoryQuery}
         onCategoryQueryChange={setCategoryQuery}
         filteredCategories={filteredCategories}
         canCreateCategory={canCreateCategory}
         onCreateCategory={handleCreateCategory}
         onSelectCategory={handleSelectCategory}
+        mode={composerMode}
       />
     </View>
   );
