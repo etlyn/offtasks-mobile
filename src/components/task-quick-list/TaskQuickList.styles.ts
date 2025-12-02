@@ -21,9 +21,10 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 4,
-    gap: 12,
+    gap: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e7e8ef',
+    backgroundColor: palette.lightSurface,
   },
   rowPriority: {
     backgroundColor: 'rgba(255, 100, 103, 0.08)',
@@ -38,6 +39,14 @@ export const styles = StyleSheet.create({
   },
   rowPressed: {
     opacity: 0.88,
+  },
+  checkboxTouchArea: {
+    padding: 4,
+    borderRadius: 8,
+  },
+  checkboxPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.95 }],
   },
   checkbox: {
     width: 24,
@@ -63,8 +72,15 @@ export const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.5)',
     shadowColor: 'rgba(0, 118, 111, 0.28)',
   },
-  rowLabel: {
+  contentArea: {
     flex: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  contentAreaPressed: {
+    opacity: 0.7,
+  },
+  rowLabel: {
     fontSize: 16,
     lineHeight: 22,
     color: palette.slate900,

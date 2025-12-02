@@ -8,7 +8,7 @@ import { createTask, deleteTask, updateTask } from '@/lib/supabase';
 import { getAdjacentDay, getToday } from '@/hooks/useDate';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTasks } from '@/providers/TasksProvider';
-import type { Task } from '@/types/task';
+import type { Task, TaskWithOverdueFlag } from '@/types/task';
 import { palette } from '@/theme/colors';
 
 import { styles } from './Dashboard.styles';
@@ -93,7 +93,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
 
   const [composerVisible, setComposerVisible] = React.useState(false);
   const [composerMode, setComposerMode] = React.useState<'create' | 'edit'>('create');
-  const [editingTask, setEditingTask] = React.useState<Task | null>(null);
+  const [editingTask, setEditingTask] = React.useState<Task | TaskWithOverdueFlag | null>(null);
   const [newTaskContent, setNewTaskContent] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
   const [composerGroup, setComposerGroup] = React.useState<DashboardGroup>(activeGroup);
@@ -129,7 +129,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   }, [refresh]);
 
   const handleToggleTask = React.useCallback(
-    async (task: Task) => {
+    async (task: Task | TaskWithOverdueFlag) => {
       try {
         await updateTask(task.id, { isComplete: !task.isComplete });
         await refresh();
@@ -141,7 +141,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   );
 
   const handleDeleteTask = React.useCallback(
-    (task: Task) => {
+    (task: Task | TaskWithOverdueFlag) => {
       Alert.alert('Remove task', 'Are you sure you want to delete this task?', [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -162,7 +162,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   );
 
   const handleEditTask = React.useCallback(
-    (task: Task) => {
+    (task: Task | TaskWithOverdueFlag) => {
       if (!session?.user?.id) {
         return;
       }
@@ -181,6 +181,27 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
       setComposerVisible(true);
     },
     [activeGroup, session?.user?.id]
+  );
+
+  const handleShowTaskDetails = React.useCallback(
+    (task: Task | TaskWithOverdueFlag) => {
+      const priorityLabel = priorityOptions.find((p) => p.value === task.priority)?.label ?? 'None';
+      const groupLabel = groupSegments.find((s) => s.key === task.target_group)?.label ?? task.target_group;
+      
+      Alert.alert(
+        'Task Details',
+        [
+          `📝 ${task.content}`,
+          '',
+          `📅 Scheduled: ${task.date}`,
+          `📁 Section: ${groupLabel}`,
+          `⚡ Priority: ${priorityLabel}`,
+          `✓ Status: ${task.isComplete ? 'Completed' : 'Pending'}`,
+        ].join('\n'),
+        [{ text: 'OK', style: 'default' }]
+      );
+    },
+    []
   );
 
   const openComposer = React.useCallback(() => {
@@ -316,7 +337,8 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
         <TaskQuickList
           tasks={activeTasks}
           onToggle={handleToggleTask}
-          onLongPress={handleEditTask}
+          onPress={handleEditTask}
+          onLongPress={handleShowTaskDetails}
           onDelete={handleDeleteTask}
           loading={loading && activeTasks.length === 0}
         />

@@ -96,3 +96,21 @@ export const deleteTask = async (taskId: string) => {
     throw error;
   }
 };
+
+/**
+ * Fetch all tasks for a user (needed for proper categorization based on business rules)
+ */
+export const fetchAllUserTasks = async (userId: string): Promise<Task[]> => {
+  const { data, error } = await supabaseClient
+    .from('tasks')
+    .select('*')
+    .eq('user_id', userId)
+    .order('priority', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching all tasks', error);
+    return [];
+  }
+
+  return (data as Task[] | null) ?? [];
+};

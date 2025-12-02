@@ -2,17 +2,29 @@ import * as React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 
-import type { Task } from '@/types/task';
+import type { Task, TaskWithOverdueFlag } from '@/types/task';
+import { getToday } from '@/hooks/useDate';
 import { palette } from '@/theme/colors';
 
+type TaskType = Task | TaskWithOverdueFlag;
+
 interface TaskQuickListProps {
-  tasks: Task[];
-  onToggle: (task: Task) => Promise<void>;
-  onLongPress?: (task: Task) => void;
+  tasks: TaskType[];
+  onToggle: (task: TaskType) => Promise<void>;
+  onPress?: (task: TaskType) => void;
+  onLongPress?: (task: TaskType) => void;
+  onDelete?: (task: TaskType) => void;
   loading?: boolean;
 }
 
-export const TaskQuickList = ({ tasks, onToggle, onLongPress, loading }: TaskQuickListProps) => {
+/**
+ * Helper to check if task has the isOverdue flag (TaskWithOverdueFlag type)
+ */
+const hasOverdueFlag = (task: TaskType): task is TaskWithOverdueFlag => {
+  return 'isOverdue' in task;
+};
+
+export const TaskQuickList = ({ tasks, onToggle, onPress, onLongPress, onDelete, loading }: TaskQuickListProps) => {
   const orderedTasks = React.useMemo(() => {
     const next = [...tasks];
     next.sort((a, b) => Number(a.isComplete) - Number(b.isComplete));
@@ -43,6 +55,7 @@ export const TaskQuickList = ({ tasks, onToggle, onLongPress, loading }: TaskQui
           task={task}
           isLast={index === orderedTasks.length - 1}
           onToggle={onToggle}
+          onPress={onPress}
           onLongPress={onLongPress}
         />
       ))}
@@ -51,17 +64,25 @@ export const TaskQuickList = ({ tasks, onToggle, onLongPress, loading }: TaskQui
 };
 
 interface TaskQuickRowProps {
-  task: Task;
+  task: TaskType;
   isLast: boolean;
-  onToggle: (task: Task) => Promise<void>;
-  onLongPress?: (task: Task) => void;
+  onToggle: (task: TaskType) => Promise<void>;
+  onPress?: (task: TaskType) => void;
+  onLongPress?: (task: TaskType) => void;
 }
 
-const TaskQuickRow = ({ task, isLast, onToggle, onLongPress }: TaskQuickRowProps) => {
+const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress }: TaskQuickRowProps) => {
   const [pending, setPending] = React.useState(false);
   const isHighPriority = !task.isComplete && task.priority >= 3;
+  
+  // Check for overdue status - use flag if available, otherwise compute
+  const today = getToday();
+  const isOverdue = hasOverdueFlag(task) 
+    ? task.isOverdue 
+    : (!task.isComplete && task.date < today && task.target_group === 'today');
 
-  const handleToggle = React.useCallback(async () => {
+  // Handle checkbox toggle (complete/uncomplete task)
+  const handleCheckboxPress = React.useCallback(async () => {
     if (pending) {
       return;
     }
@@ -74,6 +95,15 @@ const TaskQuickRow = ({ task, isLast, onToggle, onLongPress }: TaskQuickRowProps
     }
   }, [onToggle, pending, task]);
 
+  // Handle row press (open task info modal)
+  const handleRowPress = React.useCallback(() => {
+    if (pending) {
+      return;
+    }
+    onPress?.(task);
+  }, [onPress, pending, task]);
+
+  // Handle long press (show task details like priority, category)
   const handleLongPress = React.useCallback(() => {
     if (pending) {
       return;
@@ -82,42 +112,67 @@ const TaskQuickRow = ({ task, isLast, onToggle, onLongPress }: TaskQuickRowProps
   }, [onLongPress, pending, task]);
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ checked: task.isComplete }}
-      onPress={handleToggle}
-      onLongPress={handleLongPress}
-      style={({ pressed }) => [
+    <View
+      style={[
         styles.row,
-        isHighPriority && styles.rowPriority,
+        (isHighPriority || isOverdue) && styles.rowPriority,
         isLast && styles.lastRow,
-        pressed && styles.rowPressed,
       ]}
     >
-      <View
-        style={[styles.checkbox, isHighPriority && styles.checkboxPriority, task.isComplete && styles.checkboxDone]}
-      >
-        {pending ? (
-          <ActivityIndicator
-            size="small"
-            color={task.isComplete ? palette.lightSurface : isHighPriority ? palette.danger : palette.mintStrong}
-          />
-        ) : task.isComplete ? (
-          <Feather name="check" size={16} color={palette.lightSurface} />
-        ) : null}
-      </View>
-
-      <Text
-        style={[
-          styles.rowLabel,
-          isHighPriority && styles.rowLabelPriority,
-          task.isComplete && styles.rowLabelDone,
+      {/* Checkbox area - separate pressable for toggle */}
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: task.isComplete }}
+        accessibilityLabel={task.isComplete ? 'Mark as incomplete' : 'Mark as complete'}
+        onPress={handleCheckboxPress}
+        style={({ pressed }) => [
+          styles.checkboxTouchArea,
+          pressed && styles.checkboxPressed,
         ]}
-        numberOfLines={2}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
       >
-        {task.content}
-      </Text>
-    </Pressable>
+        <View
+          style={[
+            styles.checkbox, 
+            (isHighPriority || isOverdue) && styles.checkboxPriority, 
+            task.isComplete && styles.checkboxDone
+          ]}
+        >
+          {pending ? (
+            <ActivityIndicator
+              size="small"
+              color={task.isComplete ? palette.lightSurface : (isHighPriority || isOverdue) ? palette.danger : palette.mintStrong}
+            />
+          ) : task.isComplete ? (
+            <Feather name="check" size={16} color={palette.lightSurface} />
+          ) : null}
+        </View>
+      </Pressable>
+
+      {/* Task content area - pressable for opening modal, long press for details */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Task: ${task.content}`}
+        accessibilityHint="Tap to edit, long press for details"
+        onPress={handleRowPress}
+        onLongPress={handleLongPress}
+        style={({ pressed }) => [
+          styles.contentArea,
+          pressed && styles.contentAreaPressed,
+        ]}
+      >
+        <Text
+          style={[
+            styles.rowLabel,
+            (isHighPriority || isOverdue) && styles.rowLabelPriority,
+            task.isComplete && styles.rowLabelDone,
+          ]}
+          numberOfLines={2}
+        >
+          {task.content}
+        </Text>
+      </Pressable>
+    </View>
   );
 };
 
@@ -153,7 +208,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 4,
-    gap: 12,
+    gap: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e7e8ef',
   },
@@ -170,6 +225,14 @@ const styles = StyleSheet.create({
   },
   rowPressed: {
     opacity: 0.88,
+  },
+  checkboxTouchArea: {
+    padding: 4,
+    borderRadius: 8,
+  },
+  checkboxPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.95 }],
   },
   checkbox: {
     width: 24,
@@ -195,8 +258,15 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.5)',
     shadowColor: 'rgba(0, 118, 111, 0.28)',
   },
-  rowLabel: {
+  contentArea: {
     flex: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  contentAreaPressed: {
+    opacity: 0.7,
+  },
+  rowLabel: {
     fontSize: 16,
     lineHeight: 22,
     color: palette.slate900,

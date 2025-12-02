@@ -3,21 +3,32 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'rea
 import Feather from 'react-native-vector-icons/Feather';
 
 import { deleteTask, updateTask } from '@/lib/supabase';
-import { useDateHelpers } from '@/hooks/useDate';
+import { getToday } from '@/hooks/useDate';
 import { useTasks } from '@/providers/TasksProvider';
-import type { Task } from '@/types/task';
+import type { Task, TaskWithOverdueFlag } from '@/types/task';
 import { palette } from '@/theme/colors';
 
 interface TaskItemProps {
-  task: Task;
+  task: Task | TaskWithOverdueFlag;
 }
+
+/**
+ * Helper to check if task has the isOverdue flag (TaskWithOverdueFlag type)
+ */
+const hasOverdueFlag = (task: Task | TaskWithOverdueFlag): task is TaskWithOverdueFlag => {
+  return 'isOverdue' in task;
+};
 
 export const TaskItem = ({ task }: TaskItemProps) => {
   const { refresh } = useTasks();
-  const { yesterday } = useDateHelpers();
   const [submitting, setSubmitting] = useState(false);
 
-  const isOverdue = !task.isComplete && task.date < yesterday;
+  // Use the isOverdue flag if available, otherwise compute it
+  // A task is overdue if it's not complete, date is before today, and still in 'today' group
+  const today = getToday();
+  const isOverdue = hasOverdueFlag(task) 
+    ? task.isOverdue 
+    : (!task.isComplete && task.date < today && task.target_group === 'today');
   const isHighPriority = !task.isComplete && task.priority >= 3;
 
   const handleToggle = async () => {

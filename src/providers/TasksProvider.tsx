@@ -1,13 +1,14 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { fetchTasksByGroup } from '@/lib/supabase';
-import type { Task, TaskGroup } from '@/types/task';
+import { fetchAllUserTasks } from '@/lib/supabase';
+import type { Task, TaskGroup, TaskWithOverdueFlag } from '@/types/task';
+import { categorizeTasks, addOverdueFlag } from '@/utils/taskUtils';
 
 import { useAuth } from './AuthProvider';
 
 const groups: TaskGroup[] = ['today', 'tomorrow', 'upcoming', 'close'];
 
-type TasksByGroup = Record<TaskGroup, Task[]>;
+type TasksByGroup = Record<TaskGroup, TaskWithOverdueFlag[]>;
 
 interface TasksContextValue {
   tasks: TasksByGroup;
@@ -53,19 +54,19 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
     setLoading(true);
 
     try {
-      const results = await Promise.all(
-        groups.map((group) => fetchTasksByGroup(group, session.user.id))
-      );
-
-      const nextState = groups.reduce<TasksByGroup>((acc, group, index) => {
-        acc[group] = results[index] ?? [];
-        return acc;
-      }, {
-        today: [],
-        tomorrow: [],
-        upcoming: [],
-        close: [],
-      });
+      // Fetch all tasks at once instead of by group
+      const allTasks = await fetchAllUserTasks(session.user.id);
+      
+      // Categorize tasks based on our business rules
+      const categorized = categorizeTasks(allTasks);
+      
+      // Add overdue flags to tasks for UI styling
+      const nextState: TasksByGroup = {
+        today: categorized.today.map(addOverdueFlag),
+        tomorrow: categorized.tomorrow.map(addOverdueFlag),
+        upcoming: categorized.upcoming.map(addOverdueFlag),
+        close: categorized.close.map(addOverdueFlag),
+      };
 
       setTasks(nextState);
     } catch (error) {

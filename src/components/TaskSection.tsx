@@ -16,7 +16,7 @@ import { createTask } from '@/lib/supabase';
 import { getToday } from '@/hooks/useDate';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTasks } from '@/providers/TasksProvider';
-import type { Task, TaskGroup } from '@/types/task';
+import type { Task, TaskGroup, TaskWithOverdueFlag } from '@/types/task';
 import { palette } from '@/theme/colors';
 
 import { TaskItem } from './TaskItem';
@@ -24,7 +24,7 @@ import { TaskItem } from './TaskItem';
 interface TaskSectionProps {
   title: string;
   group: TaskGroup;
-  tasks: Task[];
+  tasks: (Task | TaskWithOverdueFlag)[];
   highlight?: string;
   allowNewTask?: boolean;
   emptyMessage?: string;
