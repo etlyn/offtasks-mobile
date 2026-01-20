@@ -97,3 +97,31 @@ Special cases:
 ---
 
 **Design Philosophy**: Modern, clean, minimalistic with glassmorphic accents while maintaining simplicity and usability.
+
+
+## Task lifecycle & day rollover (mobile)
+
+```mermaid
+flowchart TD
+Create["Create / Update task"] --> SetMeta["Set target_group + date"]
+SetMeta --> Store[(Persist task)]
+Store --> Refresh["Refresh tasks (fetch + categorize)"]
+
+Refresh --> CheckComplete{isComplete?}
+CheckComplete -->|Yes| CompletedToday["Show in Today (completed)"]
+CheckComplete -->|No| DateCheck{date <= today?}
+
+DateCheck -->|Yes| TodayList["Show in Today"]
+DateCheck -->|No| GroupCheck{target_group}
+GroupCheck -->|today| TodayList
+GroupCheck -->|tomorrow| TomorrowList["Show in Tomorrow"]
+GroupCheck -->|upcoming| UpcomingList["Show in Upcoming"]
+GroupCheck -->|close| CloseList["Show in Close"]
+
+TodayList --> OverdueCheck{date < today?}
+OverdueCheck -->|Yes| Overdue["Highlight red (missed deadline)"]
+OverdueCheck -->|No| Normal["Normal styling"]
+
+Store --> PriorityNote["Priority is metadata only"]
+PriorityNote --> NoColor["No color change"]
+```

@@ -79,8 +79,7 @@ interface TaskQuickRowProps {
 const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress, onDelete }: TaskQuickRowProps) => {
   const [pending, setPending] = React.useState(false);
   const swipeableRef = React.useRef<Swipeable | null>(null);
-  const isHighPriority = !task.isComplete && task.priority >= 3;
-  
+
   // Check for overdue status - use flag if available, otherwise compute
   const today = getToday();
   const isOverdue = hasOverdueFlag(task) 
@@ -157,7 +156,7 @@ const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress, onDelete }
       <View
         style={[
           styles.row,
-          (isHighPriority || isOverdue) && styles.rowPriority,
+          isOverdue && styles.rowPriority,
           isLast && styles.lastRow,
         ]}
       >
@@ -176,14 +175,14 @@ const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress, onDelete }
           <View
             style={[
               styles.checkbox, 
-              (isHighPriority || isOverdue) && styles.checkboxPriority, 
+              isOverdue && styles.checkboxPriority, 
               task.isComplete && styles.checkboxDone
             ]}
           >
             {pending ? (
               <ActivityIndicator
                 size="small"
-                color={task.isComplete ? palette.lightSurface : (isHighPriority || isOverdue) ? palette.danger : palette.mintStrong}
+                color={task.isComplete ? palette.lightSurface : isOverdue ? palette.danger : palette.mintStrong}
               />
             ) : task.isComplete ? (
               <Feather name="check" size={16} color={palette.lightSurface} />
@@ -206,7 +205,7 @@ const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress, onDelete }
           <Text
             style={[
               styles.rowLabel,
-              (isHighPriority || isOverdue) && styles.rowLabelPriority,
+              isOverdue && styles.rowLabelPriority,
               task.isComplete && styles.rowLabelDone,
             ]}
             numberOfLines={2}

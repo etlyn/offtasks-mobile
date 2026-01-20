@@ -8,6 +8,7 @@ export interface Task {
   priority: number;
   target_group: TaskGroup;
   date: string;
+  completed_at?: string | null;
   inserted_at?: string;
 }
 
@@ -16,7 +17,6 @@ export interface Task {
  * A task is overdue when:
  * - It's not complete
  * - Its scheduled date is before today
- * - It's still in the 'today' target_group (not moved to tomorrow/upcoming)
  */
 export interface TaskWithOverdueFlag extends Task {
   isOverdue: boolean;

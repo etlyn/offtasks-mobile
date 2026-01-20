@@ -75,7 +75,7 @@ export const createTask = async (params: {
 
 export const updateTask = async (
   taskId: string,
-  updates: Partial<Pick<Task, 'content' | 'isComplete' | 'priority' | 'target_group' | 'date'>>
+  updates: Partial<Pick<Task, 'content' | 'isComplete' | 'priority' | 'target_group' | 'date' | 'completed_at'>>
 ) => {
   const { error } = await supabaseClient
     .from('tasks')

@@ -13,7 +13,7 @@ import {
 import Feather from 'react-native-vector-icons/Feather';
 
 import { createTask } from '@/lib/supabase';
-import { getToday } from '@/hooks/useDate';
+import { getAdjacentDay, getToday } from '@/hooks/useDate';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTasks } from '@/providers/TasksProvider';
 import type { Task, TaskGroup, TaskWithOverdueFlag } from '@/types/task';
@@ -29,6 +29,19 @@ interface TaskSectionProps {
   allowNewTask?: boolean;
   emptyMessage?: string;
 }
+
+const dateForGroup = (group: TaskGroup) => {
+  switch (group) {
+    case 'tomorrow':
+      return getAdjacentDay(1);
+    case 'upcoming':
+      return getAdjacentDay(3);
+    case 'today':
+    case 'close':
+    default:
+      return getToday();
+  }
+};
 
 export const TaskSection = ({
   title,
@@ -55,7 +68,7 @@ export const TaskSection = ({
         content: content.trim(),
         target_group: group,
         userId: session.user.id,
-        date: getToday(),
+        date: dateForGroup(group),
       });
       setContent('');
       await refresh();

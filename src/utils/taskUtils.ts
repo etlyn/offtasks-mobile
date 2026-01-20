@@ -1,12 +1,12 @@
 import type { Task, TaskGroup, TaskWithOverdueFlag } from '@/types/task';
-import { getToday, getAdjacentDay } from '@/hooks/useDate';
+import { getToday } from '@/hooks/useDate';
 
 /**
  * Determines if a task is overdue based on its date and completion status.
  * A task is overdue if:
  * - It is not complete
  * - Its date is before today
- * - Its target_group is 'today' (meaning user hasn't moved it to tomorrow/upcoming)
+ * - It's still in the 'today' target_group
  */
 export const isTaskOverdue = (task: Task): boolean => {
   if (task.isComplete) {
@@ -14,7 +14,6 @@ export const isTaskOverdue = (task: Task): boolean => {
   }
 
   const today = getToday();
-  // Task is overdue if its date is before today and it's still in 'today' group
   return task.date < today && task.target_group === 'today';
 };
 
@@ -30,29 +29,17 @@ export const isTaskFromPast = (task: Task): boolean => {
 /**
  * Checks if a task should be shown in the Today section.
  * Today section shows:
- * 1. Tasks with target_group = 'today' (including overdue ones)
- * 2. Completed tasks from tomorrow/upcoming (completion date is today)
- * 3. Tasks from tomorrow where the day has changed
+ * 1. Tasks completed today
+ * 2. Incomplete tasks whose scheduled date is today or earlier
  */
 export const shouldShowInToday = (task: Task): boolean => {
   const today = getToday();
   
-  // Show if target_group is 'today'
-  if (task.target_group === 'today') {
-    return true;
+  if (task.isComplete) {
+    return task.completed_at === today;
   }
-  
-  // Show completed tasks from tomorrow/upcoming (they should appear in Today)
-  if (task.isComplete && (task.target_group === 'tomorrow' || task.target_group === 'upcoming')) {
-    return true;
-  }
-  
-  // Tasks from tomorrow that are now due (day has changed)
-  if (task.target_group === 'tomorrow' && task.date <= today) {
-    return true;
-  }
-  
-  return false;
+
+  return task.date <= today;
 };
 
 /**
@@ -97,7 +84,6 @@ export interface CategorizedTasks {
 
 export const categorizeTasks = (allTasks: Task[]): CategorizedTasks => {
   const today = getToday();
-  const tomorrow = getAdjacentDay(1);
   
   const result: CategorizedTasks = {
     today: [],
@@ -107,21 +93,18 @@ export const categorizeTasks = (allTasks: Task[]): CategorizedTasks => {
   };
   
   for (const task of allTasks) {
-    // Rule 4: Completed tasks from Tomorrow/Upcoming should go to Today
-    if (task.isComplete && (task.target_group === 'tomorrow' || task.target_group === 'upcoming')) {
-      result.today.push(task);
+    // Rule 1: Completed tasks show in Today only if completed today, otherwise go to Close.
+    if (task.isComplete) {
+      if (task.completed_at === today) {
+        result.today.push(task);
+      } else {
+        result.close.push(task);
+      }
       continue;
     }
-    
-    // Rule 2 & 3: Overdue incomplete tasks from 'today' group go to Today section (shown in red)
-    // Also handles tasks whose date has passed (day change logic)
-    if (!task.isComplete && task.target_group === 'today' && task.date < today) {
-      result.today.push(task);
-      continue;
-    }
-    
-    // Rule 3: Tasks from 'tomorrow' that are now today (day has changed)
-    if (task.target_group === 'tomorrow' && task.date <= today) {
+
+    // Rule 2: Incomplete tasks due today or earlier always show in Today.
+    if (task.date <= today) {
       result.today.push(task);
       continue;
     }
@@ -132,20 +115,10 @@ export const categorizeTasks = (allTasks: Task[]): CategorizedTasks => {
         result.today.push(task);
         break;
       case 'tomorrow':
-        // Rule 4: Don't show completed tasks
-        if (!task.isComplete) {
-          result.tomorrow.push(task);
-        } else {
-          result.today.push(task);
-        }
+        result.tomorrow.push(task);
         break;
       case 'upcoming':
-        // Rule 4: Don't show completed tasks
-        if (!task.isComplete) {
-          result.upcoming.push(task);
-        } else {
-          result.today.push(task);
-        }
+        result.upcoming.push(task);
         break;
       case 'close':
         result.close.push(task);
@@ -168,7 +141,7 @@ export const addOverdueFlag = (task: Task): TaskWithOverdueFlag => {
   // A task is overdue if:
   // 1. It's not complete
   // 2. Its scheduled date is before today
-  // 3. It's still in the 'today' target_group (user hasn't moved it)
+  // 3. It's still in the 'today' target_group
   const isOverdue = !task.isComplete && task.date < today && task.target_group === 'today';
   
   return {

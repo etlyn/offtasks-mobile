@@ -24,12 +24,11 @@ export const TaskItem = ({ task }: TaskItemProps) => {
   const [submitting, setSubmitting] = useState(false);
 
   // Use the isOverdue flag if available, otherwise compute it
-  // A task is overdue if it's not complete, date is before today, and still in 'today' group
+  // A task is overdue if it's not complete, date is before today, and still in Today
   const today = getToday();
   const isOverdue = hasOverdueFlag(task) 
     ? task.isOverdue 
     : (!task.isComplete && task.date < today && task.target_group === 'today');
-  const isHighPriority = !task.isComplete && task.priority >= 3;
 
   const handleToggle = async () => {
     if (submitting) {
@@ -39,8 +38,10 @@ export const TaskItem = ({ task }: TaskItemProps) => {
     setSubmitting(true);
 
     try {
+      const nextComplete = !task.isComplete;
       await updateTask(task.id, {
-        isComplete: !task.isComplete,
+        isComplete: nextComplete,
+        completed_at: nextComplete ? getToday() : null,
       });
       await refresh();
     } catch (error) {
@@ -79,11 +80,11 @@ export const TaskItem = ({ task }: TaskItemProps) => {
   };
 
   return (
-  <View style={[styles.container, isHighPriority && styles.containerPriority, submitting && styles.disabled]}>
+  <View style={[styles.container, isOverdue && styles.containerPriority, submitting && styles.disabled]}>
       <Pressable
         style={({ pressed }) => [
           styles.check,
-          isHighPriority && styles.checkPriority,
+          isOverdue && styles.checkPriority,
           task.isComplete && styles.checkActive,
           pressed && !task.isComplete && styles.checkPressed,
         ]}
@@ -92,7 +93,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
         {submitting ? (
           <ActivityIndicator
             size="small"
-            color={task.isComplete ? palette.lightSurface : isHighPriority ? palette.danger : palette.mintStrong}
+            color={task.isComplete ? palette.lightSurface : isOverdue ? palette.danger : palette.mintStrong}
           />
         ) : task.isComplete ? (
           <Feather name="check" size={16} color={palette.lightSurface} />
@@ -104,7 +105,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
           style={[
             styles.title,
             task.isComplete && styles.titleCompleted,
-            (isOverdue || isHighPriority) && styles.titleOverdue,
+            isOverdue && styles.titleOverdue,
           ]}
           numberOfLines={2}
         >

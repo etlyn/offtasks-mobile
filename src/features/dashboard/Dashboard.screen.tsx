@@ -131,7 +131,11 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   const handleToggleTask = React.useCallback(
     async (task: Task | TaskWithOverdueFlag) => {
       try {
-        await updateTask(task.id, { isComplete: !task.isComplete });
+        const nextComplete = !task.isComplete;
+        await updateTask(task.id, {
+          isComplete: nextComplete,
+          completed_at: nextComplete ? getToday() : null,
+        });
         await refresh();
       } catch (error) {
         Alert.alert('Update failed', (error as Error).message);

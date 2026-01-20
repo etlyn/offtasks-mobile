@@ -106,7 +106,11 @@ export const CompletedScreen = () => {
     () =>
       allTasks
         .filter((task) => task.isComplete)
-        .sort((a, b) => (a.date < b.date ? 1 : -1)),
+        .sort((a, b) => {
+          const aDate = a.completed_at ?? a.date;
+          const bDate = b.completed_at ?? b.date;
+          return aDate < bDate ? 1 : -1;
+        }),
     [allTasks]
   );
 
@@ -133,7 +137,7 @@ export const CompletedScreen = () => {
       }
       setPendingId(task.id);
       try {
-        await updateTask(task.id, { isComplete: false });
+        await updateTask(task.id, { isComplete: false, completed_at: null });
         await refresh();
       } finally {
         setPendingId(null);
@@ -223,7 +227,7 @@ export const CompletedScreen = () => {
                     >
                       <Text style={[styles.tagLabel, { color: swatch.text }]}>{swatch.label}</Text>
                     </View>
-                    <Text style={styles.cardDate}>{formatTaskDate(task.date)}</Text>
+                      <Text style={styles.cardDate}>{formatTaskDate(task.completed_at ?? task.date)}</Text>
                   </View>
                 </Pressable>
               );
