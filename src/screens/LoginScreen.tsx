@@ -12,10 +12,12 @@ import {
   View,
 } from 'react-native';
 
+import { SUPABASE_RESET_REDIRECT_URL } from '@env';
+
 import { supabaseClient } from '@/lib/supabase';
 import { palette } from '@/theme/colors';
 
-const redirectUrl = 'https://offtasks.com/reset-password';
+const redirectUrl = SUPABASE_RESET_REDIRECT_URL || 'https://offtasks.com/reset-password';
 
 type AuthMode = 'signIn' | 'signUp';
 

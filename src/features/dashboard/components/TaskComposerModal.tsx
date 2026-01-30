@@ -9,15 +9,14 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
   View,
 } from 'react-native';
-import type { GestureResponderEvent } from 'react-native';
+import { findNodeHandle } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { DashboardGroup, GroupSegment, PriorityOption } from '../Dashboard.types';
-import { SHEET_MAX_HEIGHT } from '../Dashboard.styles';
-import { PrioritySlider } from '@/components/PrioritySlider';
 import { palette } from '@/theme/colors';
 
 interface TaskComposerModalProps {
@@ -60,21 +59,16 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
     onSelectPriority,
     selectedPriority,
     selectedCategory,
-    onClearCategory,
-    submitting,
+    onSelectCategory,
     onSubmit,
+    submitting,
     categoryQuery,
     onCategoryQueryChange,
-    filteredCategories,
-    canCreateCategory,
-    onCreateCategory,
-    onSelectCategory,
-    mode = 'create',
+    mode,
   } = props;
 
   const disableSubmit = !newTaskContent.trim() || submitting;
   const insets = useSafeAreaInsets();
-  const [categorySheetVisible, setCategorySheetVisible] = React.useState(false);
   const isEditMode = mode === 'edit';
   const headerTitle = isEditMode ? 'Update Task' : 'New Task';
   const submitLabel = isEditMode ? 'Save Changes' : 'Create Task';
@@ -87,43 +81,65 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
     [priorityOptions, selectedPriority]
   );
 
-  const handleClearCategory = React.useCallback(
-    (event: GestureResponderEvent) => {
-      event.stopPropagation();
-      onClearCategory();
-    },
-    [onClearCategory]
-  );
+  const categoryOptions = React.useMemo(() => {
+    const base = ['Work', 'Personal', 'Shopping', 'Health', 'Finance'];
+    const extras = props.filteredCategories ?? [];
+    const merged = Array.from(new Set([...base, ...extras])).filter(Boolean);
+    return ['None', ...merged];
+  }, [props.filteredCategories]);
+
+  const categoryEmojiMap: Record<string, string> = {
+    None: '📁',
+    Work: '💼',
+    Personal: '🏠',
+    Shopping: '🛒',
+    Health: '❤️',
+    Finance: '💰',
+  };
+
+  const selectedCategoryLabel = selectedCategory ?? 'None';
 
   const handleCloseComposer = React.useCallback(() => {
-    setCategorySheetVisible(false);
     onClose();
   }, [onClose]);
 
-  const handleOpenCategorySheet = React.useCallback(() => {
-    if (submitting) {
-      return;
-    }
-    Keyboard.dismiss();
-    setCategorySheetVisible(true);
-  }, [submitting]);
+  const priorityTriggerRef = React.useRef<View>(null);
+  const categoryTriggerRef = React.useRef<View>(null);
+  const [openDropdown, setOpenDropdown] = React.useState<'priority' | 'category' | null>(null);
+  const [dropdownLayout, setDropdownLayout] = React.useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    listHeight: number;
+  } | null>(null);
 
-  const handleCloseCategorySheet = React.useCallback(() => {
-    setCategorySheetVisible(false);
-  }, []);
+  const openDropdownFor = React.useCallback(
+    (type: 'priority' | 'category') => {
+      const ref = type === 'priority' ? priorityTriggerRef : categoryTriggerRef;
+      const listLength = type === 'priority' ? priorityOptions.length : categoryOptions.length;
+      const rowHeight = 48;
+      const listHeight = Math.min(rowHeight * listLength + 12, 260);
 
-  const handleCreateCategoryPress = React.useCallback(() => {
-    onCreateCategory();
-    setCategorySheetVisible(false);
-  }, [onCreateCategory]);
+      Keyboard.dismiss();
+      const node = ref.current ? findNodeHandle(ref.current) : null;
+      if (!node) {
+        setOpenDropdown(type);
+        setDropdownLayout(null);
+        return;
+      }
 
-  const handleSelectCategoryPress = React.useCallback(
-    (category: string) => {
-      onSelectCategory(category);
-      setCategorySheetVisible(false);
+      UIManager.measureInWindow(node, (x: number, y: number, width: number, height: number) => {
+        setDropdownLayout({ x, y, width, height, listHeight });
+        setOpenDropdown(type);
+      });
     },
-    [onSelectCategory]
+    [categoryOptions.length, priorityOptions.length]
   );
+
+  const closeDropdown = React.useCallback(() => {
+    setOpenDropdown(null);
+  }, []);
 
   if (!visible) {
     return null;
@@ -152,6 +168,7 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
               },
             ]}
           >
+            <View style={composerStyles.handle} />
             <View style={composerStyles.header}>
               <Text style={composerStyles.title}>{headerTitle}</Text>
               <Pressable
@@ -191,6 +208,18 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
                   <View style={composerStyles.segmentGroup}>
                     {groupSegments.map((segment) => {
                       const isSelected = composerGroup === segment.key;
+                      const iconName =
+                        segment.key === 'today'
+                          ? 'sun'
+                          : segment.key === 'tomorrow'
+                          ? 'sunrise'
+                          : 'calendar';
+                      const label =
+                        segment.key === 'tomorrow'
+                          ? 'Tmrw'
+                          : segment.key === 'upcoming'
+                          ? 'Later'
+                          : 'Today';
                       return (
                         <Pressable
                           key={segment.key}
@@ -201,13 +230,18 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
                           ]}
                           onPress={() => onChangeGroup(segment.key)}
                         >
+                          <Feather
+                            name={iconName}
+                            size={16}
+                            color={isSelected ? '#2fb59a' : '#6b7280'}
+                          />
                           <Text
                             style={[
                               composerStyles.segmentText,
                               isSelected && composerStyles.segmentTextActive,
                             ]}
                           >
-                            {segment.label}
+                            {label}
                           </Text>
                         </Pressable>
                       );
@@ -216,81 +250,52 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
                 </View>
 
                 <View style={composerStyles.section}>
-                  <Text style={composerStyles.sectionLabel}>Priority</Text>
-                  <View style={composerStyles.prioritySummary}>
-                    <View
-                      style={[
-                        composerStyles.priorityIcon,
-                        {
-                          borderColor: priorityMeta.tint,
-                          backgroundColor: priorityMeta.background,
-                        },
-                      ]}
-                    >
-                      <Feather name={priorityMeta.icon} size={18} color={priorityMeta.tint} />
+                  <View style={composerStyles.dropdownRow}>
+                    <View style={composerStyles.dropdownColumn}>
+                      <Text style={composerStyles.sectionLabel}>Priority</Text>
+                      <Pressable
+                        ref={priorityTriggerRef}
+                        accessibilityRole="button"
+                        style={({ pressed }) => [
+                          composerStyles.dropdownTrigger,
+                          pressed && composerStyles.dropdownTriggerPressed,
+                        ]}
+                        onPress={() => openDropdownFor('priority')}
+                        disabled={submitting}
+                      >
+                        <View style={composerStyles.dropdownIconWrap}>
+                          <Feather name="flag" size={16} color={priorityMeta.tint} />
+                        </View>
+                        <Text style={composerStyles.dropdownValue}>{priorityMeta.label}</Text>
+                        <Feather name="chevron-down" size={16} color={palette.slate600} />
+                      </Pressable>
                     </View>
-                    <View style={composerStyles.priorityCopy}>
-                      <Text style={composerStyles.priorityLabel}>{priorityMeta.label}</Text>
-                      {!!priorityMeta.description && (
-                        <Text style={composerStyles.priorityHint}>{priorityMeta.description}</Text>
-                      )}
+
+                    <View style={composerStyles.dropdownColumn}>
+                      <Text style={composerStyles.sectionLabel}>Category</Text>
+                      <Pressable
+                        ref={categoryTriggerRef}
+                        accessibilityRole="button"
+                        style={({ pressed }) => [
+                          composerStyles.dropdownTrigger,
+                          pressed && composerStyles.dropdownTriggerPressed,
+                        ]}
+                        onPress={() => openDropdownFor('category')}
+                        disabled={submitting}
+                      >
+                        <Text style={composerStyles.dropdownEmoji}>
+                          {categoryEmojiMap[selectedCategoryLabel] ?? '📁'}
+                        </Text>
+                        <Text style={composerStyles.dropdownValue}>{selectedCategoryLabel}</Text>
+                        <Feather name="chevron-down" size={16} color={palette.slate600} />
+                      </Pressable>
                     </View>
                   </View>
-                  <PrioritySlider
-                    value={selectedPriority}
-                    onChange={onSelectPriority}
-                    disabled={submitting}
-                  />
-                </View>
-
-                <View style={composerStyles.section}>
-                  <Text style={composerStyles.sectionLabel}>Category</Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    style={({ pressed }) => [
-                      composerStyles.selectorField,
-                      submitting && composerStyles.selectorFieldDisabled,
-                      pressed && !submitting && composerStyles.selectorFieldPressed,
-                    ]}
-                    onPress={handleOpenCategorySheet}
-                    disabled={false}
-                  >
-                    <Feather
-                      name="tag"
-                      size={18}
-                      color={palette.slate600}
-                      style={composerStyles.selectorIcon}
-                    />
-                    <Text
-                      style={
-                        selectedCategory
-                          ? composerStyles.selectorValue
-                          : composerStyles.selectorPlaceholder
-                      }
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
-                      {selectedCategory ?? 'Choose category'}
-                    </Text>
-                    {selectedCategory ? (
-                      <Pressable
-                        onPress={handleClearCategory}
-                        disabled={submitting}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        style={({ pressed }) => [
-                          composerStyles.selectorClear,
-                          pressed && !submitting && composerStyles.selectorClearPressed,
-                        ]}
-                      >
-                        <Feather name="x" size={16} color={palette.slate600} />
-                      </Pressable>
-                    ) : (
-                      <Feather name="chevron-right" size={18} color={palette.slate600} />
-                    )}
-                  </Pressable>
                 </View>
               </View>
+            </ScrollView>
 
+            <View style={composerStyles.footer}>
               <Pressable
                 style={({ pressed }) => [
                   composerStyles.submitButton,
@@ -304,93 +309,83 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
                   {submitting ? submittingLabel : submitLabel}
                 </Text>
               </Pressable>
-            </ScrollView>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </View>
-
-    {categorySheetVisible && (
-      <View style={composerStyles.sheetOverlay} pointerEvents="box-none">
-        <Pressable
-          style={composerStyles.sheetBackdrop}
-          onPress={handleCloseCategorySheet}
-        />
-        <KeyboardAvoidingView
-          behavior={Platform.select({ ios: 'padding', android: undefined })}
-          style={composerStyles.sheetWrapper}
-        >
+      {openDropdown && dropdownLayout ? (
+        <View style={composerStyles.dropdownOverlay} pointerEvents="box-none">
+          <Pressable style={composerStyles.dropdownBackdrop} onPress={closeDropdown} />
           <View
             style={[
-              composerStyles.sheet,
-              { paddingBottom: insetBottom + 24 },
+              composerStyles.dropdownMenu,
+              {
+                width: dropdownLayout.width,
+                left: dropdownLayout.x,
+                top: Math.max(8, dropdownLayout.y - dropdownLayout.listHeight - 8),
+                maxHeight: dropdownLayout.listHeight,
+              },
             ]}
           >
-            <View style={composerStyles.sheetHandle} />
-            <Text style={composerStyles.sheetTitle}>Select Category</Text>
-            <Text style={composerStyles.sheetSubtitle}>
-              Keep similar work grouped for quicker scanning.
-            </Text>
-            <View style={composerStyles.categorySearch}>
-              <Feather name="search" size={18} color={palette.slate600} />
-              <TextInput
-                style={composerStyles.categoryInput}
-                placeholder="Search or create…"
-                placeholderTextColor={palette.slate600}
-                value={categoryQuery}
-                onChangeText={onCategoryQueryChange}
-                editable={!submitting}
-                autoCapitalize="words"
-                autoCorrect={false}
-              />
-            </View>
-            <ScrollView style={composerStyles.categoryList} keyboardShouldPersistTaps="handled">
-              {canCreateCategory && (
-                <Pressable
-                  style={({ pressed }) => [
-                    composerStyles.optionItem,
-                    pressed && composerStyles.optionItemPressed,
-                  ]}
-                  onPress={handleCreateCategoryPress}
-                  disabled={submitting}
-                >
-                  <View style={[composerStyles.optionIcon, composerStyles.optionIconNeutral]}>
-                    <Feather name="plus" size={18} color={palette.slate600} />
-                  </View>
-                  <View style={composerStyles.optionCopy}>
-                    <Text style={composerStyles.optionLabel}>Add “{categoryQuery.trim()}”</Text>
-                    <Text style={composerStyles.optionCaption}>Create a reusable category.</Text>
-                  </View>
-                </Pressable>
-              )}
-              {filteredCategories.map((category) => {
-                const isActive = selectedCategory === category;
-                return (
-                  <Pressable
-                    key={category}
-                    style={({ pressed }) => [
-                      composerStyles.optionItem,
-                      isActive && composerStyles.optionItemActive,
-                      pressed && composerStyles.optionItemPressed,
-                    ]}
-                    onPress={() => handleSelectCategoryPress(category)}
-                    disabled={submitting}
-                  >
-                    <View style={[composerStyles.optionIcon, composerStyles.optionIconNeutral]}>
-                      <Feather name="tag" size={18} color={palette.slate600} />
-                    </View>
-                    <View style={composerStyles.optionCopy}>
-                      <Text style={composerStyles.optionLabel}>{category}</Text>
-                      <Text style={composerStyles.optionCaption}>Tap to assign this category.</Text>
-                    </View>
-                    {isActive && <Feather name="check" size={18} color={palette.mintStrong} />}
-                  </Pressable>
-                );
-              })}
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {openDropdown === 'priority' &&
+                priorityOptions.map((option) => {
+                  const isActive = option.value === selectedPriority;
+                  return (
+                    <Pressable
+                      key={option.value}
+                      style={({ pressed }) => [
+                        composerStyles.dropdownItem,
+                        isActive && composerStyles.dropdownItemActive,
+                        pressed && composerStyles.dropdownItemPressed,
+                      ]}
+                      onPress={() => {
+                        onSelectPriority(option.value);
+                        closeDropdown();
+                      }}
+                    >
+                      <View style={composerStyles.dropdownItemLeft}>
+                        <Feather name="flag" size={16} color={option.tint} />
+                        <Text style={composerStyles.dropdownItemLabel}>{option.label}</Text>
+                      </View>
+                      {isActive && <Feather name="check" size={16} color={palette.mintStrong} />}
+                    </Pressable>
+                  );
+                })}
+              {openDropdown === 'category' &&
+                categoryOptions.map((option) => {
+                  const isActive = (selectedCategory ?? 'None') === option;
+                  return (
+                    <Pressable
+                      key={option}
+                      style={({ pressed }) => [
+                        composerStyles.dropdownItem,
+                        isActive && composerStyles.dropdownItemActive,
+                        pressed && composerStyles.dropdownItemPressed,
+                      ]}
+                      onPress={() => {
+                        if (option === 'None') {
+                          props.onClearCategory?.();
+                        } else {
+                          onSelectCategory(option);
+                        }
+                        closeDropdown();
+                      }}
+                    >
+                      <View style={composerStyles.dropdownItemLeft}>
+                        <Text style={composerStyles.dropdownEmojiSmall}>
+                          {categoryEmojiMap[option] ?? '📁'}
+                        </Text>
+                        <Text style={composerStyles.dropdownItemLabel}>{option}</Text>
+                      </View>
+                      {isActive && <Feather name="check" size={16} color={palette.mintStrong} />}
+                    </Pressable>
+                  );
+                })}
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
-      </View>
-    )}
+        </View>
+      ) : null}
     </Modal>
     </>
   );
@@ -399,35 +394,42 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
 const composerStyles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: palette.lightBackground,
+    backgroundColor: '#f5f7fb',
   },
   keyboardAvoider: {
     flex: 1,
   },
   container: {
     flex: 1,
-    backgroundColor: palette.lightSurface,
-    paddingHorizontal: 24,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 20,
+  },
+  handle: {
+    alignSelf: 'center',
+    width: 48,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#e5e7eb',
+    marginBottom: 18,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
-    color: palette.slate900,
-    letterSpacing: -0.5,
+    color: '#0f172a',
   },
   closeButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.lightMuted,
+    backgroundColor: '#f1f5f9',
   },
   closeButtonPressed: {
     opacity: 0.7,
@@ -437,57 +439,67 @@ const composerStyles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 40,
+    paddingBottom: 24,
   },
   body: {
     flexGrow: 1,
-    gap: 28,
+    gap: 18,
   },
   taskInput: {
-    backgroundColor: palette.lightMuted,
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    paddingHorizontal: 18,
     paddingVertical: 16,
-    fontSize: 17,
-    lineHeight: 24,
-    color: palette.slate900,
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#0f172a',
     minHeight: 120,
-    maxHeight: 220,
     borderWidth: 1,
-    borderColor: palette.lightBorder,
+    borderColor: '#cfeee6',
+    shadowColor: 'rgba(15, 23, 42, 0.08)',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 14,
+    elevation: 2,
   },
   section: {
-    gap: 16,
+    gap: 12,
   },
   sectionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: palette.slate600,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   segmentGroup: {
     flexDirection: 'row',
-    backgroundColor: palette.lightMuted,
-    borderRadius: 12,
-    padding: 4,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 16,
+    padding: 6,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   segmentButton: {
     flex: 1,
     height: 44,
-    borderRadius: 10,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
     backgroundColor: 'transparent',
-    marginHorizontal: 2,
   },
   segmentButtonActive: {
-    backgroundColor: palette.lightSurface,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    backgroundColor: '#ffffff',
+    shadowColor: 'rgba(15, 23, 42, 0.12)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   segmentButtonPressed: {
     opacity: 0.7,
@@ -495,219 +507,124 @@ const composerStyles = StyleSheet.create({
   segmentText: {
     fontSize: 15,
     fontWeight: '600',
-    color: palette.slate600,
+    color: '#6b7280',
   },
   segmentTextActive: {
-    color: palette.mint,
+    color: '#22b39b',
   },
-  prioritySummary: {
+  dropdownRow: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  dropdownColumn: {
+    flex: 1,
+    gap: 8,
+  },
+  dropdownTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
+    justifyContent: 'space-between',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: palette.lightBorder,
-    backgroundColor: palette.lightMuted,
-    paddingHorizontal: 16,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    gap: 12,
+    gap: 10,
   },
-  priorityIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+  dropdownTriggerPressed: {
+    opacity: 0.85,
+  },
+  dropdownIconWrap: {
+    width: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  priorityCopy: {
-    flex: 1,
+  dropdownEmoji: {
+    fontSize: 16,
   },
-  priorityLabel: {
+  dropdownValue: {
+    flex: 1,
     fontSize: 15,
+    color: '#0f172a',
     fontWeight: '600',
-    color: palette.slate900,
   },
-  priorityHint: {
-    fontSize: 13,
-    color: palette.slate600,
-    marginTop: 2,
-  },
-  selectorField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: palette.lightBorder,
-    backgroundColor: palette.lightMuted,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
-  },
-  selectorFieldPressed: {
-    opacity: 0.75,
-  },
-  selectorFieldDisabled: {
-    opacity: 0.6,
-  },
-  selectorIcon: {
-    marginRight: 4,
-  },
-  selectorPlaceholder: {
-    flex: 1,
-    fontSize: 15,
-    color: 'rgba(15, 23, 42, 0.45)',
-  },
-  selectorValue: {
-    flex: 1,
-    fontSize: 15,
-    color: palette.slate900,
-    fontWeight: '500',
-  },
-  selectorClear: {
-    padding: 4,
-    borderRadius: 12,
-  },
-  selectorClearPressed: {
-    opacity: 0.7,
+  footer: {
+    paddingTop: 8,
+    paddingBottom: 6,
   },
   submitButton: {
-    backgroundColor: palette.mint,
-    borderRadius: 14,
+    backgroundColor: '#2fb59a',
+    borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 32,
-    shadowColor: palette.mint,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowColor: 'rgba(47, 181, 154, 0.35)',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
+    elevation: 3,
   },
   submitButtonDisabled: {
-    backgroundColor: 'rgba(148, 163, 184, 0.3)',
+    backgroundColor: '#cfeee6',
     shadowOpacity: 0,
     elevation: 0,
   },
   submitButtonPressed: {
     transform: [{ scale: 0.98 }],
-    shadowOpacity: 0.2,
   },
   submitButtonText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '600',
-    color: palette.lightSurface,
-    letterSpacing: -0.2,
+    color: '#ffffff',
   },
-  sheetOverlay: {
+  dropdownOverlay: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: 'flex-end',
+    zIndex: 20,
   },
-  sheetBackdrop: {
+  dropdownBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 23, 42, 0.4)',
   },
-  sheetWrapper: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: palette.lightSurface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+  dropdownMenu: {
+    position: 'absolute',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: palette.lightBorder,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    maxHeight: SHEET_MAX_HEIGHT,
-    shadowColor: palette.lightShadow,
+    borderColor: '#e5e7eb',
+    paddingVertical: 6,
+    shadowColor: 'rgba(0,0,0,0.12)',
     shadowOpacity: 1,
-    shadowOffset: { width: 0, height: -8 },
-    shadowRadius: 24,
-    elevation: 24,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 8,
   },
-  sheetHandle: {
-    alignSelf: 'center',
-    width: 48,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: palette.lightBorder,
-    marginBottom: 16,
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginHorizontal: 6,
+    marginVertical: 4,
   },
-  sheetTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: palette.slate900,
-    textAlign: 'center',
+  dropdownItemActive: {
+    backgroundColor: '#e9f7f2',
   },
-  sheetSubtitle: {
-    marginTop: 6,
-    fontSize: 14,
-    color: palette.slate600,
-    textAlign: 'center',
-    marginBottom: 20,
+  dropdownItemPressed: {
+    opacity: 0.85,
   },
-  categorySearch: {
+  dropdownItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderWidth: 1,
-    borderColor: palette.lightBorder,
-    borderRadius: 16,
-    backgroundColor: palette.lightMuted,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 16,
   },
-  categoryInput: {
-    flex: 1,
+  dropdownItemLabel: {
     fontSize: 15,
-    color: palette.slate900,
-    paddingVertical: 0,
+    color: '#111827',
+    fontWeight: '500',
   },
-  categoryList: {
-    maxHeight: SHEET_MAX_HEIGHT - 160,
-  },
-  optionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: palette.lightBorder,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginBottom: 12,
-    backgroundColor: palette.lightSurface,
-  },
-  optionItemActive: {
-    borderColor: palette.mint,
-  },
-  optionItemPressed: {
-    opacity: 0.9,
-  },
-  optionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    marginRight: 12,
-  },
-  optionIconNeutral: {
-    borderColor: palette.lightBorder,
-    backgroundColor: palette.lightMuted,
-  },
-  optionCopy: {
-    flex: 1,
-    marginRight: 12,
-  },
-  optionLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: palette.slate900,
-  },
-  optionCaption: {
-    fontSize: 13,
-    color: palette.slate600,
-    marginTop: 2,
+  dropdownEmojiSmall: {
+    fontSize: 16,
   },
 });

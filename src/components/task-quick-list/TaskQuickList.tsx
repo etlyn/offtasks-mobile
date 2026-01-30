@@ -5,6 +5,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 
 import type { Task, TaskWithOverdueFlag } from '@/types/task';
 import { getToday } from '@/hooks/useDate';
+import { usePreferences } from '@/providers/PreferencesProvider';
 import { palette } from '@/theme/colors';
 
 import { styles } from './TaskQuickList.styles';
@@ -28,6 +29,7 @@ interface TaskQuickListProps {
 }
 
 export const TaskQuickList = ({ tasks, onToggle, onPress, onLongPress, onDelete, loading }: TaskQuickListProps) => {
+  const { advancedMode } = usePreferences();
   const orderedTasks = React.useMemo(() => {
     const next = [...tasks];
     next.sort((a, b) => Number(a.isComplete) - Number(b.isComplete));
@@ -61,6 +63,7 @@ export const TaskQuickList = ({ tasks, onToggle, onPress, onLongPress, onDelete,
           onPress={onPress}
           onLongPress={onLongPress}
           onDelete={onDelete}
+          showBadges={advancedMode}
         />
       ))}
     </View>
@@ -74,11 +77,21 @@ interface TaskQuickRowProps {
   onPress?: (task: TaskType) => void;
   onLongPress?: (task: TaskType) => void;
   onDelete?: (task: TaskType) => void;
+  showBadges: boolean;
 }
 
-const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress, onDelete }: TaskQuickRowProps) => {
+const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress, onDelete, showBadges }: TaskQuickRowProps) => {
   const [pending, setPending] = React.useState(false);
   const swipeableRef = React.useRef<Swipeable | null>(null);
+  const priorityLabel = ['None', 'Low', 'Medium', 'High'][task.priority ?? 0] ?? 'None';
+  const priorityPalette = [
+    { color: '#64748b', background: 'rgba(100, 116, 139, 0.18)' },
+    { color: '#0891b2', background: 'rgba(8, 145, 178, 0.18)' },
+    { color: '#6366f1', background: 'rgba(99, 102, 241, 0.18)' },
+    { color: '#f97316', background: 'rgba(249, 115, 22, 0.18)' },
+  ];
+  const priorityMeta = priorityPalette[task.priority ?? 0] ?? priorityPalette[0];
+  const categoryLabel = task.label?.trim() || 'None';
 
   // Check for overdue status - use flag if available, otherwise compute
   const today = getToday();
@@ -138,7 +151,7 @@ const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress, onDelete }
           onPress={handleDelete}
           style={({ pressed }) => [styles.deleteAction, pressed && styles.deleteActionPressed]}
         >
-          <Feather name="trash-2" size={20} color={palette.lightSurface} />
+          <Feather name="trash-2" size={20} color={palette.danger} />
         </Pressable>
       </View>
     ),
@@ -150,7 +163,7 @@ const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress, onDelete }
       ref={swipeableRef}
       renderRightActions={renderRightActions}
       friction={2}
-      rightThreshold={48}
+      rightThreshold={24}
       overshootRight={false}
     >
       <View
@@ -212,6 +225,16 @@ const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress, onDelete }
           >
             {task.content}
           </Text>
+          {showBadges ? (
+            <View style={styles.badgeRow}>
+              <View style={[styles.badge, { backgroundColor: priorityMeta.background }]}>
+                <Text style={[styles.badgeText, { color: priorityMeta.color }]}>Priority: {priorityLabel}</Text>
+              </View>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>Category: {categoryLabel}</Text>
+              </View>
+            </View>
+          ) : null}
         </Pressable>
       </View>
     </Swipeable>

@@ -53,38 +53,80 @@ export const createTask = async (params: {
   userId: string;
   date: string;
   priority?: number;
+  label?: string | null;
 }) => {
-  const { content, target_group, userId, date, priority = 0 } = params;
+  const { content, target_group, userId, date, priority = 0, label } = params;
 
-  const { error } = await supabaseClient.from('tasks').insert([
-    {
-      content,
-      target_group,
-      user_id: userId,
-      date,
-  priority,
-      isComplete: false,
-    },
-  ]);
+  const payload: Record<string, unknown> = {
+    content,
+    target_group,
+    user_id: userId,
+    date,
+    priority,
+    isComplete: false,
+  };
 
-  if (error) {
-    console.error('Error creating task', error);
-    throw error;
+  if (typeof label !== 'undefined') {
+    payload.label = label;
+  }
+  const insertTask = async (data: Record<string, unknown>) =>
+    supabaseClient.from('tasks').insert([data]);
+
+  let attempt = await insertTask(payload);
+
+  if (!attempt.error) {
+    return;
+  }
+
+  const message = attempt.error.message?.toLowerCase() ?? '';
+  if (message.includes('label') && Object.prototype.hasOwnProperty.call(payload, 'label')) {
+    const { label: _label, ...retryPayload } = payload;
+    attempt = await insertTask(retryPayload);
+  }
+
+  if (attempt.error) {
+    console.error('Error creating task', attempt.error);
+    throw attempt.error;
   }
 };
 
 export const updateTask = async (
   taskId: string,
-  updates: Partial<Pick<Task, 'content' | 'isComplete' | 'priority' | 'target_group' | 'date' | 'completed_at'>>
+  updates: Partial<Pick<Task, 'content' | 'isComplete' | 'priority' | 'target_group' | 'date' | 'completed_at' | 'label'>>
 ) => {
-  const { error } = await supabaseClient
-    .from('tasks')
-    .update(updates)
-    .eq('id', taskId);
+  const sanitizedUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([, value]) => typeof value !== 'undefined')
+  );
 
-  if (error) {
-    console.error('Error updating task', error);
-    throw error;
+  const attemptUpdate = async (payload: Record<string, unknown>) =>
+    supabaseClient.from('tasks').update(payload).eq('id', taskId);
+
+  const payload = { ...sanitizedUpdates } as Record<string, unknown>;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { error } = await attemptUpdate(payload);
+
+    if (!error) {
+      return;
+    }
+
+    const message = error.message?.toLowerCase() ?? '';
+    let updated = false;
+
+    if (message.includes('completed_at') && Object.prototype.hasOwnProperty.call(payload, 'completed_at')) {
+      delete payload.completed_at;
+      updated = true;
+    }
+
+    if (message.includes('label') && Object.prototype.hasOwnProperty.call(payload, 'label')) {
+      delete payload.label;
+      updated = true;
+    }
+
+    if (!updated) {
+      console.error('Error updating task', error);
+      throw error;
+    }
   }
 };
 

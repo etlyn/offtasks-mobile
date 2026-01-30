@@ -1,105 +1,96 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StatusBar,
-  Text,
-  View,
-  Pressable,
-} from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StatusBar, Text, View } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { DrawerActions, NavigationProp, ParamListBase, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { updateTask } from '@/lib/supabase';
+import { getAdjacentDay, getToday } from '@/hooks/useDate';
+import { TaskQuickList } from '@/components/TaskQuickList';
 import { useTasks } from '@/providers/TasksProvider';
 import type { Task } from '@/types/task';
 import { palette } from '@/theme/colors';
 
 import { styles } from './Completed.styles';
-import type { CategoryStyles } from './Completed.types';
+import type { DashboardGroup, GroupSegment, PriorityOption } from '@/features/dashboard/Dashboard.types';
+import { TaskComposerModal } from '@/features/dashboard/components/TaskComposerModal';
 
-const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const groupSegments: GroupSegment[] = [
+  { key: 'today', label: 'Today' },
+  { key: 'tomorrow', label: 'Tomorrow' },
+  { key: 'upcoming', label: 'Later' },
+];
 
-const categoryStyles: CategoryStyles = {
-  Health: {
-    label: 'Health',
-    text: '#ec003f',
-    background: 'rgba(255, 32, 86, 0.1)',
-    border: 'rgba(255, 32, 86, 0.3)',
+const priorityOptions: PriorityOption[] = [
+  {
+    value: 0,
+    label: 'None',
+    description: 'Keep this task unprioritised.',
+    icon: 'minus-circle',
+    tint: '#64748b',
+    background: 'rgba(100, 116, 139, 0.12)',
   },
-  Shopping: {
-    label: 'Shopping',
-    text: '#f54900',
-    background: 'rgba(255, 105, 0, 0.1)',
-    border: 'rgba(255, 105, 0, 0.3)',
+  {
+    value: 1,
+    label: 'Low',
+    description: 'Good to do when you have the time.',
+    icon: 'arrow-down-left',
+    tint: '#0891b2',
+    background: 'rgba(8, 145, 178, 0.12)',
   },
-  Work: {
-    label: 'Work',
-    text: '#155dfc',
-    background: 'rgba(43, 127, 255, 0.1)',
-    border: 'rgba(43, 127, 255, 0.3)',
+  {
+    value: 2,
+    label: 'Medium',
+    description: 'Important but not urgent.',
+    icon: 'minus',
+    tint: '#6366f1',
+    background: 'rgba(99, 102, 241, 0.12)',
   },
-  Personal: {
-    label: 'Personal',
-    text: '#9810fa',
-    background: 'rgba(173, 70, 255, 0.1)',
-    border: 'rgba(173, 70, 255, 0.3)',
+  {
+    value: 3,
+    label: 'High',
+    description: 'Handle this before everything else.',
+    icon: 'alert-triangle',
+    tint: '#f97316',
+    background: 'rgba(249, 115, 22, 0.12)',
   },
-  Finance: {
-    label: 'Finance',
-    text: '#d08700',
-    background: 'rgba(240, 177, 0, 0.1)',
-    border: 'rgba(240, 177, 0, 0.3)',
-  },
-  General: {
-    label: 'General',
-    text: palette.slate600,
-    background: 'rgba(148, 163, 184, 0.12)',
-    border: 'rgba(148, 163, 184, 0.25)',
-  },
-};
+];
 
-const detectCategory = (task: Task) => {
-  const content = task.content.toLowerCase();
+const presetCategories = ['Work', 'Personal', 'Home', 'Shopping', 'Health', 'Finance'];
 
-  if (/(dentist|health|doctor|medical|appointment)/.test(content)) {
-    return 'Health';
-  }
-  if (/(shop|grocery|purchase|order|store)/.test(content)) {
-    return 'Shopping';
-  }
-  if (/(gift|birthday|family|mom|personal)/.test(content)) {
-    return 'Personal';
-  }
-  if (/(budget|finance|bill|insurance|tax)/.test(content)) {
-    return 'Finance';
-  }
-  if (/(project|review|meeting|team|update|deploy|report|prepare|contract|build|hire)/.test(content)) {
-    return 'Work';
-  }
-  return 'General';
-};
+const normalizeCategory = (value: string) =>
+  value
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/(^|\s)\w/g, (match) => match.toUpperCase());
 
-const formatTaskDate = (value: string) => {
-  const [year, month, day] = value.split('-');
-  const monthIndex = Number(month) - 1;
-  const dayNumber = Number(day);
-
-  if (!year || Number.isNaN(monthIndex) || Number.isNaN(dayNumber) || monthIndex < 0 || monthIndex > 11) {
-    return value;
+const dateForGroup = (group: DashboardGroup) => {
+  switch (group) {
+    case 'today':
+      return getToday();
+    case 'tomorrow':
+      return getAdjacentDay(1);
+    case 'upcoming':
+      return getAdjacentDay(3);
+    default:
+      return getToday();
   }
-
-  return `${dayNumber} ${monthLabels[monthIndex]}, ${year}`;
 };
 
 export const CompletedScreen = () => {
   const { tasks, totals, loading, refresh } = useTasks();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
-
-  const [pendingId, setPendingId] = React.useState<string | null>(null);
+  const [composerVisible, setComposerVisible] = React.useState(false);
+  const [composerMode, setComposerMode] = React.useState<'create' | 'edit'>('create');
+  const [editingTask, setEditingTask] = React.useState<Task | null>(null);
+  const [newTaskContent, setNewTaskContent] = React.useState('');
+  const [composerGroup, setComposerGroup] = React.useState<DashboardGroup>('today');
+  const [selectedPriority, setSelectedPriority] = React.useState(0);
+  const [categoryQuery, setCategoryQuery] = React.useState('');
+  const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [customCategories, setCustomCategories] = React.useState<string[]>([]);
 
   const allTasks = React.useMemo(() => Object.values(tasks).flat(), [tasks]);
   const completedTasks = React.useMemo(
@@ -113,6 +104,28 @@ export const CompletedScreen = () => {
         }),
     [allTasks]
   );
+
+  const categories = React.useMemo(
+    () => Array.from(new Set([...presetCategories, ...customCategories])).sort(),
+    [customCategories]
+  );
+
+  const trimmedCategoryQuery = categoryQuery.trim();
+  const normalizedCategoryQuery = trimmedCategoryQuery.toLowerCase();
+
+  const filteredCategories = React.useMemo(() => {
+    if (!normalizedCategoryQuery) {
+      return categories;
+    }
+
+    return categories.filter((category) =>
+      category.toLowerCase().includes(normalizedCategoryQuery)
+    );
+  }, [categories, normalizedCategoryQuery]);
+
+  const canCreateCategory =
+    trimmedCategoryQuery.length > 0 &&
+    !categories.some((category) => category.toLowerCase() === normalizedCategoryQuery);
 
   const handleRefresh = React.useCallback(() => {
     refresh();
@@ -132,19 +145,100 @@ export const CompletedScreen = () => {
 
   const handleRestore = React.useCallback(
     async (task: Task) => {
-      if (pendingId) {
+      await updateTask(task.id, { isComplete: false, completed_at: null });
+      await refresh();
+    },
+    [refresh]
+  );
+
+  const handleEditTask = React.useCallback((task: Task) => {
+    const groupOverride = groupSegments.some((segment) => segment.key === task.target_group)
+      ? (task.target_group as DashboardGroup)
+      : 'today';
+
+    setComposerMode('edit');
+    setEditingTask(task);
+    setNewTaskContent(task.content);
+    setComposerGroup(groupOverride);
+    setSelectedPriority(task.priority ?? 0);
+    setCategoryQuery('');
+    setSelectedCategory(task.label ?? null);
+    setComposerVisible(true);
+  }, []);
+
+  const handleCloseComposer = React.useCallback(() => {
+    setComposerVisible(false);
+    setNewTaskContent('');
+    setSelectedPriority(0);
+    setComposerGroup('today');
+    setCategoryQuery('');
+    setSelectedCategory(null);
+    setComposerMode('create');
+    setEditingTask(null);
+  }, []);
+
+  const handleSubmitTask = React.useCallback(async () => {
+    if (!editingTask || submitting) {
+      return;
+    }
+
+    const trimmed = newTaskContent.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await updateTask(editingTask.id, {
+        content: trimmed,
+        target_group: composerGroup,
+        priority: selectedPriority,
+        date: dateForGroup(composerGroup),
+        label: selectedCategory ?? null,
+      });
+      handleCloseComposer();
+      await refresh();
+    } finally {
+      setSubmitting(false);
+    }
+  }, [composerGroup, editingTask, handleCloseComposer, newTaskContent, refresh, selectedCategory, selectedPriority, submitting]);
+
+  const handleSelectPriority = React.useCallback((value: number) => {
+    setSelectedPriority(value);
+  }, []);
+
+  const handleCategorySubmit = React.useCallback(
+    (category: string) => {
+      const normalised = normalizeCategory(category);
+      if (!normalised) {
         return;
       }
-      setPendingId(task.id);
-      try {
-        await updateTask(task.id, { isComplete: false, completed_at: null });
-        await refresh();
-      } finally {
-        setPendingId(null);
+
+      if (!categories.includes(normalised)) {
+        setCustomCategories((prev) => (prev.includes(normalised) ? prev : [...prev, normalised]));
       }
+
+      setSelectedCategory(normalised);
+      setCategoryQuery('');
     },
-    [pendingId, refresh]
+    [categories]
   );
+
+  const handleCreateCategory = React.useCallback(() => {
+    handleCategorySubmit(categoryQuery);
+  }, [categoryQuery, handleCategorySubmit]);
+
+  const handleSelectCategory = React.useCallback(
+    (category: string) => {
+      handleCategorySubmit(category);
+    },
+    [handleCategorySubmit]
+  );
+
+  const handleClearCategory = React.useCallback(() => {
+    setSelectedCategory(null);
+    setCategoryQuery('');
+  }, []);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}> 
@@ -179,62 +273,38 @@ export const CompletedScreen = () => {
 
         <Text style={styles.subtitle}>{totals.completed} tasks completed</Text>
 
-        <View style={styles.list}>
-          {completedTasks.length === 0 ? (
-            <View style={styles.emptyStateCard}>
-              <Text style={styles.emptyStateLabel}>
-                Nothing wrapped up yet. Once you check something off, it will land here.
-              </Text>
-            </View>
-          ) : (
-            completedTasks.map((task) => {
-              const category = detectCategory(task);
-              const swatch = categoryStyles[category];
-              const isPending = pendingId === task.id;
-
-              return (
-                <Pressable
-                  key={task.id}
-                  style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-                  onPress={() => handleRestore(task)}
-                  disabled={isPending}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Restore ${task.content}`}
-                >
-                  <View style={styles.cardHeader}>
-                    <View style={styles.checkmark}> 
-                      {isPending ? (
-                        <ActivityIndicator size="small" color={palette.mint} />
-                      ) : (
-                        <Feather name="check" size={16} color={palette.mint} />
-                      )}
-                    </View>
-                    <Text style={styles.cardTitle} numberOfLines={2}>
-                      {task.content}
-                    </Text>
-                    <Feather name="corner-up-left" size={18} color={palette.slate600} />
-                  </View>
-
-                  <View style={styles.cardMeta}>
-                    <View
-                      style={[
-                        styles.tag,
-                        {
-                          backgroundColor: swatch.background,
-                          borderColor: swatch.border,
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.tagLabel, { color: swatch.text }]}>{swatch.label}</Text>
-                    </View>
-                      <Text style={styles.cardDate}>{formatTaskDate(task.completed_at ?? task.date)}</Text>
-                  </View>
-                </Pressable>
-              );
-            })
-          )}
-        </View>
+        <TaskQuickList
+          tasks={completedTasks}
+          onToggle={handleRestore}
+          onPress={handleEditTask}
+          loading={loading && completedTasks.length === 0}
+        />
       </ScrollView>
+
+      <TaskComposerModal
+        visible={composerVisible}
+        onClose={handleCloseComposer}
+        insetBottom={insets.bottom}
+        newTaskContent={newTaskContent}
+        onChangeTaskContent={setNewTaskContent}
+        composerGroup={composerGroup}
+        onChangeGroup={setComposerGroup}
+        groupSegments={groupSegments}
+        priorityOptions={priorityOptions}
+        onSelectPriority={handleSelectPriority}
+        selectedPriority={selectedPriority}
+        selectedCategory={selectedCategory}
+        onClearCategory={handleClearCategory}
+        submitting={submitting}
+        onSubmit={handleSubmitTask}
+        categoryQuery={categoryQuery}
+        onCategoryQueryChange={setCategoryQuery}
+        filteredCategories={filteredCategories}
+        canCreateCategory={canCreateCategory}
+        onCreateCategory={handleCreateCategory}
+        onSelectCategory={handleSelectCategory}
+        mode={composerMode}
+      />
     </View>
   );
 };

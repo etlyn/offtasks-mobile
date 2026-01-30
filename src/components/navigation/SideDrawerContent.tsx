@@ -1,33 +1,56 @@
 import React from 'react';
 import {
   Alert,
+  Image,
   Pressable,
   Switch,
   Text,
   View,
 } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
 import {
   DrawerContentScrollView,
   DrawerContentComponentProps,
 } from '@react-navigation/drawer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { LogoWordmark } from '@/components/branding/LogoWordmark';
 import { supabaseClient } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
+import { usePreferences } from '@/providers/PreferencesProvider';
+import { useTasks } from '@/providers/TasksProvider';
 import { palette } from '@/theme/colors';
 
 import { styles } from './SideDrawerContent.styles';
 
+const FigmaImage = Image as unknown as React.ComponentType<{
+  source: { uri: string };
+  style?: unknown;
+  resizeMode?: 'cover' | 'contain' | 'stretch' | 'repeat' | 'center';
+}>;
+
+const iconUser = 'https://www.figma.com/api/mcp/asset/6acafae1-b82a-4ccc-b8c9-2922cd3e106e';
+const iconSearch = 'https://www.figma.com/api/mcp/asset/488f936a-6eb2-43e9-b7f0-7817687a3e37';
+const iconChevron = 'https://www.figma.com/api/mcp/asset/8975657f-175d-4c3c-ae83-a17071b8672a';
+const iconAnalytics = 'https://www.figma.com/api/mcp/asset/09acd571-fa14-4cdc-92dc-e6b654fe6795';
+const iconCompleted = 'https://www.figma.com/api/mcp/asset/fa8ebcbc-9701-4f93-bdea-50effa2955a3';
+const iconTheme = 'https://www.figma.com/api/mcp/asset/b7a04e63-08bf-4448-837a-c94891de6ac2';
+const iconHide = 'https://www.figma.com/api/mcp/asset/9cd4ea63-0b17-4558-b8da-daa1a9caf467';
+const iconAdvanced = 'https://www.figma.com/api/mcp/asset/118a8e27-055a-4257-93e0-7324eb4a66c3';
+const iconLogout = 'https://www.figma.com/api/mcp/asset/cca75eab-aed1-4f42-b25b-5db466eeae4d';
+const iconClose = 'https://www.figma.com/api/mcp/asset/8be6f61d-52f6-41e3-aa4b-93dd5ea37a59';
+
 export const SideDrawerContent = (props: DrawerContentComponentProps) => {
   const { navigation } = props;
   const { session } = useAuth();
+  const { totals } = useTasks();
+  const {
+    hideCompleted,
+    advancedMode,
+    themeMode,
+    setHideCompleted,
+    setAdvancedMode,
+    toggleTheme,
+  } = usePreferences();
   const insets = useSafeAreaInsets();
-
-  const [hideCompleted, setHideCompleted] = React.useState(false);
-  const [advancedMode, setAdvancedMode] = React.useState(false);
-  const [themeMode, setThemeMode] = React.useState<'Light' | 'Dark'>('Light');
 
   const handleNavigate = React.useCallback(
     (routeName: string) => {
@@ -37,14 +60,6 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
     [navigation]
   );
 
-  const handleComingSoon = React.useCallback((feature: string) => {
-    Alert.alert(feature, 'This area is being crafted next. Stay tuned!');
-  }, []);
-
-  const handleToggleTheme = React.useCallback(() => {
-    setThemeMode((prev) => (prev === 'Light' ? 'Dark' : 'Light'));
-    handleComingSoon('Theme switching');
-  }, [handleComingSoon]);
 
   const handleSignOut = React.useCallback(async () => {
     try {
@@ -61,6 +76,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
 
   const email = session?.user?.email ?? 'Offline';
   const userLabel = email.split('@')[0] || 'User';
+  const completionLabel = totals.all > 0 ? `${totals.completed}/${totals.all} completed` : 'No tasks yet';
 
   return (
     <DrawerContentScrollView
@@ -74,114 +90,97 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
       ]}
     >
       <View style={styles.header}>
-        <LogoWordmark width={156} height={40} />
-        <Text style={styles.helper}>Menu</Text>
-        <Text style={styles.subtitle}>Access profile, search, filters, and settings</Text>
-      </View>
-
-      <View style={styles.profileCard}>
         <View style={styles.profileRow}>
+          <View style={styles.avatar}>
+            <FigmaImage source={{ uri: iconUser }} style={styles.avatarIcon} resizeMode="contain" />
+          </View>
           <View style={styles.profileMeta}>
             <Text style={styles.profileName}>{userLabel}</Text>
+            <Text style={styles.profileStats}>{completionLabel}</Text>
           </View>
         </View>
-        <Text style={styles.profileEmail}>{email}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close menu"
+          onPress={() => navigation.closeDrawer()}
+          style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
+        >
+          <FigmaImage source={{ uri: iconClose }} style={styles.closeIcon} resizeMode="contain" />
+        </Pressable>
       </View>
 
-      <View style={styles.section}>
+      <View style={styles.menuCard}>
         <Pressable
-          style={({ pressed }) => [styles.primaryRow, pressed && styles.primaryRowPressed]}
-          onPress={() => handleComingSoon('Search & Filter')}
+          style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
+          onPress={() => handleNavigate('Search')}
         >
-          <View style={styles.primaryIcon}>
-            <Feather name="search" size={18} color={palette.mint} />
+          <View style={[styles.menuIcon, styles.searchIcon]}>
+            <FigmaImage source={{ uri: iconSearch }} style={styles.menuIconImage} resizeMode="contain" />
           </View>
-          <View style={styles.primaryCopy}>
-            <Text style={styles.primaryLabel}>Search &amp; Filter</Text>
-            <Text style={styles.primaryCaption}>Slice tasks with keywords and chips</Text>
-          </View>
-          <Feather name="chevron-right" size={18} color={palette.slate600} />
+          <Text style={styles.menuLabel}>Search</Text>
+          <FigmaImage source={{ uri: iconChevron }} style={styles.trailingIcon} resizeMode="contain" />
         </Pressable>
 
         <Pressable
-          style={({ pressed }) => [styles.primaryRow, pressed && styles.primaryRowPressed]}
-          onPress={() => handleComingSoon('Analytics')}
+          style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
+          onPress={() => handleNavigate('Analytics')}
         >
-          <View style={styles.primaryIcon}>
-            <Feather name="pie-chart" size={18} color={palette.mint} />
+          <View style={[styles.menuIcon, styles.analyticsIcon]}>
+            <FigmaImage source={{ uri: iconAnalytics }} style={styles.menuIconImage} resizeMode="contain" />
           </View>
-          <View style={styles.primaryCopy}>
-            <Text style={styles.primaryLabel}>Analytics</Text>
-            <Text style={styles.primaryCaption}>See trends across focus areas</Text>
-          </View>
-          <Feather name="chevron-right" size={18} color={palette.slate600} />
+          <Text style={styles.menuLabel}>Analytics</Text>
+          <FigmaImage source={{ uri: iconChevron }} style={styles.trailingIcon} resizeMode="contain" />
         </Pressable>
 
         <Pressable
-          style={({ pressed }) => [styles.primaryRow, pressed && styles.primaryRowPressed]}
+          style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
           onPress={() => handleNavigate('Completed')}
         >
-          <View style={styles.primaryIcon}>
-            <Feather name="check-circle" size={18} color={palette.mint} />
+          <View style={[styles.menuIcon, styles.completedIcon]}>
+            <FigmaImage source={{ uri: iconCompleted }} style={styles.menuIconImage} resizeMode="contain" />
           </View>
-          <View style={styles.primaryCopy}>
-            <Text style={styles.primaryLabel}>Completed Tasks</Text>
-            <Text style={styles.primaryCaption}>Review what you shipped recently</Text>
-          </View>
-          <Feather name="chevron-right" size={18} color={palette.slate600} />
+          <Text style={styles.menuLabel}>Completed Tasks</Text>
+          <FigmaImage source={{ uri: iconChevron }} style={styles.trailingIcon} resizeMode="contain" />
         </Pressable>
-      </View>
 
-      <View style={styles.section}>
         <Pressable
-          style={({ pressed }) => [styles.primaryRow, pressed && styles.primaryRowPressed]}
-          onPress={handleToggleTheme}
+          style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
+          onPress={toggleTheme}
         >
-          <View style={styles.primaryIcon}>
-            <Feather name={themeMode === 'Light' ? 'sun' : 'moon'} size={18} color={palette.mint} />
+          <View style={[styles.menuIcon, styles.themeIcon]}>
+            <FigmaImage source={{ uri: iconTheme }} style={styles.menuIconImage} resizeMode="contain" />
           </View>
-          <View style={styles.primaryCopy}>
-            <Text style={styles.primaryLabel}>Theme</Text>
-            <Text style={styles.primaryCaption}>Switch between light and dark</Text>
-          </View>
-          <Text style={styles.themeValue}>{themeMode}</Text>
+          <Text style={styles.menuLabel}>Theme</Text>
+          <Text style={styles.menuValue}>{themeMode}</Text>
         </Pressable>
 
-        <View style={styles.toggleRow}>
-          <View style={styles.primaryIcon}>
-            <Feather name="eye-off" size={18} color={palette.mint} />
+        <View style={styles.menuRow}>
+          <View style={[styles.menuIcon, styles.hideIcon]}>
+            <FigmaImage source={{ uri: iconHide }} style={styles.menuIconImage} resizeMode="contain" />
           </View>
-          <View style={styles.primaryCopy}>
-            <Text style={styles.primaryLabel}>Hide Completed Tasks</Text>
-            <Text style={styles.primaryCaption}>Only show what still needs energy</Text>
-          </View>
+          <Text style={styles.menuLabel}>Hide Completed Tasks</Text>
           <Switch
             value={hideCompleted}
             onValueChange={(value: boolean) => {
               setHideCompleted(value);
-              handleComingSoon('Hide completed tasks');
             }}
-            thumbColor={hideCompleted ? palette.mint : '#f1f5f9'}
-            trackColor={{ false: '#cbd5f5', true: palette.mintMuted }}
+            thumbColor={hideCompleted ? palette.lightSurface : palette.lightSurface}
+            trackColor={{ false: '#d4d4d8', true: '#99f6e4' }}
           />
         </View>
 
-        <View style={styles.toggleRow}>
-          <View style={styles.primaryIcon}>
-            <Feather name="cpu" size={18} color={palette.mint} />
+        <View style={[styles.menuRow, styles.menuRowLast]}>
+          <View style={[styles.menuIcon, styles.advancedIcon]}>
+            <FigmaImage source={{ uri: iconAdvanced }} style={styles.menuIconImage} resizeMode="contain" />
           </View>
-          <View style={styles.primaryCopy}>
-            <Text style={styles.primaryLabel}>Advanced Mode</Text>
-            <Text style={styles.primaryCaption}>Unlock power workflows</Text>
-          </View>
+          <Text style={styles.menuLabel}>Advanced Mode</Text>
           <Switch
             value={advancedMode}
             onValueChange={(value: boolean) => {
               setAdvancedMode(value);
-              handleComingSoon('Advanced mode');
             }}
-            thumbColor={advancedMode ? palette.mint : '#f1f5f9'}
-            trackColor={{ false: '#cbd5f5', true: palette.mintMuted }}
+            thumbColor={advancedMode ? palette.lightSurface : palette.lightSurface}
+            trackColor={{ false: '#d4d4d8', true: '#99f6e4' }}
           />
         </View>
       </View>
@@ -191,7 +190,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
           style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutButtonPressed]}
           onPress={handleSignOut}
         >
-          <Feather name="log-out" size={18} color={palette.lightSurface} />
+          <FigmaImage source={{ uri: iconLogout }} style={styles.logoutIcon} resizeMode="contain" />
           <Text style={styles.logoutLabel}>Log Out</Text>
         </Pressable>
         <Text style={styles.versionLabel}>offtasks mobile v1.0.0</Text>

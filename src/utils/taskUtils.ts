@@ -36,7 +36,10 @@ export const shouldShowInToday = (task: Task): boolean => {
   const today = getToday();
   
   if (task.isComplete) {
-    return task.completed_at === today;
+    if (task.completed_at) {
+      return task.completed_at === today;
+    }
+    return task.date === today;
   }
 
   return task.date <= today;
@@ -95,7 +98,10 @@ export const categorizeTasks = (allTasks: Task[]): CategorizedTasks => {
   for (const task of allTasks) {
     // Rule 1: Completed tasks show in Today only if completed today, otherwise go to Close.
     if (task.isComplete) {
-      if (task.completed_at === today) {
+      const completedToday = task.completed_at
+        ? task.completed_at === today
+        : task.date === today;
+      if (completedToday) {
         result.today.push(task);
       } else {
         result.close.push(task);
@@ -103,8 +109,10 @@ export const categorizeTasks = (allTasks: Task[]): CategorizedTasks => {
       continue;
     }
 
-    // Rule 2: Incomplete tasks due today or earlier always show in Today.
-    if (task.date <= today) {
+    // Rule 2: Incomplete tasks due today or earlier show in Today only when
+    // they are still explicitly in the Today group. This preserves tasks that
+    // were moved to Tomorrow/Upcoming so they stay in that bucket.
+    if (task.date <= today && task.target_group === 'today') {
       result.today.push(task);
       continue;
     }

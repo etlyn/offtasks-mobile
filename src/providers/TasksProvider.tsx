@@ -1,8 +1,9 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { fetchAllUserTasks } from '@/lib/supabase';
 import type { Task, TaskGroup, TaskWithOverdueFlag } from '@/types/task';
 import { categorizeTasks, addOverdueFlag } from '@/utils/taskUtils';
+import { getToday } from '@/hooks/useDate';
 
 import { useAuth } from './AuthProvider';
 
@@ -43,6 +44,7 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
   const { session } = useAuth();
   const [tasks, setTasks] = useState<TasksByGroup>(emptyState);
   const [loading, setLoading] = useState(false);
+  const lastDayRef = useRef(getToday());
 
   const refresh = useCallback(async () => {
     if (!session?.user?.id) {
@@ -78,6 +80,18 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentDay = getToday();
+      if (currentDay !== lastDayRef.current) {
+        lastDayRef.current = currentDay;
+        refresh();
+      }
+    }, 60 * 1000);
+
+    return () => clearInterval(interval);
   }, [refresh]);
 
   const totals = useMemo(() => {

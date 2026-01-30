@@ -93,13 +93,13 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
       <View style={styles.section}>
         <Pressable
           style={({ pressed }) => [styles.primaryRow, pressed && styles.primaryRowPressed]}
-          onPress={() => handleComingSoon('Search & Filter')}
+          onPress={() => handleComingSoon('Search')}
         >
           <View style={styles.primaryIcon}>
             <Feather name="search" size={18} color={palette.mint} />
           </View>
           <View style={styles.primaryCopy}>
-            <Text style={styles.primaryLabel}>Search &amp; Filter</Text>
+            <Text style={styles.primaryLabel}>Search</Text>
             <Text style={styles.primaryCaption}>Slice tasks with keywords and chips</Text>
           </View>
           <Feather name="chevron-right" size={18} color={palette.slate600} />

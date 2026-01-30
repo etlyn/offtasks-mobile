@@ -44,11 +44,11 @@ export const UpcomingScreen = () => {
       />
 
       <TaskSection
-        title="Upcoming"
+        title="Later"
         group="upcoming"
         tasks={tasks.upcoming}
         highlight="#a855f7"
-        emptyMessage="Your upcoming list is squeaky clean."
+        emptyMessage="Your later list is squeaky clean."
       />
     </ScrollView>
   );

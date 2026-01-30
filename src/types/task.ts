@@ -8,6 +8,7 @@ export interface Task {
   priority: number;
   target_group: TaskGroup;
   date: string;
+  label?: string | null;
   completed_at?: string | null;
   inserted_at?: string;
 }

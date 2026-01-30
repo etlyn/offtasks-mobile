@@ -8,6 +8,8 @@ import { TabNav } from '@/navigation/TabNav';
 import { NavBar } from '@/navigation/NavBar';
 import { palette } from '@/theme/colors';
 import { DashboardScreen } from '@/features/dashboard/Dashboard.screen';
+import { SearchScreen } from '@/features/search/Search.screen';
+import { AnalyticsScreen } from '@/features/analytics/Analytics.screen';
 import { SettingsScreen } from '@/features/settings/Settings.screen';
 import { CompletedScreen } from '@/features/completed/Completed.screen';
 
@@ -68,6 +70,20 @@ export const AppNavigator = () => (
       component={HomeTabs}
       options={{
         drawerIcon: ({ color }) => <Feather name="home" size={iconSize} color={color} />,
+      }}
+    />
+    <Drawer.Screen
+      name="Search"
+      component={SearchScreen}
+      options={{
+        drawerIcon: ({ color }) => <Feather name="search" size={iconSize} color={color} />,
+      }}
+    />
+    <Drawer.Screen
+      name="Analytics"
+      component={AnalyticsScreen}
+      options={{
+        drawerIcon: ({ color }) => <Feather name="bar-chart-2" size={iconSize} color={color} />,
       }}
     />
     <Drawer.Screen

@@ -7,7 +7,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { enableScreens } from 'react-native-screens';
 
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
+import { PreferencesProvider } from '@/providers/PreferencesProvider';
 import { TasksProvider } from '@/providers/TasksProvider';
+import { SplashScreen } from '@/components/SplashScreen';
 import { palette } from '@/theme/colors';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { AppNavigator } from '@/navigation/AppNavigator';
@@ -43,6 +45,11 @@ const LoadingScreen = () => (
 
 const RootNavigator = () => {
   const { session, loading } = useAuth();
+  const [showSplash, setShowSplash] = React.useState(true);
+
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
 
   if (loading) {
     return <LoadingScreen />;
@@ -52,9 +59,11 @@ const RootNavigator = () => {
     <NavigationContainer theme={navigationTheme}>
       <StatusBar barStyle="light-content" />
       {session ? (
-        <TasksProvider>
-          <AppNavigator />
-        </TasksProvider>
+        <PreferencesProvider>
+          <TasksProvider>
+            <AppNavigator />
+          </TasksProvider>
+        </PreferencesProvider>
       ) : (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Auth" component={LoginScreen} />

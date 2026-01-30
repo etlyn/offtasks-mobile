@@ -4,6 +4,7 @@ import Feather from 'react-native-vector-icons/Feather';
 
 import { deleteTask, updateTask } from '@/lib/supabase';
 import { getToday } from '@/hooks/useDate';
+import { usePreferences } from '@/providers/PreferencesProvider';
 import { useTasks } from '@/providers/TasksProvider';
 import type { Task, TaskWithOverdueFlag } from '@/types/task';
 import { palette } from '@/theme/colors';
@@ -21,7 +22,17 @@ const hasOverdueFlag = (task: Task | TaskWithOverdueFlag): task is TaskWithOverd
 
 export const TaskItem = ({ task }: TaskItemProps) => {
   const { refresh } = useTasks();
+  const { advancedMode } = usePreferences();
   const [submitting, setSubmitting] = useState(false);
+  const priorityLabel = ['None', 'Low', 'Medium', 'High'][task.priority ?? 0] ?? 'None';
+  const priorityPalette = [
+    { color: '#64748b', background: 'rgba(100, 116, 139, 0.18)' },
+    { color: '#0891b2', background: 'rgba(8, 145, 178, 0.18)' },
+    { color: '#6366f1', background: 'rgba(99, 102, 241, 0.18)' },
+    { color: '#f97316', background: 'rgba(249, 115, 22, 0.18)' },
+  ];
+  const priorityMeta = priorityPalette[task.priority ?? 0] ?? priorityPalette[0];
+  const categoryLabel = task.label?.trim() || 'None';
 
   // Use the isOverdue flag if available, otherwise compute it
   // A task is overdue if it's not complete, date is before today, and still in Today
@@ -80,7 +91,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
   };
 
   return (
-  <View style={[styles.container, isOverdue && styles.containerPriority, submitting && styles.disabled]}>
+    <View style={[styles.container, isOverdue && styles.containerPriority, submitting && styles.disabled]}>
       <Pressable
         style={({ pressed }) => [
           styles.check,
@@ -112,6 +123,19 @@ export const TaskItem = ({ task }: TaskItemProps) => {
           {task.content}
         </Text>
         <Text style={[styles.meta, task.isComplete && styles.metaDone]}>Due {task.date}</Text>
+        {advancedMode ? (
+          <View style={styles.badgeRow}>
+            <View style={[styles.badge, { backgroundColor: priorityMeta.background }]}
+            >
+              <Text style={[styles.badgeText, { color: priorityMeta.color }]}>
+                {`Priority: ${priorityLabel}`}
+              </Text>
+            </View>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{`Category: ${categoryLabel}`}</Text>
+            </View>
+          </View>
+        ) : null}
       </View>
 
       <Pressable style={styles.delete} onPress={handleDelete} disabled={submitting}>
@@ -129,16 +153,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 18,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: 'rgba(9, 9, 11, 0.35)',
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
   },
   disabled: {
     opacity: 0.6,
   },
   containerPriority: {
-    backgroundColor: 'rgba(255, 100, 103, 0.08)',
-    borderColor: 'rgba(255, 100, 103, 0.25)',
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
   },
   check: {
     width: 24,
@@ -192,6 +216,23 @@ const styles = StyleSheet.create({
   },
   metaDone: {
     color: '#9f9fa9',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(244, 244, 245, 0.8)',
   },
   delete: {
     width: 28,

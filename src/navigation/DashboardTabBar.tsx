@@ -10,7 +10,7 @@ import { palette } from '@/theme/colors';
 const labels: Record<string, string> = {
   Today: 'Today',
   Tomorrow: 'Tomorrow',
-  Upcoming: 'Upcoming',
+  Upcoming: 'Later',
 };
 
 const TabIcon = ({ route, focused }: { route: string; focused: boolean }) => {

@@ -7,6 +7,7 @@ import { TaskQuickList } from '@/components/task-quick-list';
 import { createTask, deleteTask, updateTask } from '@/lib/supabase';
 import { getAdjacentDay, getToday } from '@/hooks/useDate';
 import { useAuth } from '@/providers/AuthProvider';
+import { usePreferences } from '@/providers/PreferencesProvider';
 import { useTasks } from '@/providers/TasksProvider';
 import type { Task, TaskWithOverdueFlag } from '@/types/task';
 import { palette } from '@/theme/colors';
@@ -23,7 +24,7 @@ import { TaskComposerModal } from './components/TaskComposerModal';
 const groupSegments: GroupSegment[] = [
   { key: 'today', label: 'Today' },
   { key: 'tomorrow', label: 'Tomorrow' },
-  { key: 'upcoming', label: 'Upcoming' },
+  { key: 'upcoming', label: 'Later' },
 ];
 
 const priorityOptions: PriorityOption[] = [
@@ -85,11 +86,15 @@ const dateForGroup = (group: DashboardGroup) => {
 export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   const { tasks, loading, refresh } = useTasks();
   const { session } = useAuth();
+  const { hideCompleted, advancedMode } = usePreferences();
   const insets = useSafeAreaInsets();
   const headerOffset = insets.top + 108;
 
   const activeGroup = route?.params?.group ?? 'tomorrow';
-  const activeTasks = tasks[activeGroup] ?? [];
+  const activeTasks = React.useMemo(() => {
+    const current = tasks[activeGroup] ?? [];
+    return hideCompleted ? current.filter((task) => !task.isComplete) : current;
+  }, [activeGroup, hideCompleted, tasks]);
 
   const [composerVisible, setComposerVisible] = React.useState(false);
   const [composerMode, setComposerMode] = React.useState<'create' | 'edit'>('create');
@@ -181,7 +186,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
       setComposerGroup(groupOverride);
       setSelectedPriority(task.priority ?? 0);
       setCategoryQuery('');
-      setSelectedCategory(null);
+      setSelectedCategory(task.label ?? null);
       setComposerVisible(true);
     },
     [activeGroup, session?.user?.id]
@@ -252,6 +257,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
           target_group: composerGroup,
           priority: selectedPriority,
           date: dateForGroup(composerGroup),
+          label: selectedCategory ?? null,
         });
       } else {
         await createTask({
@@ -260,6 +266,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
           userId: session.user.id,
           date: dateForGroup(composerGroup),
           priority: selectedPriority,
+          label: selectedCategory ?? null,
         });
       }
       closeComposer();
@@ -342,7 +349,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
           tasks={activeTasks}
           onToggle={handleToggleTask}
           onPress={handleEditTask}
-          onLongPress={handleShowTaskDetails}
+          onLongPress={advancedMode ? handleShowTaskDetails : undefined}
           onDelete={handleDeleteTask}
           loading={loading && activeTasks.length === 0}
         />
