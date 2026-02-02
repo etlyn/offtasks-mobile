@@ -29,6 +29,46 @@ export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+type CategoryColumn = 'label' | 'category';
+const CATEGORY_COLUMNS: CategoryColumn[] = ['label', 'category'];
+let detectedCategoryColumn: CategoryColumn | null = null;
+
+const ensureCategoryColumn = async (userId?: string): Promise<CategoryColumn | null> => {
+  if (detectedCategoryColumn) {
+    return detectedCategoryColumn;
+  }
+
+  let resolvedUserId = userId;
+  if (!resolvedUserId) {
+    const { data } = await supabaseClient.auth.getUser();
+    resolvedUserId = data.user?.id;
+  }
+
+  if (!resolvedUserId) {
+    return null;
+  }
+
+  for (const column of CATEGORY_COLUMNS) {
+    const { error } = await supabaseClient
+      .from('tasks')
+      .select(column)
+      .eq('user_id', resolvedUserId)
+      .limit(1);
+
+    if (!error) {
+      detectedCategoryColumn = column;
+      return detectedCategoryColumn;
+    }
+
+    const message = error.message?.toLowerCase() ?? '';
+    if (!message.includes(column)) {
+      return null;
+    }
+  }
+
+  return null;
+};
+
 const selectBaseQuery = (group: TaskGroup) =>
   supabaseClient
     .from('tasks')
@@ -44,7 +84,11 @@ export const fetchTasksByGroup = async (group: TaskGroup, userId: string) => {
     return [] as Task[];
   }
 
-  return (data as Task[] | null) ?? [];
+  const rows = (data as (Task & { category?: string | null })[] | null) ?? [];
+  return rows.map((row) => ({
+    ...row,
+    label: row.label ?? row.category ?? null,
+  }));
 };
 
 export const createTask = async (params: {
@@ -67,7 +111,12 @@ export const createTask = async (params: {
   };
 
   if (typeof label !== 'undefined') {
-    payload.label = label;
+    const categoryColumn = await ensureCategoryColumn(userId);
+    if (categoryColumn) {
+      payload[categoryColumn] = label;
+    } else {
+      payload.label = label;
+    }
   }
   const insertTask = async (data: Record<string, unknown>) =>
     supabaseClient.from('tasks').insert([data]);
@@ -81,7 +130,19 @@ export const createTask = async (params: {
   const message = attempt.error.message?.toLowerCase() ?? '';
   if (message.includes('label') && Object.prototype.hasOwnProperty.call(payload, 'label')) {
     const { label: _label, ...retryPayload } = payload;
-    attempt = await insertTask(retryPayload);
+    if (typeof label !== 'undefined') {
+      attempt = await insertTask({ ...retryPayload, category: label });
+    } else {
+      attempt = await insertTask(retryPayload);
+    }
+  }
+
+  if (attempt.error) {
+    const retryMessage = attempt.error.message?.toLowerCase() ?? '';
+    if (retryMessage.includes('category') && Object.prototype.hasOwnProperty.call(payload, 'label')) {
+      const { label: _label, ...retryPayload } = payload;
+      attempt = await insertTask(retryPayload);
+    }
   }
 
   if (attempt.error) {
@@ -94,14 +155,23 @@ export const updateTask = async (
   taskId: string,
   updates: Partial<Pick<Task, 'content' | 'isComplete' | 'priority' | 'target_group' | 'date' | 'completed_at' | 'label'>>
 ) => {
+  const { label, ...restUpdates } = updates;
   const sanitizedUpdates = Object.fromEntries(
-    Object.entries(updates).filter(([, value]) => typeof value !== 'undefined')
+    Object.entries(restUpdates).filter(([, value]) => typeof value !== 'undefined')
   );
 
   const attemptUpdate = async (payload: Record<string, unknown>) =>
     supabaseClient.from('tasks').update(payload).eq('id', taskId);
 
   const payload = { ...sanitizedUpdates } as Record<string, unknown>;
+  if (typeof label !== 'undefined') {
+    const categoryColumn = await ensureCategoryColumn();
+    if (categoryColumn) {
+      payload[categoryColumn] = label;
+    } else {
+      payload.label = label;
+    }
+  }
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const { error } = await attemptUpdate(payload);
@@ -119,7 +189,16 @@ export const updateTask = async (
     }
 
     if (message.includes('label') && Object.prototype.hasOwnProperty.call(payload, 'label')) {
+      const labelValue = payload.label;
       delete payload.label;
+      if (typeof labelValue !== 'undefined') {
+        payload.category = labelValue;
+      }
+      updated = true;
+    }
+
+    if (message.includes('category') && Object.prototype.hasOwnProperty.call(payload, 'category')) {
+      delete payload.category;
       updated = true;
     }
 
@@ -154,5 +233,9 @@ export const fetchAllUserTasks = async (userId: string): Promise<Task[]> => {
     return [];
   }
 
-  return (data as Task[] | null) ?? [];
+  const rows = (data as (Task & { category?: string | null })[] | null) ?? [];
+  return rows.map((row) => ({
+    ...row,
+    label: row.label ?? row.category ?? null,
+  }));
 };

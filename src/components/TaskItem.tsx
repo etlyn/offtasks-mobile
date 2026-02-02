@@ -33,6 +33,8 @@ export const TaskItem = ({ task }: TaskItemProps) => {
   ];
   const priorityMeta = priorityPalette[task.priority ?? 0] ?? priorityPalette[0];
   const categoryLabel = task.label?.trim() || 'None';
+  const hasPriority = (task.priority ?? 0) > 0;
+  const hasCategory = !!task.label?.trim();
 
   // Use the isOverdue flag if available, otherwise compute it
   // A task is overdue if it's not complete, date is before today, and still in Today
@@ -123,17 +125,18 @@ export const TaskItem = ({ task }: TaskItemProps) => {
           {task.content}
         </Text>
         <Text style={[styles.meta, task.isComplete && styles.metaDone]}>Due {task.date}</Text>
-        {advancedMode ? (
+        {advancedMode && (hasPriority || hasCategory) ? (
           <View style={styles.badgeRow}>
-            <View style={[styles.badge, { backgroundColor: priorityMeta.background }]}
-            >
-              <Text style={[styles.badgeText, { color: priorityMeta.color }]}>
-                {`Priority: ${priorityLabel}`}
-              </Text>
-            </View>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{`Category: ${categoryLabel}`}</Text>
-            </View>
+            {hasPriority ? (
+              <View style={[styles.badge, { backgroundColor: priorityMeta.background }]}>
+                <Text style={[styles.badgeText, { color: priorityMeta.color }]}> {priorityLabel} </Text>
+              </View>
+            ) : null}
+            {hasCategory ? (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}> {categoryLabel} </Text>
+              </View>
+            ) : null}
           </View>
         ) : null}
       </View>

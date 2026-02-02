@@ -92,6 +92,8 @@ const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress, onDelete, 
   ];
   const priorityMeta = priorityPalette[task.priority ?? 0] ?? priorityPalette[0];
   const categoryLabel = task.label?.trim() || 'None';
+  const hasPriority = (task.priority ?? 0) > 0;
+  const hasCategory = !!task.label?.trim();
 
   // Check for overdue status - use flag if available, otherwise compute
   const today = getToday();
@@ -225,14 +227,18 @@ const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress, onDelete, 
           >
             {task.content}
           </Text>
-          {showBadges ? (
+          {showBadges && (hasPriority || hasCategory) ? (
             <View style={styles.badgeRow}>
-              <View style={[styles.badge, { backgroundColor: priorityMeta.background }]}>
-                <Text style={[styles.badgeText, { color: priorityMeta.color }]}>Priority: {priorityLabel}</Text>
-              </View>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>Category: {categoryLabel}</Text>
-              </View>
+              {hasPriority ? (
+                <View style={[styles.badge, { backgroundColor: priorityMeta.background }]}> 
+                  <Text style={[styles.badgeText, { color: priorityMeta.color }]}> {priorityLabel} </Text>
+                </View>
+              ) : null}
+              {hasCategory ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}> {categoryLabel} </Text>
+                </View>
+              ) : null}
             </View>
           ) : null}
         </Pressable>
