@@ -1,5 +1,14 @@
 import * as React from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -89,39 +98,79 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   const { hideCompleted, advancedMode } = usePreferences();
   const insets = useSafeAreaInsets();
   const baseHeaderOffset = insets.top + 108;
-  const categoryBarHeight = 48;
-  const headerOffset = baseHeaderOffset + (advancedMode ? categoryBarHeight : 0);
+  const headerOffset = baseHeaderOffset;
 
   const activeGroup = route?.params?.group ?? 'tomorrow';
-  const activeTasks = React.useMemo(() => {
-    const current = tasks[activeGroup] ?? [];
-    return hideCompleted ? current.filter((task) => !task.isComplete) : current;
-  }, [activeGroup, hideCompleted, tasks]);
+  const baseTasks = React.useMemo(() => tasks[activeGroup] ?? [], [activeGroup, tasks]);
 
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = React.useState('All');
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [selectedLabels, setSelectedLabels] = React.useState<string[]>([]);
+  const [prioritySortDirection, setPrioritySortDirection] = React.useState<'asc' | 'desc' | null>(null);
+  const [showCompleted, setShowCompleted] = React.useState(true);
 
-  const availableCategories = React.useMemo(() => {
-    const current = tasks[activeGroup] ?? [];
-    const labels = current
+  const effectiveShowCompleted = hideCompleted ? false : showCompleted;
+  const applyFilters = advancedMode || hideCompleted;
+
+  const availableLabels = React.useMemo(() => {
+    const labels = baseTasks
       .map((task) => task.label?.trim())
       .filter((label): label is string => Boolean(label));
-    const unique = Array.from(new Set(labels)).sort((a, b) => a.localeCompare(b));
-    return ['All', ...unique];
-  }, [activeGroup, tasks]);
+    return Array.from(new Set(labels)).sort((a, b) => a.localeCompare(b));
+  }, [baseTasks]);
 
   React.useEffect(() => {
-    if (!availableCategories.includes(selectedCategoryFilter)) {
-      setSelectedCategoryFilter('All');
+    if (selectedLabels.length === 0) {
+      return;
     }
-  }, [availableCategories, selectedCategoryFilter]);
+    setSelectedLabels((prev) => prev.filter((label) => availableLabels.includes(label)));
+  }, [availableLabels, selectedLabels.length]);
 
   const filteredTasks = React.useMemo(() => {
-    if (!advancedMode || selectedCategoryFilter === 'All') {
-      return activeTasks;
+    if (!applyFilters) {
+      return baseTasks;
     }
-    const normalized = selectedCategoryFilter.toLowerCase();
-    return activeTasks.filter((task) => (task.label ?? '').trim().toLowerCase() === normalized);
-  }, [activeTasks, advancedMode, selectedCategoryFilter]);
+
+    return baseTasks.filter((task) => {
+      if (advancedMode) {
+        if (searchQuery && !task.content.toLowerCase().includes(searchQuery.toLowerCase())) {
+          return false;
+        }
+
+        if (selectedLabels.length > 0) {
+          if (!task.label || !selectedLabels.includes(task.label)) {
+            return false;
+          }
+        }
+      }
+
+      if (!effectiveShowCompleted && task.isComplete) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [advancedMode, applyFilters, baseTasks, effectiveShowCompleted, searchQuery, selectedLabels]);
+
+  const sortedTasks = React.useMemo(() => {
+    if (!advancedMode || !prioritySortDirection) {
+      return filteredTasks;
+    }
+
+    const sorted = [...filteredTasks];
+    sorted.sort((a, b) => {
+      const aPriority = typeof a.priority === 'number' ? a.priority : 0;
+      const bPriority = typeof b.priority === 'number' ? b.priority : 0;
+      const comparison = bPriority - aPriority;
+      return prioritySortDirection === 'desc' ? comparison : -comparison;
+    });
+
+    return sorted;
+  }, [advancedMode, filteredTasks, prioritySortDirection]);
+
+  const displayTasks = advancedMode ? sortedTasks : filteredTasks;
+
+  const activeFilterCount =
+    (searchQuery ? 1 : 0) + selectedLabels.length + (!effectiveShowCompleted ? 1 : 0);
 
   const [composerVisible, setComposerVisible] = React.useState(false);
   const [composerMode, setComposerMode] = React.useState<'create' | 'edit'>('create');
@@ -351,46 +400,30 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
     }
   }, [activeGroup, composerMode, composerVisible]);
 
+  const toggleLabel = React.useCallback((label: string) => {
+    setSelectedLabels((prev) =>
+      prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]
+    );
+  }, []);
+
+  const togglePrioritySort = React.useCallback(() => {
+    setPrioritySortDirection((prev) => {
+      if (prev === null) return 'desc';
+      if (prev === 'desc') return 'asc';
+      return null;
+    });
+  }, []);
+
+  const clearAllFilters = React.useCallback(() => {
+    setSearchQuery('');
+    setSelectedLabels([]);
+    setPrioritySortDirection(null);
+    setShowCompleted(true);
+  }, []);
+
   return (
     <View style={styles.root}>
       <StatusBar translucent barStyle="dark-content" backgroundColor="transparent" />
-      {advancedMode ? (
-        <View style={[categoryStyles.categoryBar, { top: baseHeaderOffset, height: categoryBarHeight }]}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={categoryStyles.categoryBarContent}
-          >
-            {availableCategories.map((category) => {
-              const isActive = category === selectedCategoryFilter;
-              return (
-                <Pressable
-                  key={category}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Filter tasks by ${category}`}
-                  onPress={() =>
-                    setSelectedCategoryFilter((prev) => (prev === category ? 'All' : category))
-                  }
-                  style={({ pressed }) => [
-                    categoryStyles.categoryBadge,
-                    isActive && categoryStyles.categoryBadgeActive,
-                    pressed && categoryStyles.categoryBadgePressed,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      categoryStyles.categoryBadgeText,
-                      isActive && categoryStyles.categoryBadgeTextActive,
-                    ]}
-                  >
-                    {category}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-      ) : null}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
@@ -409,13 +442,105 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
           />
         }
       >
+        {advancedMode ? (
+          <View style={styles.advancedFilters}>
+            <View style={styles.searchBox}>
+              <Feather name="search" size={16} color={palette.slate600} />
+              <TextInput
+                style={styles.searchInput}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search tasks"
+                placeholderTextColor={palette.slate600}
+                autoCorrect={false}
+                returnKeyType="search"
+              />
+            </View>
+
+            {availableLabels.length > 0 && (
+              <View style={styles.chipRow}>
+                {availableLabels.map((label) => {
+                  const isActive = selectedLabels.includes(label);
+                  return (
+                    <Pressable
+                      key={label}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Filter by ${label}`}
+                      onPress={() => toggleLabel(label)}
+                      style={({ pressed }) => [
+                        styles.filterChip,
+                        isActive && styles.filterChipActive,
+                        pressed && styles.filterChipPressed,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          isActive && styles.filterChipTextActive,
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+
+            <View style={styles.filterActionsRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Sort by priority"
+                onPress={togglePrioritySort}
+                style={({ pressed }) => [
+                  styles.filterAction,
+                  prioritySortDirection && styles.filterActionActive,
+                  pressed && styles.filterActionPressed,
+                ]}
+              >
+                <Feather name="arrow-up-down" size={14} color={palette.slate600} />
+                <Text style={styles.filterActionText}>Priority</Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Toggle completed tasks"
+                onPress={() => setShowCompleted((prev) => !prev)}
+                style={({ pressed }) => [
+                  styles.filterAction,
+                  !showCompleted && styles.filterActionActive,
+                  pressed && styles.filterActionPressed,
+                ]}
+              >
+                <Text style={styles.filterActionText}>
+                  {showCompleted ? 'Hide' : 'Show'} Completed
+                </Text>
+              </Pressable>
+
+              {activeFilterCount > 0 && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear filters"
+                  onPress={clearAllFilters}
+                  style={({ pressed }) => [
+                    styles.clearFiltersButton,
+                    pressed && styles.filterActionPressed,
+                  ]}
+                >
+                  <Feather name="x" size={14} color={palette.danger} />
+                  <Text style={styles.clearFiltersText}>Clear ({activeFilterCount})</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        ) : null}
         <TaskQuickList
-          tasks={filteredTasks}
+          tasks={displayTasks}
           onToggle={handleToggleTask}
           onPress={handleEditTask}
           onLongPress={advancedMode ? handleShowTaskDetails : undefined}
           onDelete={handleDeleteTask}
-          loading={loading && activeTasks.length === 0}
+          loading={loading && baseTasks.length === 0}
         />
       </ScrollView>
 
@@ -460,44 +585,3 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   );
 };
 
-const categoryStyles = StyleSheet.create({
-  categoryBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    paddingHorizontal: 16,
-    zIndex: 18,
-    backgroundColor: 'transparent',
-  },
-  categoryBarContent: {
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-  },
-  categoryBadge: {
-    paddingHorizontal: 14,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.22)',
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryBadgeActive: {
-    backgroundColor: palette.mintMuted,
-    borderColor: palette.mint,
-  },
-  categoryBadgePressed: {
-    opacity: 0.9,
-  },
-  categoryBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: palette.slate600,
-  },
-  categoryBadgeTextActive: {
-    color: palette.mintStrong,
-  },
-});
