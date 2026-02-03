@@ -6,6 +6,15 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@env';
 
 import type { Task, TaskGroup } from '@/types/task';
 
+export interface UserPreferences {
+  user_id: string;
+  hide_completed: boolean;
+  advanced_mode: boolean;
+  theme_mode: 'Light' | 'Dark';
+  auto_arrange: boolean;
+  updated_at?: string;
+}
+
 const runtimeEnv =
   (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
 
@@ -238,4 +247,36 @@ export const fetchAllUserTasks = async (userId: string): Promise<Task[]> => {
     ...row,
     label: row.label ?? row.category ?? null,
   }));
+};
+
+export const fetchUserPreferences = async (userId: string): Promise<UserPreferences | null> => {
+  const { data, error } = await supabaseClient
+    .from('user_preferences')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching user preferences', error);
+    return null;
+  }
+
+  return (data as UserPreferences | null) ?? null;
+};
+
+export const upsertUserPreferences = async (prefs: UserPreferences) => {
+  const { error } = await supabaseClient
+    .from('user_preferences')
+    .upsert(
+      {
+        ...prefs,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    );
+
+  if (error) {
+    console.error('Error updating user preferences', error);
+    throw error;
+  }
 };

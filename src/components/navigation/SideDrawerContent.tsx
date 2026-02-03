@@ -35,6 +35,7 @@ const iconCompleted = 'https://www.figma.com/api/mcp/asset/fa8ebcbc-9701-4f93-bd
 const iconTheme = 'https://www.figma.com/api/mcp/asset/b7a04e63-08bf-4448-837a-c94891de6ac2';
 const iconHide = 'https://www.figma.com/api/mcp/asset/9cd4ea63-0b17-4558-b8da-daa1a9caf467';
 const iconAdvanced = 'https://www.figma.com/api/mcp/asset/118a8e27-055a-4257-93e0-7324eb4a66c3';
+const iconAuto = iconAdvanced;
 const iconLogout = 'https://www.figma.com/api/mcp/asset/cca75eab-aed1-4f42-b25b-5db466eeae4d';
 const iconClose = 'https://www.figma.com/api/mcp/asset/8be6f61d-52f6-41e3-aa4b-93dd5ea37a59';
 
@@ -48,6 +49,8 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
     themeMode,
     setHideCompleted,
     setAdvancedMode,
+    autoArrange,
+    setAutoArrange,
     toggleTheme,
   } = usePreferences();
   const insets = useSafeAreaInsets();
@@ -169,7 +172,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
           />
         </View>
 
-        <View style={[styles.menuRow, styles.menuRowLast]}>
+        <View style={styles.menuRow}>
           <View style={[styles.menuIcon, styles.advancedIcon]}>
             <FigmaImage source={{ uri: iconAdvanced }} style={styles.menuIconImage} resizeMode="contain" />
           </View>
@@ -180,6 +183,21 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
               setAdvancedMode(value);
             }}
             thumbColor={advancedMode ? palette.lightSurface : palette.lightSurface}
+            trackColor={{ false: '#d4d4d8', true: '#99f6e4' }}
+          />
+        </View>
+
+        <View style={[styles.menuRow, styles.menuRowLast]}>
+          <View style={[styles.menuIcon, styles.autoIcon]}>
+            <FigmaImage source={{ uri: iconAuto }} style={styles.menuIconImage} resizeMode="contain" />
+          </View>
+          <Text style={styles.menuLabel}>Auto-move due tasks</Text>
+          <Switch
+            value={autoArrange}
+            onValueChange={(value: boolean) => {
+              setAutoArrange(value);
+            }}
+            thumbColor={autoArrange ? palette.lightSurface : palette.lightSurface}
             trackColor={{ false: '#d4d4d8', true: '#99f6e4' }}
           />
         </View>

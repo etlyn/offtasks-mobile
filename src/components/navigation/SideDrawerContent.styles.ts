@@ -124,6 +124,10 @@ export const styles = StyleSheet.create({
     backgroundColor: '#cbfbf1',
     borderColor: '#96f7e4',
   },
+  autoIcon: {
+    backgroundColor: '#e0f2fe',
+    borderColor: '#bae6fd',
+  },
   menuIconImage: {
     width: 16,
     height: 16,
