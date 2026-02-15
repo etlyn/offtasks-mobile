@@ -7,6 +7,7 @@ import type { Task, TaskWithOverdueFlag } from '@/types/task';
 import { getToday } from '@/hooks/useDate';
 import { usePreferences } from '@/providers/PreferencesProvider';
 import { palette } from '@/theme/colors';
+import { getCategoryBadgeColors } from '@/utils/categoryColors';
 
 import { styles } from './TaskQuickList.styles';
 
@@ -94,6 +95,7 @@ const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress, onDelete, 
   const categoryLabel = task.label?.trim() || 'None';
   const hasPriority = (task.priority ?? 0) > 0;
   const hasCategory = !!task.label?.trim();
+  const categoryColors = hasCategory ? getCategoryBadgeColors(categoryLabel) : null;
 
   // Check for overdue status - use flag if available, otherwise compute
   const today = getToday();
@@ -234,9 +236,9 @@ const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress, onDelete, 
                   <Text style={[styles.badgeText, { color: priorityMeta.color }]}> {priorityLabel} </Text>
                 </View>
               ) : null}
-              {hasCategory ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}> {categoryLabel} </Text>
+              {hasCategory && categoryColors ? (
+                <View style={[styles.badge, { backgroundColor: categoryColors.background }]}>
+                  <Text style={[styles.badgeText, { color: categoryColors.color }]}> {categoryLabel} </Text>
                 </View>
               ) : null}
             </View>

@@ -15,6 +15,7 @@ module.exports = {
         root: ['./src'],
         alias: {
           '@': './src',
+          'react-native-vector-icons/Feather': './src/components/icons/FeatherIcon',
         },
       },
     ],

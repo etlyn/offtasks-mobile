@@ -11,9 +11,11 @@ interface PreferencesContextValue {
   advancedMode: boolean;
   themeMode: ThemeMode;
   autoArrange: boolean;
+  redTasks: boolean;
   setHideCompleted: (value: boolean) => void;
   setAdvancedMode: (value: boolean) => void;
   setAutoArrange: (value: boolean) => void;
+  setRedTasks: (value: boolean) => void;
   toggleTheme: () => void;
 }
 
@@ -21,15 +23,18 @@ const HIDE_COMPLETED_KEY = 'offtasks:hide-completed';
 const ADVANCED_MODE_KEY = 'offtasks:advanced-mode';
 const THEME_MODE_KEY = 'offtasks:theme-mode';
 const AUTO_ARRANGE_KEY = 'offtasks:auto-arrange';
+const RED_TASKS_KEY = 'offtasks:red-tasks';
 
 const PreferencesContext = createContext<PreferencesContextValue>({
   hideCompleted: false,
   advancedMode: false,
   themeMode: 'Light',
   autoArrange: false,
+  redTasks: false,
   setHideCompleted: () => undefined,
   setAdvancedMode: () => undefined,
   setAutoArrange: () => undefined,
+  setRedTasks: () => undefined,
   toggleTheme: () => undefined,
 });
 
@@ -39,6 +44,7 @@ export const PreferencesProvider = ({ children }: { children: React.ReactNode })
   const [advancedMode, setAdvancedMode] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>('Light');
   const [autoArrange, setAutoArrange] = useState(false);
+  const [redTasks, setRedTasks] = useState(false);
   const hydratedRef = useRef(false);
 
   useEffect(() => {
@@ -46,11 +52,12 @@ export const PreferencesProvider = ({ children }: { children: React.ReactNode })
 
     const hydrate = async () => {
       try {
-        const [hideEntry, advancedEntry, themeEntry, autoEntry] = await AsyncStorage.multiGet([
+        const [hideEntry, advancedEntry, themeEntry, autoEntry, redEntry] = await AsyncStorage.multiGet([
           HIDE_COMPLETED_KEY,
           ADVANCED_MODE_KEY,
           THEME_MODE_KEY,
           AUTO_ARRANGE_KEY,
+          RED_TASKS_KEY,
         ]);
 
         if (!isMounted) {
@@ -61,10 +68,12 @@ export const PreferencesProvider = ({ children }: { children: React.ReactNode })
         const advancedValue = advancedEntry?.[1];
         const themeValue = themeEntry?.[1];
         const autoValue = autoEntry?.[1];
+        const redValue = redEntry?.[1];
 
         setHideCompleted(hideValue === 'true');
         setAdvancedMode(advancedValue === 'true');
         setAutoArrange(autoValue === 'true');
+        setRedTasks(redValue === 'true');
         if (themeValue === 'Light' || themeValue === 'Dark') {
           setThemeMode(themeValue);
         }
@@ -127,6 +136,10 @@ export const PreferencesProvider = ({ children }: { children: React.ReactNode })
   }, [autoArrange]);
 
   useEffect(() => {
+    AsyncStorage.setItem(RED_TASKS_KEY, redTasks ? 'true' : 'false');
+  }, [redTasks]);
+
+  useEffect(() => {
     if (!hydratedRef.current || !session?.user?.id) {
       return;
     }
@@ -152,12 +165,14 @@ export const PreferencesProvider = ({ children }: { children: React.ReactNode })
       advancedMode,
       themeMode,
       autoArrange,
+      redTasks,
       setHideCompleted,
       setAdvancedMode,
       setAutoArrange,
+      setRedTasks,
       toggleTheme,
     }),
-    [advancedMode, autoArrange, hideCompleted, themeMode, toggleTheme]
+    [advancedMode, autoArrange, hideCompleted, redTasks, themeMode, toggleTheme]
   );
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;

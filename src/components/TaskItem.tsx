@@ -8,6 +8,7 @@ import { usePreferences } from '@/providers/PreferencesProvider';
 import { useTasks } from '@/providers/TasksProvider';
 import type { Task, TaskWithOverdueFlag } from '@/types/task';
 import { palette } from '@/theme/colors';
+import { getCategoryBadgeColors } from '@/utils/categoryColors';
 
 interface TaskItemProps {
   task: Task | TaskWithOverdueFlag;
@@ -22,7 +23,7 @@ const hasOverdueFlag = (task: Task | TaskWithOverdueFlag): task is TaskWithOverd
 
 export const TaskItem = ({ task }: TaskItemProps) => {
   const { refresh } = useTasks();
-  const { advancedMode } = usePreferences();
+  const { advancedMode, redTasks } = usePreferences();
   const [submitting, setSubmitting] = useState(false);
   const priorityLabel = ['None', 'Low', 'Medium', 'High'][task.priority ?? 0] ?? 'None';
   const priorityPalette = [
@@ -35,6 +36,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
   const categoryLabel = task.label?.trim() || 'None';
   const hasPriority = (task.priority ?? 0) > 0;
   const hasCategory = !!task.label?.trim();
+  const categoryColors = hasCategory ? getCategoryBadgeColors(categoryLabel) : null;
 
   // Use the isOverdue flag if available, otherwise compute it
   // A task is overdue if it's not complete, date is before today, and still in Today
@@ -92,12 +94,15 @@ export const TaskItem = ({ task }: TaskItemProps) => {
     ]);
   };
 
+  // Whether to apply red/urgent styling (overdue OR redTasks toggle)
+  const showRed = !task.isComplete && (isOverdue || redTasks);
+
   return (
-    <View style={[styles.container, isOverdue && styles.containerPriority, submitting && styles.disabled]}>
+    <View style={[styles.container, showRed && styles.containerPriority, submitting && styles.disabled]}>
       <Pressable
         style={({ pressed }) => [
           styles.check,
-          isOverdue && styles.checkPriority,
+          showRed && styles.checkPriority,
           task.isComplete && styles.checkActive,
           pressed && !task.isComplete && styles.checkPressed,
         ]}
@@ -106,7 +111,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
         {submitting ? (
           <ActivityIndicator
             size="small"
-            color={task.isComplete ? palette.lightSurface : isOverdue ? palette.danger : palette.mintStrong}
+            color={task.isComplete ? palette.lightSurface : showRed ? palette.danger : palette.mintStrong}
           />
         ) : task.isComplete ? (
           <Feather name="check" size={16} color={palette.lightSurface} />
@@ -118,7 +123,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
           style={[
             styles.title,
             task.isComplete && styles.titleCompleted,
-            isOverdue && styles.titleOverdue,
+            showRed && styles.titleOverdue,
           ]}
           numberOfLines={2}
         >
@@ -132,9 +137,9 @@ export const TaskItem = ({ task }: TaskItemProps) => {
                 <Text style={[styles.badgeText, { color: priorityMeta.color }]}> {priorityLabel} </Text>
               </View>
             ) : null}
-            {hasCategory ? (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}> {categoryLabel} </Text>
+            {hasCategory && categoryColors ? (
+              <View style={[styles.badge, { backgroundColor: categoryColors.background }]}>
+                <Text style={[styles.badgeText, { color: categoryColors.color }]}> {categoryLabel} </Text>
               </View>
             ) : null}
           </View>

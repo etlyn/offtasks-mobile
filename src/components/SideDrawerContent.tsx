@@ -17,12 +17,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LogoWordmark } from '@/components/branding/LogoWordmark';
 import { supabaseClient } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
+import { usePreferences } from '@/providers/PreferencesProvider';
 import { palette } from '@/theme/colors';
 
 
 export const SideDrawerContent = (props: DrawerContentComponentProps) => {
   const { navigation } = props;
   const { session } = useAuth();
+  const { redTasks, setRedTasks } = usePreferences();
   const insets = useSafeAreaInsets();
 
   const [hideCompleted, setHideCompleted] = React.useState(false);
@@ -63,6 +65,13 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
 
   const email = session?.user?.email ?? 'Offline';
   const userLabel = email.split('@')[0] || 'User';
+  const initials = userLabel
+    .split(/[\s._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p: string) => p[0].toUpperCase())
+    .join('')
+    || 'U';
 
   return (
     <DrawerContentScrollView
@@ -83,11 +92,14 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
 
       <View style={styles.profileCard}>
         <View style={styles.profileRow}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials}</Text>
+          </View>
           <View style={styles.profileMeta}>
             <Text style={styles.profileName}>{userLabel}</Text>
+            <Text style={styles.profileEmail}>{email}</Text>
           </View>
         </View>
-        <Text style={styles.profileEmail}>{email}</Text>
       </View>
 
       <View style={styles.section}>
@@ -186,6 +198,22 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
             trackColor={{ false: '#cbd5f5', true: palette.mintMuted }}
           />
         </View>
+
+        <View style={styles.toggleRow}>
+          <View style={styles.primaryIcon}>
+            <Feather name="flag" size={18} color={palette.mint} />
+          </View>
+          <View style={styles.primaryCopy}>
+            <Text style={styles.primaryLabel}>Red Tasks</Text>
+            <Text style={styles.primaryCaption}>Give tasks an urgent red look</Text>
+          </View>
+          <Switch
+            value={redTasks}
+            onValueChange={setRedTasks}
+            thumbColor={redTasks ? palette.mint : '#f1f5f9'}
+            trackColor={{ false: '#cbd5f5', true: palette.mintMuted }}
+          />
+        </View>
       </View>
 
       <View style={styles.footer}>
@@ -234,7 +262,21 @@ const styles = StyleSheet.create({
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: palette.mint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: palette.lightSurface,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   profileMeta: {
     flex: 1,
@@ -250,7 +292,7 @@ const styles = StyleSheet.create({
     color: palette.slate600,
   },
   profileEmail: {
-    marginTop: 16,
+    marginTop: 2,
     fontSize: 13,
     color: palette.slate600,
   },
