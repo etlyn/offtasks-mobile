@@ -33,9 +33,11 @@ export const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 4,
   },
-  avatarIcon: {
-    width: 24,
-    height: 24,
+  avatarText: {
+    color: palette.lightSurface,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.4,
   },
   profileMeta: {
     flex: 1,
@@ -128,14 +130,6 @@ export const styles = StyleSheet.create({
     backgroundColor: '#e0f2fe',
     borderColor: '#bae6fd',
   },
-  menuIconImage: {
-    width: 16,
-    height: 16,
-  },
-  trailingIcon: {
-    width: 20,
-    height: 20,
-  },
   menuLabel: {
     flex: 1,
     fontSize: 15,
@@ -147,6 +141,7 @@ export const styles = StyleSheet.create({
     color: '#71717b',
   },
   footer: {
+    marginTop: 'auto',
     gap: 14,
     alignItems: 'center',
   },
@@ -155,7 +150,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    backgroundColor: '#fef2f2',
+    backgroundColor: '#ffffff',
     borderRadius: 14,
     borderWidth: 0.628,
     borderColor: '#ffc9c9',
@@ -178,7 +173,7 @@ export const styles = StyleSheet.create({
   logoutLabel: {
     color: '#e11d24',
     fontSize: 15,
-    fontWeight: '400',
+    fontWeight: '600',
   },
   versionLabel: {
     fontSize: 11,

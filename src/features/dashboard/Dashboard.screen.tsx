@@ -106,9 +106,8 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedLabels, setSelectedLabels] = React.useState<string[]>([]);
   const [prioritySortDirection, setPrioritySortDirection] = React.useState<'asc' | 'desc' | null>(null);
-  const [showCompleted, setShowCompleted] = React.useState(true);
 
-  const effectiveShowCompleted = hideCompleted ? false : showCompleted;
+  const effectiveShowCompleted = !hideCompleted;
   const applyFilters = advancedMode || hideCompleted;
 
   const availableLabels = React.useMemo(() => {
@@ -170,7 +169,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   const displayTasks = advancedMode ? sortedTasks : filteredTasks;
 
   const activeFilterCount =
-    (searchQuery ? 1 : 0) + selectedLabels.length + (!effectiveShowCompleted ? 1 : 0);
+    (searchQuery ? 1 : 0) + selectedLabels.length + (prioritySortDirection ? 1 : 0);
 
   const [composerVisible, setComposerVisible] = React.useState(false);
   const [composerMode, setComposerMode] = React.useState<'create' | 'edit'>('create');
@@ -178,6 +177,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   const [newTaskContent, setNewTaskContent] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
   const [composerGroup, setComposerGroup] = React.useState<DashboardGroup>(activeGroup);
+  const [selectedDate, setSelectedDate] = React.useState<string>(dateForGroup(activeGroup));
   const [selectedPriority, setSelectedPriority] = React.useState<number>(0);
   const [categoryQuery, setCategoryQuery] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null);
@@ -213,9 +213,12 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
     async (task: Task | TaskWithOverdueFlag) => {
       try {
         const nextComplete = !task.isComplete;
+        const today = getToday();
         await updateTask(task.id, {
           isComplete: nextComplete,
-          completed_at: nextComplete ? getToday() : null,
+          completed_at: nextComplete ? today : null,
+          target_group: nextComplete ? 'today' : task.target_group,
+          date: nextComplete ? today : task.date,
         });
         await refresh();
       } catch (error) {
@@ -260,6 +263,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
       setEditingTask(task);
       setNewTaskContent(task.content);
       setComposerGroup(groupOverride);
+      setSelectedDate(task.date);
       setSelectedPriority(task.priority ?? 0);
       setCategoryQuery('');
       setSelectedCategory(task.label ?? null);
@@ -298,6 +302,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
     setEditingTask(null);
     setNewTaskContent('');
     setComposerGroup(activeGroup);
+    setSelectedDate(dateForGroup(activeGroup));
     setSelectedPriority(0);
     setCategoryQuery('');
     setSelectedCategory(null);
@@ -309,11 +314,40 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
     setNewTaskContent('');
     setSelectedPriority(0);
     setComposerGroup(activeGroup);
+    setSelectedDate(dateForGroup(activeGroup));
     setCategoryQuery('');
     setSelectedCategory(null);
     setComposerMode('create');
     setEditingTask(null);
   }, [activeGroup]);
+
+  const groupForDate = React.useCallback((date: string): DashboardGroup => {
+    const today = getToday();
+    const tomorrow = getAdjacentDay(1);
+
+    if (date <= today) {
+      return 'today';
+    }
+
+    if (date === tomorrow) {
+      return 'tomorrow';
+    }
+
+    return 'upcoming';
+  }, []);
+
+  const handleComposerGroupChange = React.useCallback((group: DashboardGroup) => {
+    setComposerGroup(group);
+    setSelectedDate(dateForGroup(group));
+  }, []);
+
+  const handleComposerDateChange = React.useCallback(
+    (date: string) => {
+      setSelectedDate(date);
+      setComposerGroup(groupForDate(date));
+    },
+    [groupForDate]
+  );
 
   const handleSubmitTask = React.useCallback(async () => {
     if (!session?.user?.id) {
@@ -327,20 +361,22 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
 
     setSubmitting(true);
     try {
+      const effectiveGroup = groupForDate(selectedDate);
+
       if (composerMode === 'edit' && editingTask) {
         await updateTask(editingTask.id, {
           content: trimmed,
-          target_group: composerGroup,
+          target_group: effectiveGroup,
           priority: selectedPriority,
-          date: dateForGroup(composerGroup),
+          date: selectedDate,
           label: selectedCategory ?? null,
         });
       } else {
         await createTask({
           content: trimmed,
-          target_group: composerGroup,
+          target_group: effectiveGroup,
           userId: session.user.id,
-          date: dateForGroup(composerGroup),
+          date: selectedDate,
           priority: selectedPriority,
           label: selectedCategory ?? null,
         });
@@ -355,7 +391,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
     } finally {
       setSubmitting(false);
     }
-  }, [closeComposer, composerGroup, composerMode, editingTask, newTaskContent, refresh, selectedCategory, selectedPriority, session?.user?.id, submitting]);
+  }, [closeComposer, composerMode, editingTask, groupForDate, newTaskContent, refresh, selectedCategory, selectedDate, selectedPriority, session?.user?.id, submitting]);
 
   const handleSelectPriority = React.useCallback((value: number) => {
     setSelectedPriority(value);
@@ -397,6 +433,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   React.useEffect(() => {
     if (composerVisible && composerMode === 'create') {
       setComposerGroup(activeGroup);
+      setSelectedDate(dateForGroup(activeGroup));
     }
   }, [activeGroup, composerMode, composerVisible]);
 
@@ -418,7 +455,6 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
     setSearchQuery('');
     setSelectedLabels([]);
     setPrioritySortDirection(null);
-    setShowCompleted(true);
   }, []);
 
   return (
@@ -457,37 +493,11 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
               />
             </View>
 
-            {availableLabels.length > 0 && (
-              <View style={styles.chipRow}>
-                {availableLabels.map((label) => {
-                  const isActive = selectedLabels.includes(label);
-                  return (
-                    <Pressable
-                      key={label}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Filter by ${label}`}
-                      onPress={() => toggleLabel(label)}
-                      style={({ pressed }) => [
-                        styles.filterChip,
-                        isActive && styles.filterChipActive,
-                        pressed && styles.filterChipPressed,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.filterChipText,
-                          isActive && styles.filterChipTextActive,
-                        ]}
-                      >
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
-
-            <View style={styles.filterActionsRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterActionsRow}
+            >
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Sort by priority"
@@ -502,20 +512,31 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
                 <Text style={styles.filterActionText}>Priority</Text>
               </Pressable>
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Toggle completed tasks"
-                onPress={() => setShowCompleted((prev) => !prev)}
-                style={({ pressed }) => [
-                  styles.filterAction,
-                  !showCompleted && styles.filterActionActive,
-                  pressed && styles.filterActionPressed,
-                ]}
-              >
-                <Text style={styles.filterActionText}>
-                  {showCompleted ? 'Hide' : 'Show'} Completed
-                </Text>
-              </Pressable>
+              {availableLabels.map((label) => {
+                const isActive = selectedLabels.includes(label);
+                return (
+                  <Pressable
+                    key={label}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Filter by ${label}`}
+                    onPress={() => toggleLabel(label)}
+                    style={({ pressed }) => [
+                      styles.filterChip,
+                      isActive && styles.filterChipActive,
+                      pressed && styles.filterChipPressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        isActive && styles.filterChipTextActive,
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
 
               {activeFilterCount > 0 && (
                 <Pressable
@@ -531,7 +552,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
                   <Text style={styles.clearFiltersText}>Clear ({activeFilterCount})</Text>
                 </Pressable>
               )}
-            </View>
+            </ScrollView>
           </View>
         ) : null}
         <TaskQuickList
@@ -564,7 +585,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
         newTaskContent={newTaskContent}
         onChangeTaskContent={setNewTaskContent}
         composerGroup={composerGroup}
-        onChangeGroup={setComposerGroup}
+        onChangeGroup={handleComposerGroupChange}
         groupSegments={groupSegments}
         priorityOptions={priorityOptions}
         onSelectPriority={handleSelectPriority}
@@ -579,6 +600,8 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
         canCreateCategory={canCreateCategory}
         onCreateCategory={handleCreateCategory}
         onSelectCategory={handleSelectCategory}
+        selectedDate={selectedDate}
+        onChangeDate={handleComposerDateChange}
         mode={composerMode}
       />
     </View>

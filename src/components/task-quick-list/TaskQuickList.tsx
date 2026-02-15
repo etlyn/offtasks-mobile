@@ -93,9 +93,19 @@ const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress, onDelete, 
   ];
   const priorityMeta = priorityPalette[task.priority ?? 0] ?? priorityPalette[0];
   const categoryLabel = task.label?.trim() || 'None';
-  const hasPriority = (task.priority ?? 0) > 0;
   const hasCategory = !!task.label?.trim();
   const categoryColors = hasCategory ? getCategoryBadgeColors(categoryLabel) : null;
+  const dueDateLabel = React.useMemo(() => {
+    const date = new Date(`${task.date}T00:00:00`);
+    if (Number.isNaN(date.getTime())) {
+      return task.date;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+    }).format(date);
+  }, [task.date]);
 
   // Check for overdue status - use flag if available, otherwise compute
   const today = getToday();
@@ -229,18 +239,24 @@ const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress, onDelete, 
           >
             {task.content}
           </Text>
-          {showBadges && (hasPriority || hasCategory) ? (
+          {showBadges ? (
             <View style={styles.badgeRow}>
-              {hasPriority ? (
-                <View style={[styles.badge, { backgroundColor: priorityMeta.background }]}> 
-                  <Text style={[styles.badgeText, { color: priorityMeta.color }]}> {priorityLabel} </Text>
-                </View>
-              ) : null}
-              {hasCategory && categoryColors ? (
-                <View style={[styles.badge, { backgroundColor: categoryColors.background }]}>
-                  <Text style={[styles.badgeText, { color: categoryColors.color }]}> {categoryLabel} </Text>
-                </View>
-              ) : null}
+              <View style={[styles.badge, { backgroundColor: priorityMeta.background }]}> 
+                <Text style={[styles.badgeText, { color: priorityMeta.color }]}> {priorityLabel} </Text>
+              </View>
+              <View
+                style={[
+                  styles.badge,
+                  {
+                    backgroundColor: categoryColors?.background ?? 'rgba(100, 116, 139, 0.18)',
+                  },
+                ]}
+              >
+                <Text style={[styles.badgeText, { color: categoryColors?.color ?? '#64748b' }]}> {categoryLabel} </Text>
+              </View>
+              <View style={[styles.badge, isOverdue && !task.isComplete ? styles.dueBadgeOverdue : styles.dueBadge]}> 
+                <Text style={[styles.badgeText, isOverdue && !task.isComplete ? styles.dueBadgeTextOverdue : styles.dueBadgeText]}> {dueDateLabel} </Text>
+              </View>
             </View>
           ) : null}
         </Pressable>

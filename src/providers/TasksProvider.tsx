@@ -3,12 +3,28 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { fetchAllUserTasks, updateTask } from '@/lib/supabase';
 import type { Task, TaskGroup, TaskWithOverdueFlag } from '@/types/task';
 import { categorizeTasks, addOverdueFlag } from '@/utils/taskUtils';
-import { getToday } from '@/hooks/useDate';
+import { getAdjacentDay, getToday } from '@/hooks/useDate';
+import { publishWidgetSnapshot, clearWidgetSnapshot } from '@/lib/widgetBridge';
 
 import { useAuth } from './AuthProvider';
 import { usePreferences } from './PreferencesProvider';
 
 const groups: TaskGroup[] = ['today', 'tomorrow', 'upcoming', 'close'];
+
+const resolveGroupForDate = (date: string): Exclude<TaskGroup, 'close'> => {
+  const today = getToday();
+  const tomorrow = getAdjacentDay(1);
+
+  if (date <= today) {
+    return 'today';
+  }
+
+  if (date === tomorrow) {
+    return 'tomorrow';
+  }
+
+  return 'upcoming';
+};
 
 type TasksByGroup = Record<TaskGroup, TaskWithOverdueFlag[]>;
 
@@ -51,6 +67,7 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
   const refresh = useCallback(async () => {
     if (!session?.user?.id) {
       setTasks(emptyState);
+      clearWidgetSnapshot().catch(() => undefined);
       setLoading(false);
       return;
     }
@@ -60,23 +77,34 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       // Fetch all tasks at once instead of by group
       const allTasks = await fetchAllUserTasks(session.user.id);
-      const today = getToday();
       let needsRefresh = false;
 
       if (autoArrange) {
+        const updates: Promise<void>[] = [];
+
         for (const task of allTasks) {
           if (task.isComplete) {
             continue;
           }
 
-          if (task.target_group === 'tomorrow' && task.date <= today) {
+          const expectedGroup = resolveGroupForDate(task.date);
+
+          if (task.target_group !== expectedGroup) {
             needsRefresh = true;
-            await updateTask(task.id, {
-              target_group: 'today',
-            });
+            updates.push(
+              updateTask(task.id, {
+                target_group: expectedGroup,
+              })
+            );
           }
         }
+
+        if (updates.length > 0) {
+          await Promise.all(updates);
+        }
       }
+
+      const today = getToday();
 
       const finalTasks = needsRefresh ? await fetchAllUserTasks(session.user.id) : allTasks;
       
@@ -103,6 +131,39 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
       };
 
       setTasks(nextState);
+
+      publishWidgetSnapshot({
+        generatedAt: new Date().toISOString(),
+        today: nextState.today
+          .filter((task) => !task.isComplete)
+          .map((task) => ({
+            id: task.id,
+            content: task.content,
+            date: task.date,
+            targetGroup: task.target_group,
+            isComplete: task.isComplete,
+          })),
+        tomorrow: nextState.tomorrow
+          .filter((task) => !task.isComplete)
+          .slice(0, 3)
+          .map((task) => ({
+            id: task.id,
+            content: task.content,
+            date: task.date,
+            targetGroup: task.target_group,
+            isComplete: task.isComplete,
+          })),
+        upcoming: nextState.upcoming
+          .filter((task) => !task.isComplete)
+          .slice(0, 3)
+          .map((task) => ({
+            id: task.id,
+            content: task.content,
+            date: task.date,
+            targetGroup: task.target_group,
+            isComplete: task.isComplete,
+          })),
+      }).catch(() => undefined);
     } catch (error) {
       console.error('Failed to refresh tasks', error);
     } finally {

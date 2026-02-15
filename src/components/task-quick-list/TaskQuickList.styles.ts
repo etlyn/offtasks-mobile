@@ -109,6 +109,18 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#475569',
   },
+  dueBadge: {
+    backgroundColor: 'rgba(71, 85, 105, 0.16)',
+  },
+  dueBadgeText: {
+    color: '#334155',
+  },
+  dueBadgeOverdue: {
+    backgroundColor: 'rgba(255, 100, 103, 0.16)',
+  },
+  dueBadgeTextOverdue: {
+    color: '#d93434',
+  },
   deleteActionContainer: {
     width: 72,
     alignItems: 'flex-end',

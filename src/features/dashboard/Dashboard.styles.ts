@@ -69,8 +69,9 @@ export const styles = StyleSheet.create({
   },
   filterActionsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
+    alignItems: 'center',
+    paddingRight: 8,
   },
   filterAction: {
     flexDirection: 'row',

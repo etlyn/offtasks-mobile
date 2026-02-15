@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { findNodeHandle } from 'react-native';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import Feather from 'react-native-vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -42,8 +43,28 @@ interface TaskComposerModalProps {
   canCreateCategory: boolean;
   onCreateCategory: () => void;
   onSelectCategory: (category: string) => void;
+  selectedDate: string;
+  onChangeDate: (value: string) => void;
   mode?: 'create' | 'edit';
 }
+
+const formatDateForStorage = (date: Date) => {
+  return [
+    date.getFullYear(),
+    (date.getMonth() + 1).toString().padStart(2, '0'),
+    date.getDate().toString().padStart(2, '0'),
+  ].join('-');
+};
+
+const parseStoredDate = (value: string) => {
+  const [year, month, day] = value.split('-').map((chunk) => Number(chunk));
+
+  if (!year || !month || !day) {
+    return new Date();
+  }
+
+  return new Date(year, month - 1, day);
+};
 
 export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
   const {
@@ -62,8 +83,8 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
     onSelectCategory,
     onSubmit,
     submitting,
-    categoryQuery,
-    onCategoryQueryChange,
+    selectedDate,
+    onChangeDate,
     mode,
   } = props;
 
@@ -98,6 +119,20 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
   };
 
   const selectedCategoryLabel = selectedCategory ?? 'None';
+  const [showDatePicker, setShowDatePicker] = React.useState(false);
+
+  const selectedDateObject = React.useMemo(() => parseStoredDate(selectedDate), [selectedDate]);
+
+  const selectedDateLabel = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      }).format(selectedDateObject),
+    [selectedDateObject]
+  );
+  const [pendingDate, setPendingDate] = React.useState<Date>(selectedDateObject);
 
   const handleCloseComposer = React.useCallback(() => {
     onClose();
@@ -140,6 +175,46 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
   const closeDropdown = React.useCallback(() => {
     setOpenDropdown(null);
   }, []);
+
+  const openDatePicker = React.useCallback(() => {
+    closeDropdown();
+    Keyboard.dismiss();
+    setPendingDate(selectedDateObject);
+    setShowDatePicker(true);
+  }, [closeDropdown, selectedDateObject]);
+
+  const handleDateChange = React.useCallback(
+    (event: DateTimePickerEvent, value?: Date) => {
+      if (Platform.OS === 'android') {
+        if (event.type === 'dismissed') {
+          setShowDatePicker(false);
+          return;
+        }
+
+        if (value) {
+          onChangeDate(formatDateForStorage(value));
+        }
+
+        setShowDatePicker(false);
+        return;
+      }
+
+      if (event.type === 'dismissed') {
+        setShowDatePicker(false);
+        return;
+      }
+
+      if (value) {
+        setPendingDate(value);
+      }
+    },
+    [onChangeDate]
+  );
+
+  const handleConfirmDate = React.useCallback(() => {
+      onChangeDate(formatDateForStorage(pendingDate));
+      setShowDatePicker(false);
+  }, [onChangeDate, pendingDate]);
 
   if (!visible) {
     return null;
@@ -252,7 +327,10 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
                 <View style={composerStyles.section}>
                   <View style={composerStyles.dropdownRow}>
                     <View style={composerStyles.dropdownColumn}>
-                      <Text style={composerStyles.sectionLabel}>Priority</Text>
+                      <View style={composerStyles.dropdownLabelRow}>
+                        <Feather name="flag" size={14} color={priorityMeta.tint} />
+                        <Text style={composerStyles.sectionLabel}>Priority</Text>
+                      </View>
                       <Pressable
                         ref={priorityTriggerRef}
                         accessibilityRole="button"
@@ -263,16 +341,24 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
                         onPress={() => openDropdownFor('priority')}
                         disabled={submitting}
                       >
-                        <View style={composerStyles.dropdownIconWrap}>
-                          <Feather name="flag" size={16} color={priorityMeta.tint} />
-                        </View>
-                        <Text style={composerStyles.dropdownValue}>{priorityMeta.label}</Text>
+                        <Text
+                          style={composerStyles.dropdownValue}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {priorityMeta.label}
+                        </Text>
                         <Feather name="chevron-down" size={16} color={palette.slate600} />
                       </Pressable>
                     </View>
 
                     <View style={composerStyles.dropdownColumn}>
-                      <Text style={composerStyles.sectionLabel}>Category</Text>
+                      <View style={composerStyles.dropdownLabelRow}>
+                        <Text style={composerStyles.dropdownLabelEmoji}>
+                          {categoryEmojiMap[selectedCategoryLabel] ?? '📁'}
+                        </Text>
+                        <Text style={composerStyles.sectionLabel}>Category</Text>
+                      </View>
                       <Pressable
                         ref={categoryTriggerRef}
                         accessibilityRole="button"
@@ -283,10 +369,38 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
                         onPress={() => openDropdownFor('category')}
                         disabled={submitting}
                       >
-                        <Text style={composerStyles.dropdownEmoji}>
-                          {categoryEmojiMap[selectedCategoryLabel] ?? '📁'}
+                        <Text
+                          style={composerStyles.dropdownValue}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {selectedCategoryLabel}
                         </Text>
-                        <Text style={composerStyles.dropdownValue}>{selectedCategoryLabel}</Text>
+                        <Feather name="chevron-down" size={16} color={palette.slate600} />
+                      </Pressable>
+                    </View>
+
+                    <View style={composerStyles.dropdownColumn}>
+                      <View style={composerStyles.dropdownLabelRow}>
+                        <Feather name="calendar" size={14} color={palette.slate600} />
+                        <Text style={composerStyles.sectionLabel}>Due Date</Text>
+                      </View>
+                      <Pressable
+                        accessibilityRole="button"
+                        style={({ pressed }) => [
+                          composerStyles.dropdownTrigger,
+                          pressed && composerStyles.dropdownTriggerPressed,
+                        ]}
+                        onPress={openDatePicker}
+                        disabled={submitting}
+                      >
+                        <Text
+                          style={composerStyles.dropdownValue}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {selectedDateLabel}
+                        </Text>
                         <Feather name="chevron-down" size={16} color={palette.slate600} />
                       </Pressable>
                     </View>
@@ -385,6 +499,46 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = (props) => {
             </ScrollView>
           </View>
         </View>
+      ) : null}
+      {showDatePicker ? (
+        Platform.OS === 'ios' ? (
+          <View style={composerStyles.datePickerOverlay} pointerEvents="box-none">
+            <Pressable
+              style={composerStyles.datePickerBackdrop}
+              onPress={() => setShowDatePicker(false)}
+            />
+            <View
+              style={[
+                composerStyles.datePickerSheet,
+                { marginBottom: Math.max(insets.bottom, 12) },
+              ]}
+            >
+              <View style={composerStyles.datePickerHeader}>
+                <Pressable onPress={() => setShowDatePicker(false)}>
+                  <Text style={composerStyles.datePickerAction}>Cancel</Text>
+                </Pressable>
+                <Text style={composerStyles.datePickerTitle}>Select date</Text>
+                <Pressable onPress={handleConfirmDate}>
+                  <Text style={composerStyles.datePickerAction}>Done</Text>
+                </Pressable>
+              </View>
+              <DateTimePicker
+                value={pendingDate}
+                mode="date"
+                display="spinner"
+                onChange={handleDateChange}
+                style={composerStyles.iosDatePicker}
+              />
+            </View>
+          </View>
+        ) : (
+          <DateTimePicker
+            value={selectedDateObject}
+            mode="date"
+            display="calendar"
+            onChange={handleDateChange}
+          />
+        )
       ) : null}
     </Modal>
     </>
@@ -514,11 +668,20 @@ const composerStyles = StyleSheet.create({
   },
   dropdownRow: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 8,
   },
   dropdownColumn: {
     flex: 1,
     gap: 8,
+  },
+  dropdownLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dropdownLabelEmoji: {
+    fontSize: 14,
+    lineHeight: 16,
   },
   dropdownTrigger: {
     flexDirection: 'row',
@@ -528,9 +691,9 @@ const composerStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
     backgroundColor: '#ffffff',
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     paddingVertical: 12,
-    gap: 10,
+    gap: 6,
   },
   dropdownTriggerPressed: {
     opacity: 0.85,
@@ -540,12 +703,10 @@ const composerStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dropdownEmoji: {
-    fontSize: 16,
-  },
   dropdownValue: {
     flex: 1,
-    fontSize: 15,
+    minWidth: 0,
+    fontSize: 14,
     color: '#0f172a',
     fontWeight: '600',
   },
@@ -626,5 +787,47 @@ const composerStyles = StyleSheet.create({
   },
   dropdownEmojiSmall: {
     fontSize: 16,
+  },
+  datePickerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+    zIndex: 30,
+  },
+  datePickerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.28)',
+  },
+  datePickerSheet: {
+    marginHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    paddingTop: 10,
+    paddingBottom: 8,
+    paddingHorizontal: 10,
+    shadowColor: 'rgba(0,0,0,0.18)',
+    shadowOpacity: 1,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 6,
+    paddingBottom: 4,
+  },
+  datePickerTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  datePickerAction: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2fb59a',
+  },
+  iosDatePicker: {
+    alignSelf: 'stretch',
   },
 });

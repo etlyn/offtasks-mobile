@@ -1,12 +1,12 @@
 import React from 'react';
 import {
   Alert,
-  Image,
   Pressable,
   Switch,
   Text,
   View,
 } from 'react-native';
+import Feather from 'react-native-vector-icons/Feather';
 import {
   DrawerContentScrollView,
   DrawerContentComponentProps,
@@ -21,23 +21,7 @@ import { palette } from '@/theme/colors';
 
 import { styles } from './SideDrawerContent.styles';
 
-const FigmaImage = Image as unknown as React.ComponentType<{
-  source: { uri: string };
-  style?: unknown;
-  resizeMode?: 'cover' | 'contain' | 'stretch' | 'repeat' | 'center';
-}>;
-
-const iconUser = 'https://www.figma.com/api/mcp/asset/6acafae1-b82a-4ccc-b8c9-2922cd3e106e';
-const iconSearch = 'https://www.figma.com/api/mcp/asset/488f936a-6eb2-43e9-b7f0-7817687a3e37';
-const iconChevron = 'https://www.figma.com/api/mcp/asset/8975657f-175d-4c3c-ae83-a17071b8672a';
-const iconAnalytics = 'https://www.figma.com/api/mcp/asset/09acd571-fa14-4cdc-92dc-e6b654fe6795';
-const iconCompleted = 'https://www.figma.com/api/mcp/asset/fa8ebcbc-9701-4f93-bdea-50effa2955a3';
-const iconTheme = 'https://www.figma.com/api/mcp/asset/b7a04e63-08bf-4448-837a-c94891de6ac2';
-const iconHide = 'https://www.figma.com/api/mcp/asset/9cd4ea63-0b17-4558-b8da-daa1a9caf467';
-const iconAdvanced = 'https://www.figma.com/api/mcp/asset/118a8e27-055a-4257-93e0-7324eb4a66c3';
-const iconAuto = iconAdvanced;
-const iconLogout = 'https://www.figma.com/api/mcp/asset/cca75eab-aed1-4f42-b25b-5db466eeae4d';
-const iconClose = 'https://www.figma.com/api/mcp/asset/8be6f61d-52f6-41e3-aa4b-93dd5ea37a59';
+const appVersion = require('../../../package.json')?.version ?? '0.0.0';
 
 export const SideDrawerContent = (props: DrawerContentComponentProps) => {
   const { navigation } = props;
@@ -78,7 +62,14 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
   }, [navigation]);
 
   const email = session?.user?.email ?? 'Offline';
-  const userLabel = email.split('@')[0] || 'User';
+  const fullName = session?.user?.user_metadata?.full_name as string | undefined;
+  const userLabel = fullName?.trim() || email.split('@')[0] || 'User';
+  const initials = userLabel
+    .split(/[\s._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'U';
   const completionLabel = totals.all > 0 ? `${totals.completed}/${totals.all} completed` : 'No tasks yet';
 
   return (
@@ -95,7 +86,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
       <View style={styles.header}>
         <View style={styles.profileRow}>
           <View style={styles.avatar}>
-            <FigmaImage source={{ uri: iconUser }} style={styles.avatarIcon} resizeMode="contain" />
+            <Text style={styles.avatarText}>{initials}</Text>
           </View>
           <View style={styles.profileMeta}>
             <Text style={styles.profileName}>{userLabel}</Text>
@@ -108,7 +99,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
           onPress={() => navigation.closeDrawer()}
           style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
         >
-          <FigmaImage source={{ uri: iconClose }} style={styles.closeIcon} resizeMode="contain" />
+          <Feather name="x" size={20} color={palette.slate600} />
         </Pressable>
       </View>
 
@@ -118,10 +109,10 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
           onPress={() => handleNavigate('Search')}
         >
           <View style={[styles.menuIcon, styles.searchIcon]}>
-            <FigmaImage source={{ uri: iconSearch }} style={styles.menuIconImage} resizeMode="contain" />
+            <Feather name="search" size={16} color={palette.slate700} />
           </View>
           <Text style={styles.menuLabel}>Search</Text>
-          <FigmaImage source={{ uri: iconChevron }} style={styles.trailingIcon} resizeMode="contain" />
+          <Feather name="chevron-right" size={18} color={palette.slate500} />
         </Pressable>
 
         <Pressable
@@ -129,10 +120,10 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
           onPress={() => handleNavigate('Analytics')}
         >
           <View style={[styles.menuIcon, styles.analyticsIcon]}>
-            <FigmaImage source={{ uri: iconAnalytics }} style={styles.menuIconImage} resizeMode="contain" />
+            <Feather name="pie-chart" size={16} color={palette.slate700} />
           </View>
           <Text style={styles.menuLabel}>Analytics</Text>
-          <FigmaImage source={{ uri: iconChevron }} style={styles.trailingIcon} resizeMode="contain" />
+          <Feather name="chevron-right" size={18} color={palette.slate500} />
         </Pressable>
 
         <Pressable
@@ -140,10 +131,10 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
           onPress={() => handleNavigate('Completed')}
         >
           <View style={[styles.menuIcon, styles.completedIcon]}>
-            <FigmaImage source={{ uri: iconCompleted }} style={styles.menuIconImage} resizeMode="contain" />
+            <Feather name="check-circle" size={16} color={palette.slate700} />
           </View>
           <Text style={styles.menuLabel}>Completed Tasks</Text>
-          <FigmaImage source={{ uri: iconChevron }} style={styles.trailingIcon} resizeMode="contain" />
+          <Feather name="chevron-right" size={18} color={palette.slate500} />
         </Pressable>
 
         <Pressable
@@ -151,7 +142,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
           onPress={toggleTheme}
         >
           <View style={[styles.menuIcon, styles.themeIcon]}>
-            <FigmaImage source={{ uri: iconTheme }} style={styles.menuIconImage} resizeMode="contain" />
+            <Feather name={themeMode === 'Light' ? 'sun' : 'moon'} size={16} color={palette.slate700} />
           </View>
           <Text style={styles.menuLabel}>Theme</Text>
           <Text style={styles.menuValue}>{themeMode}</Text>
@@ -159,7 +150,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
 
         <View style={styles.menuRow}>
           <View style={[styles.menuIcon, styles.hideIcon]}>
-            <FigmaImage source={{ uri: iconHide }} style={styles.menuIconImage} resizeMode="contain" />
+            <Feather name="eye-off" size={16} color={palette.slate700} />
           </View>
           <Text style={styles.menuLabel}>Hide Completed Tasks</Text>
           <Switch
@@ -174,7 +165,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
 
         <View style={styles.menuRow}>
           <View style={[styles.menuIcon, styles.advancedIcon]}>
-            <FigmaImage source={{ uri: iconAdvanced }} style={styles.menuIconImage} resizeMode="contain" />
+            <Feather name="cpu" size={16} color={palette.slate700} />
           </View>
           <Text style={styles.menuLabel}>Advanced Mode</Text>
           <Switch
@@ -189,7 +180,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
 
         <View style={[styles.menuRow, styles.menuRowLast]}>
           <View style={[styles.menuIcon, styles.autoIcon]}>
-            <FigmaImage source={{ uri: iconAuto }} style={styles.menuIconImage} resizeMode="contain" />
+            <Feather name="refresh-cw" size={16} color={palette.slate700} />
           </View>
           <Text style={styles.menuLabel}>Auto-move due tasks</Text>
           <Switch
@@ -208,10 +199,10 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
           style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutButtonPressed]}
           onPress={handleSignOut}
         >
-          <FigmaImage source={{ uri: iconLogout }} style={styles.logoutIcon} resizeMode="contain" />
+          <Feather name="log-out" size={18} color="#e11d24" />
           <Text style={styles.logoutLabel}>Log Out</Text>
         </Pressable>
-        <Text style={styles.versionLabel}>offtasks mobile v1.0.0</Text>
+        <Text style={styles.versionLabel}>{`v${appVersion}`}</Text>
       </View>
     </DrawerContentScrollView>
   );

@@ -86,6 +86,7 @@ export const CompletedScreen = () => {
   const [editingTask, setEditingTask] = React.useState<Task | null>(null);
   const [newTaskContent, setNewTaskContent] = React.useState('');
   const [composerGroup, setComposerGroup] = React.useState<DashboardGroup>('today');
+  const [selectedDate, setSelectedDate] = React.useState<string>(dateForGroup('today'));
   const [selectedPriority, setSelectedPriority] = React.useState(0);
   const [categoryQuery, setCategoryQuery] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null);
@@ -160,6 +161,7 @@ export const CompletedScreen = () => {
     setEditingTask(task);
     setNewTaskContent(task.content);
     setComposerGroup(groupOverride);
+    setSelectedDate(task.date);
     setSelectedPriority(task.priority ?? 0);
     setCategoryQuery('');
     setSelectedCategory(task.label ?? null);
@@ -171,11 +173,40 @@ export const CompletedScreen = () => {
     setNewTaskContent('');
     setSelectedPriority(0);
     setComposerGroup('today');
+    setSelectedDate(dateForGroup('today'));
     setCategoryQuery('');
     setSelectedCategory(null);
     setComposerMode('create');
     setEditingTask(null);
   }, []);
+
+  const groupForDate = React.useCallback((date: string): DashboardGroup => {
+    const today = getToday();
+    const tomorrow = getAdjacentDay(1);
+
+    if (date <= today) {
+      return 'today';
+    }
+
+    if (date === tomorrow) {
+      return 'tomorrow';
+    }
+
+    return 'upcoming';
+  }, []);
+
+  const handleComposerGroupChange = React.useCallback((group: DashboardGroup) => {
+    setComposerGroup(group);
+    setSelectedDate(dateForGroup(group));
+  }, []);
+
+  const handleComposerDateChange = React.useCallback(
+    (date: string) => {
+      setSelectedDate(date);
+      setComposerGroup(groupForDate(date));
+    },
+    [groupForDate]
+  );
 
   const handleSubmitTask = React.useCallback(async () => {
     if (!editingTask || submitting) {
@@ -189,11 +220,13 @@ export const CompletedScreen = () => {
 
     setSubmitting(true);
     try {
+      const effectiveGroup = groupForDate(selectedDate);
+
       await updateTask(editingTask.id, {
         content: trimmed,
-        target_group: composerGroup,
+        target_group: effectiveGroup,
         priority: selectedPriority,
-        date: dateForGroup(composerGroup),
+        date: selectedDate,
         label: selectedCategory ?? null,
       });
       handleCloseComposer();
@@ -201,7 +234,7 @@ export const CompletedScreen = () => {
     } finally {
       setSubmitting(false);
     }
-  }, [composerGroup, editingTask, handleCloseComposer, newTaskContent, refresh, selectedCategory, selectedPriority, submitting]);
+  }, [editingTask, groupForDate, handleCloseComposer, newTaskContent, refresh, selectedCategory, selectedDate, selectedPriority, submitting]);
 
   const handleSelectPriority = React.useCallback((value: number) => {
     setSelectedPriority(value);
@@ -288,7 +321,7 @@ export const CompletedScreen = () => {
         newTaskContent={newTaskContent}
         onChangeTaskContent={setNewTaskContent}
         composerGroup={composerGroup}
-        onChangeGroup={setComposerGroup}
+        onChangeGroup={handleComposerGroupChange}
         groupSegments={groupSegments}
         priorityOptions={priorityOptions}
         onSelectPriority={handleSelectPriority}
@@ -303,6 +336,8 @@ export const CompletedScreen = () => {
         canCreateCategory={canCreateCategory}
         onCreateCategory={handleCreateCategory}
         onSelectCategory={handleSelectCategory}
+        selectedDate={selectedDate}
+        onChangeDate={handleComposerDateChange}
         mode={composerMode}
       />
     </View>

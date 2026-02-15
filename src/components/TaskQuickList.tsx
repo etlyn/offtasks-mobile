@@ -4,7 +4,9 @@ import Feather from 'react-native-vector-icons/Feather';
 
 import type { Task, TaskWithOverdueFlag } from '@/types/task';
 import { getToday } from '@/hooks/useDate';
+import { usePreferences } from '@/providers/PreferencesProvider';
 import { palette } from '@/theme/colors';
+import { getCategoryBadgeColors } from '@/utils/categoryColors';
 
 type TaskType = Task | TaskWithOverdueFlag;
 
@@ -25,6 +27,7 @@ const hasOverdueFlag = (task: TaskType): task is TaskWithOverdueFlag => {
 };
 
 export const TaskQuickList = ({ tasks, onToggle, onPress, onLongPress, onDelete, loading }: TaskQuickListProps) => {
+  const { advancedMode } = usePreferences();
   const orderedTasks = React.useMemo(() => {
     const next = [...tasks];
     next.sort((a, b) => Number(a.isComplete) - Number(b.isComplete));
@@ -57,6 +60,7 @@ export const TaskQuickList = ({ tasks, onToggle, onPress, onLongPress, onDelete,
           onToggle={onToggle}
           onPress={onPress}
           onLongPress={onLongPress}
+          showBadges={advancedMode}
         />
       ))}
     </View>
@@ -69,11 +73,34 @@ interface TaskQuickRowProps {
   onToggle: (task: TaskType) => Promise<void>;
   onPress?: (task: TaskType) => void;
   onLongPress?: (task: TaskType) => void;
+  showBadges: boolean;
 }
 
-const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress }: TaskQuickRowProps) => {
+const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress, showBadges }: TaskQuickRowProps) => {
   const [pending, setPending] = React.useState(false);
   const isHighPriority = !task.isComplete && task.priority >= 3;
+  const priorityLabel = ['None', 'Low', 'Medium', 'High'][task.priority ?? 0] ?? 'None';
+  const priorityPalette = [
+    { color: '#64748b', background: 'rgba(100, 116, 139, 0.18)' },
+    { color: '#0891b2', background: 'rgba(8, 145, 178, 0.18)' },
+    { color: '#6366f1', background: 'rgba(99, 102, 241, 0.18)' },
+    { color: '#f97316', background: 'rgba(249, 115, 22, 0.18)' },
+  ];
+  const priorityMeta = priorityPalette[task.priority ?? 0] ?? priorityPalette[0];
+  const categoryLabel = task.label?.trim() || 'None';
+  const hasCategory = !!task.label?.trim();
+  const categoryColors = hasCategory ? getCategoryBadgeColors(categoryLabel) : null;
+  const dueDateLabel = React.useMemo(() => {
+    const date = new Date(`${task.date}T00:00:00`);
+    if (Number.isNaN(date.getTime())) {
+      return task.date;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+    }).format(date);
+  }, [task.date]);
   
   // Check for overdue status - use flag if available, otherwise compute
   const today = getToday();
@@ -171,6 +198,26 @@ const TaskQuickRow = ({ task, isLast, onToggle, onPress, onLongPress }: TaskQuic
         >
           {task.content}
         </Text>
+        {showBadges ? (
+          <View style={styles.badgeRow}>
+            <View style={[styles.badge, { backgroundColor: priorityMeta.background }]}> 
+              <Text style={[styles.badgeText, { color: priorityMeta.color }]}> {priorityLabel} </Text>
+            </View>
+            <View
+              style={[
+                styles.badge,
+                {
+                  backgroundColor: categoryColors?.background ?? 'rgba(100, 116, 139, 0.18)',
+                },
+              ]}
+            >
+              <Text style={[styles.badgeText, { color: categoryColors?.color ?? '#64748b' }]}> {categoryLabel} </Text>
+            </View>
+            <View style={[styles.badge, isOverdue && !task.isComplete ? styles.dueBadgeOverdue : styles.dueBadge]}> 
+              <Text style={[styles.badgeText, isOverdue && !task.isComplete ? styles.dueBadgeTextOverdue : styles.dueBadgeText]}> {dueDateLabel} </Text>
+            </View>
+          </View>
+        ) : null}
       </Pressable>
     </View>
   );
@@ -278,5 +325,34 @@ const styles = StyleSheet.create({
   rowLabelDone: {
     color: '#9f9fa9',
     textDecorationLine: 'line-through',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(15, 23, 42, 0.08)',
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  dueBadge: {
+    backgroundColor: 'rgba(71, 85, 105, 0.16)',
+  },
+  dueBadgeText: {
+    color: '#334155',
+  },
+  dueBadgeOverdue: {
+    backgroundColor: 'rgba(255, 100, 103, 0.16)',
+  },
+  dueBadgeTextOverdue: {
+    color: '#d93434',
   },
 });
