@@ -4,6 +4,7 @@ export type DashboardGroup = Exclude<TaskGroup, 'close'>;
 
 export interface DashboardScreenRouteParams {
   group?: DashboardGroup;
+  searchToggleRequestId?: number;
 }
 
 export interface DashboardScreenProps {
@@ -21,7 +22,7 @@ export interface PriorityOption {
   value: number;
   label: string;
   description: string;
-  icon: 'minus-circle' | 'minus' | 'arrow-down-left' | 'alert-triangle';
+  icon: 'minus-circle' | 'minus' | 'arrow-up-left' | 'alert-triangle';
   tint: string;
   background: string;
 }

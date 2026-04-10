@@ -1,86 +1,77 @@
 import { StyleSheet } from 'react-native';
 
-import { palette } from '@/theme/colors';
+import type { AppTheme } from '@/theme/colors';
 
-export const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.16)',
-    shadowColor: 'rgba(15, 23, 42, 0.05)',
-    shadowOpacity: 1,
-    shadowOffset: { width: 0, height: 12 },
-    shadowRadius: 24,
-    elevation: 14,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  logoWrapper: {
-    width: 32,
-    height: 32,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.24)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: 'rgba(15, 23, 42, 0.12)',
-    shadowOpacity: 1,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  centerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  dayLabel: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: palette.slate900,
-    letterSpacing: -0.2,
-  },
-  summary: {
-    marginTop: 2,
-    fontSize: 12,
-    fontWeight: '500',
-    color: palette.slate600,
-  },
-  menuButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: 'rgba(15, 23, 42, 0.12)',
-    shadowOpacity: 1,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  menuButtonDisabled: {
-    opacity: 0.4,
-  },
-  menuButtonPlaceholder: {
-    width: 36,
-    height: 36,
-  },
-  caption: {
-    marginTop: 8,
-    fontSize: 12,
-    color: palette.slate600,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-});
+export const createStyles = (theme: AppTheme) =>
+  StyleSheet.create({
+    container: {
+      width: '100%',
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+      borderRadius: 16,
+      backgroundColor: theme.colors.glass,
+      borderWidth: 1,
+      borderColor: theme.colors.glassBorder,
+      shadowColor: theme.colors.shadow,
+      shadowOpacity: 1,
+      shadowOffset: { width: 0, height: 8 },
+      shadowRadius: 32,
+      elevation: 10,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    centerContent: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    summary: {
+      fontSize: 15,
+      fontWeight: '400',
+      lineHeight: 22,
+      letterSpacing: -0.1,
+      color: theme.colors.textPrimary,
+    },
+    summaryValue: {
+      color: theme.colors.textPrimary,
+    },
+    summaryMuted: {
+      color: theme.colors.textMuted,
+    },
+    caption: {
+      marginTop: 1,
+      fontSize: 11,
+      color: theme.colors.textSecondary,
+      fontWeight: '500',
+      textAlign: 'center',
+    },
+    iconButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 14,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: theme.colors.shadow,
+      shadowOpacity: 1,
+      shadowOffset: { width: 0, height: 4 },
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    iconButtonPressed: {
+      opacity: 0.84,
+    },
+    iconButtonDisabled: {
+      opacity: 0.4,
+    },
+    iconButtonPlaceholder: {
+      width: 36,
+      height: 36,
+    },
+  });

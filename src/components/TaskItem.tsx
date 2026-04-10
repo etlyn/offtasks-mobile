@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 
 import { deleteTask, updateTask } from '@/lib/supabase';
@@ -9,6 +16,7 @@ import { useTasks } from '@/providers/TasksProvider';
 import type { Task, TaskWithOverdueFlag } from '@/types/task';
 import { palette } from '@/theme/colors';
 import { getCategoryBadgeColors } from '@/utils/categoryColors';
+import { describeTaskSchedule, isTaskOverdue } from '@/utils/taskScheduling';
 
 interface TaskItemProps {
   task: Task | TaskWithOverdueFlag;
@@ -17,33 +25,36 @@ interface TaskItemProps {
 /**
  * Helper to check if task has the isOverdue flag (TaskWithOverdueFlag type)
  */
-const hasOverdueFlag = (task: Task | TaskWithOverdueFlag): task is TaskWithOverdueFlag => {
+const hasOverdueFlag = (
+  task: Task | TaskWithOverdueFlag,
+): task is TaskWithOverdueFlag => {
   return 'isOverdue' in task;
 };
 
 export const TaskItem = ({ task }: TaskItemProps) => {
-  const { refresh } = useTasks();
+  const { refresh, applyTaskUpdate } = useTasks();
   const { advancedMode, redTasks } = usePreferences();
   const [submitting, setSubmitting] = useState(false);
-  const priorityLabel = ['None', 'Low', 'Medium', 'High'][task.priority ?? 0] ?? 'None';
+  const priorityLabel =
+    ['None', 'Low', 'Medium', 'High'][task.priority ?? 0] ?? 'None';
   const priorityPalette = [
     { color: '#64748b', background: 'rgba(100, 116, 139, 0.18)' },
     { color: '#0891b2', background: 'rgba(8, 145, 178, 0.18)' },
     { color: '#6366f1', background: 'rgba(99, 102, 241, 0.18)' },
     { color: '#f97316', background: 'rgba(249, 115, 22, 0.18)' },
   ];
-  const priorityMeta = priorityPalette[task.priority ?? 0] ?? priorityPalette[0];
+  const priorityMeta =
+    priorityPalette[task.priority ?? 0] ?? priorityPalette[0];
   const categoryLabel = task.label?.trim() || 'None';
   const hasPriority = (task.priority ?? 0) > 0;
   const hasCategory = !!task.label?.trim();
-  const categoryColors = hasCategory ? getCategoryBadgeColors(categoryLabel) : null;
+  const categoryColors = hasCategory
+    ? getCategoryBadgeColors(categoryLabel)
+    : null;
 
   // Use the isOverdue flag if available, otherwise compute it
   // A task is overdue if it's not complete, date is before today, and still in Today
-  const today = getToday();
-  const isOverdue = hasOverdueFlag(task) 
-    ? task.isOverdue 
-    : (!task.isComplete && task.date < today && task.target_group === 'today');
+  const isOverdue = hasOverdueFlag(task) ? task.isOverdue : isTaskOverdue(task);
 
   const handleToggle = async () => {
     if (submitting) {
@@ -54,12 +65,17 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 
     try {
       const nextComplete = !task.isComplete;
-      await updateTask(task.id, {
+      const taskUpdates = {
         isComplete: nextComplete,
         completed_at: nextComplete ? getToday() : null,
+      };
+
+      applyTaskUpdate(task.id, taskUpdates);
+      await updateTask(task.id, {
+        ...taskUpdates,
       });
-      await refresh();
     } catch (error) {
+      await refresh();
       Alert.alert('Update failed', (error as Error).message);
     } finally {
       setSubmitting(false);
@@ -98,7 +114,13 @@ export const TaskItem = ({ task }: TaskItemProps) => {
   const showRed = !task.isComplete && (isOverdue || redTasks);
 
   return (
-    <View style={[styles.container, showRed && styles.containerPriority, submitting && styles.disabled]}>
+    <View
+      style={[
+        styles.container,
+        showRed && styles.containerPriority,
+        submitting && styles.disabled,
+      ]}
+    >
       <Pressable
         style={({ pressed }) => [
           styles.check,
@@ -111,7 +133,13 @@ export const TaskItem = ({ task }: TaskItemProps) => {
         {submitting ? (
           <ActivityIndicator
             size="small"
-            color={task.isComplete ? palette.lightSurface : showRed ? palette.danger : palette.mintStrong}
+            color={
+              task.isComplete
+                ? palette.lightSurface
+                : showRed
+                ? palette.danger
+                : palette.mintStrong
+            }
           />
         ) : task.isComplete ? (
           <Feather name="check" size={16} color={palette.lightSurface} />
@@ -129,24 +157,48 @@ export const TaskItem = ({ task }: TaskItemProps) => {
         >
           {task.content}
         </Text>
-        <Text style={[styles.meta, task.isComplete && styles.metaDone]}>Due {task.date}</Text>
+        <Text style={[styles.meta, task.isComplete && styles.metaDone]}>
+          {describeTaskSchedule(task)}
+        </Text>
         {advancedMode && (hasPriority || hasCategory) ? (
           <View style={styles.badgeRow}>
             {hasPriority ? (
-              <View style={[styles.badge, { backgroundColor: priorityMeta.background }]}>
-                <Text style={[styles.badgeText, { color: priorityMeta.color }]}> {priorityLabel} </Text>
+              <View
+                style={[
+                  styles.badge,
+                  { backgroundColor: priorityMeta.background },
+                ]}
+              >
+                <Text style={[styles.badgeText, { color: priorityMeta.color }]}>
+                  {' '}
+                  {priorityLabel}{' '}
+                </Text>
               </View>
             ) : null}
             {hasCategory && categoryColors ? (
-              <View style={[styles.badge, { backgroundColor: categoryColors.background }]}>
-                <Text style={[styles.badgeText, { color: categoryColors.color }]}> {categoryLabel} </Text>
+              <View
+                style={[
+                  styles.badge,
+                  { backgroundColor: categoryColors.background },
+                ]}
+              >
+                <Text
+                  style={[styles.badgeText, { color: categoryColors.color }]}
+                >
+                  {' '}
+                  {categoryLabel}{' '}
+                </Text>
               </View>
             ) : null}
           </View>
         ) : null}
       </View>
 
-      <Pressable style={styles.delete} onPress={handleDelete} disabled={submitting}>
+      <Pressable
+        style={styles.delete}
+        onPress={handleDelete}
+        disabled={submitting}
+      >
         <Text style={styles.deleteText}>×</Text>
       </Pressable>
     </View>

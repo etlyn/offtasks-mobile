@@ -7,26 +7,31 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DashboardHeader } from '@/components/dashboard-header';
 import { useTasks } from '@/providers/TasksProvider';
-import { palette } from '@/theme/colors';
+import { useAppTheme } from '@/theme/colors';
 
 type DashboardGroupKey = 'today' | 'tomorrow' | 'upcoming';
 
 const dashboardRouteToGroup: Record<string, DashboardGroupKey | undefined> = {
   Today: 'today',
   Tomorrow: 'tomorrow',
-  Upcoming: 'upcoming',
+  Later: 'upcoming',
 };
 
 const groupLabels: Record<DashboardGroupKey, string> = {
   today: 'Today',
   tomorrow: 'Tomorrow',
-  upcoming: 'Upcoming',
+  upcoming: 'Later',
 };
 
-
-export const NavBar: React.FC<BottomTabHeaderProps> = ({ navigation, route, options }) => {
+export const NavBar: React.FC<BottomTabHeaderProps> = ({
+  navigation,
+  route,
+  options,
+}) => {
   const insets = useSafeAreaInsets();
   const { tasks } = useTasks();
+  const theme = useAppTheme();
+  const styles = React.useMemo(() => createStyles(theme), [theme]);
 
   const title =
     typeof options.headerTitle === 'string'
@@ -38,8 +43,8 @@ export const NavBar: React.FC<BottomTabHeaderProps> = ({ navigation, route, opti
   const dashboardGroup = dashboardRouteToGroup[route.name];
   const dashboardTasks = dashboardGroup ? tasks?.[dashboardGroup] ?? [] : [];
   const totalCount = dashboardTasks.length;
-  const completedCount = dashboardTasks.filter((task) => task.isComplete).length;
-  const summary = totalCount > 0 ? `${completedCount} of ${totalCount}` : 'Nothing scheduled';
+  const completedCount = dashboardTasks.filter(task => task.isComplete).length;
+  const summary = `${completedCount} / ${totalCount}`;
 
   const handleMenuPress = React.useCallback(() => {
     const parent = navigation.getParent();
@@ -49,6 +54,30 @@ export const NavBar: React.FC<BottomTabHeaderProps> = ({ navigation, route, opti
     }
     navigation.dispatch(DrawerActions.openDrawer());
   }, [navigation]);
+
+  const handleSearchPress = React.useCallback(() => {
+    if (dashboardGroup) {
+      navigation.setParams({ searchToggleRequestId: Date.now() } as never);
+      return;
+    }
+
+    const parent = navigation.getParent();
+    if (parent) {
+      parent.navigate(
+        'Dashboard' as never,
+        {
+          screen: 'Today',
+          params: { searchToggleRequestId: Date.now() },
+        } as never,
+      );
+      return;
+    }
+
+    navigation.navigate(
+      'Today' as never,
+      { searchToggleRequestId: Date.now() } as never,
+    );
+  }, [dashboardGroup, navigation]);
 
   const handleBackPress = React.useCallback(() => {
     if (navigation.canGoBack()) {
@@ -63,7 +92,13 @@ export const NavBar: React.FC<BottomTabHeaderProps> = ({ navigation, route, opti
   return (
     <View
       pointerEvents="box-none"
-      style={[styles.wrapper, { paddingTop: insets.top + 12, paddingBottom: insets.bottom > 0 ? 8 : 12 }]}
+      style={[
+        styles.wrapper,
+        {
+          paddingTop: insets.top + 8,
+          paddingBottom: insets.bottom > 0 ? 8 : 12,
+        },
+      ]}
     >
       {dashboardGroup ? (
         <DashboardHeader
@@ -71,16 +106,24 @@ export const NavBar: React.FC<BottomTabHeaderProps> = ({ navigation, route, opti
           summary={summary}
           buttonIcon={showBack ? 'arrow-left' : 'menu'}
           onButtonPress={showBack ? handleBackPress : handleMenuPress}
+          onSearchPress={handleSearchPress}
         />
       ) : (
-        <View style={styles.fallbackCard}>
+        <View style={styles.fallbackRow}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={showBack ? 'Go back' : 'Open navigation menu'}
             onPress={showBack ? handleBackPress : handleMenuPress}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
+            style={({ pressed }) => [
+              styles.iconButton,
+              pressed && styles.iconButtonPressed,
+            ]}
           >
-            <Feather name={showBack ? 'arrow-left' : 'menu'} size={18} color={palette.slate900} />
+            <Feather
+              name={showBack ? 'arrow-left' : 'menu'}
+              size={18}
+              color={theme.colors.iconPrimary}
+            />
           </Pressable>
 
           <Text style={styles.fallbackTitle} numberOfLines={1}>
@@ -89,11 +132,14 @@ export const NavBar: React.FC<BottomTabHeaderProps> = ({ navigation, route, opti
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Open navigation menu"
-            onPress={handleMenuPress}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
+            accessibilityLabel="Open task search"
+            onPress={handleSearchPress}
+            style={({ pressed }) => [
+              styles.iconButton,
+              pressed && styles.iconButtonPressed,
+            ]}
           >
-            <Feather name="menu" size={18} color={palette.slate900} />
+            <Feather name="search" size={18} color={theme.colors.iconPrimary} />
           </Pressable>
         </View>
       )}
@@ -101,54 +147,56 @@ export const NavBar: React.FC<BottomTabHeaderProps> = ({ navigation, route, opti
   );
 };
 
-const styles = StyleSheet.create({
-  wrapper: {
-    backgroundColor: 'transparent',
-    borderBottomWidth: 0,
-    paddingHorizontal: 16,
-    zIndex: 20,
-  },
-  iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.18)',
-    shadowColor: 'rgba(15, 23, 42, 0.12)',
-    shadowOpacity: 1,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  iconButtonPressed: {
-    opacity: 0.85,
-  },
-  fallbackCard: {
-    width: '100%',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.16)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    shadowColor: 'rgba(15, 23, 42, 0.25)',
-    shadowOpacity: 1,
-    shadowOffset: { width: 0, height: 12 },
-    shadowRadius: 24,
-    elevation: 14,
-  },
-  fallbackTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: '600',
-    color: palette.slate900,
-  },
-});
+const createStyles = (theme: ReturnType<typeof useAppTheme>) =>
+  StyleSheet.create({
+    wrapper: {
+      backgroundColor: 'transparent',
+      borderBottomWidth: 0,
+      paddingHorizontal: 18,
+      zIndex: 20,
+    },
+    iconButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      shadowColor: theme.colors.shadow,
+      shadowOpacity: 1,
+      shadowOffset: { width: 0, height: 6 },
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    iconButtonPressed: {
+      opacity: 0.85,
+    },
+    fallbackRow: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+      borderRadius: 16,
+      backgroundColor: theme.colors.glass,
+      borderWidth: 1,
+      borderColor: theme.colors.glassBorder,
+      shadowColor: theme.colors.shadow,
+      shadowOpacity: 1,
+      shadowOffset: { width: 0, height: 8 },
+      shadowRadius: 32,
+      elevation: 10,
+    },
+    fallbackTitle: {
+      flex: 1,
+      textAlign: 'center',
+      fontSize: 15,
+      lineHeight: 22,
+      fontWeight: '400',
+      color: theme.colors.textSecondary,
+    },
+  });

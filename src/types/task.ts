@@ -7,7 +7,7 @@ export interface Task {
   isComplete: boolean;
   priority: number;
   target_group: TaskGroup;
-  date: string;
+  date: string | null;
   label?: string | null;
   completed_at?: string | null;
   inserted_at?: string;

@@ -1,1 +1,1 @@
-export * from './TaskQuickList';
+export * from './TaskList';

@@ -10,7 +10,12 @@ import {
   Pressable,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
-import { DrawerActions, NavigationProp, ParamListBase, useNavigation } from '@react-navigation/native';
+import {
+  DrawerActions,
+  NavigationProp,
+  ParamListBase,
+  useNavigation,
+} from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { updateTask } from '@/lib/supabase';
@@ -18,11 +23,33 @@ import { useTasks } from '@/providers/TasksProvider';
 import type { Task } from '@/types/task';
 import { palette } from '@/theme/colors';
 
-type CategoryKey = 'Health' | 'Shopping' | 'Work' | 'Personal' | 'Finance' | 'General';
+type CategoryKey =
+  | 'Health'
+  | 'Shopping'
+  | 'Work'
+  | 'Personal'
+  | 'Finance'
+  | 'General';
 
-const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const monthLabels = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 
-const categoryStyles: Record<CategoryKey, { label: string; text: string; background: string; border: string }> = {
+const categoryStyles: Record<
+  CategoryKey,
+  { label: string; text: string; background: string; border: string }
+> = {
   Health: {
     label: 'Health',
     text: '#ec003f',
@@ -76,18 +103,32 @@ const detectCategory = (task: Task): CategoryKey => {
   if (/(budget|finance|bill|insurance|tax)/.test(content)) {
     return 'Finance';
   }
-  if (/(project|review|meeting|team|update|deploy|report|prepare|contract|build|hire)/.test(content)) {
+  if (
+    /(project|review|meeting|team|update|deploy|report|prepare|contract|build|hire)/.test(
+      content,
+    )
+  ) {
     return 'Work';
   }
   return 'General';
 };
 
-const formatTaskDate = (value: string) => {
+const formatTaskDate = (value: string | null | undefined) => {
+  if (!value) {
+    return 'Backlog';
+  }
+
   const [year, month, day] = value.split('-');
   const monthIndex = Number(month) - 1;
   const dayNumber = Number(day);
 
-  if (!year || Number.isNaN(monthIndex) || Number.isNaN(dayNumber) || monthIndex < 0 || monthIndex > 11) {
+  if (
+    !year ||
+    Number.isNaN(monthIndex) ||
+    Number.isNaN(dayNumber) ||
+    monthIndex < 0 ||
+    monthIndex > 11
+  ) {
     return value;
   }
 
@@ -105,13 +146,13 @@ export const CompletedScreen = () => {
   const completedTasks = React.useMemo(
     () =>
       allTasks
-        .filter((task) => task.isComplete)
+        .filter(task => task.isComplete)
         .sort((a, b) => {
-          const aDate = a.completed_at ?? a.date;
-          const bDate = b.completed_at ?? b.date;
+          const aDate = a.completed_at ?? a.date ?? '';
+          const bDate = b.completed_at ?? b.date ?? '';
           return aDate < bDate ? 1 : -1;
         }),
-    [allTasks]
+    [allTasks],
   );
 
   const handleRefresh = React.useCallback(() => {
@@ -143,7 +184,7 @@ export const CompletedScreen = () => {
         setPendingId(null);
       }
     },
-    [pendingId, refresh]
+    [pendingId, refresh],
   );
 
   return (
@@ -151,10 +192,18 @@ export const CompletedScreen = () => {
       <StatusBar barStyle="dark-content" backgroundColor="transparent" />
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + 40 },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={handleRefresh} tintColor={palette.mint} colors={[palette.mint]} />
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={handleRefresh}
+            tintColor={palette.mint}
+            colors={[palette.mint]}
+          />
         }
       >
         <View style={styles.topBar}>
@@ -162,7 +211,10 @@ export const CompletedScreen = () => {
             accessibilityRole="button"
             accessibilityLabel="Go back"
             onPress={handleBack}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
+            style={({ pressed }) => [
+              styles.iconButton,
+              pressed && styles.iconButtonPressed,
+            ]}
           >
             <Feather name="arrow-left" size={20} color={palette.slate900} />
           </Pressable>
@@ -171,7 +223,10 @@ export const CompletedScreen = () => {
             accessibilityRole="button"
             accessibilityLabel="Open menu"
             onPress={handleOpenDrawer}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
+            style={({ pressed }) => [
+              styles.iconButton,
+              pressed && styles.iconButtonPressed,
+            ]}
           >
             <Feather name="menu" size={20} color={palette.slate900} />
           </Pressable>
@@ -183,11 +238,12 @@ export const CompletedScreen = () => {
           {completedTasks.length === 0 ? (
             <View style={styles.emptyStateCard}>
               <Text style={styles.emptyStateLabel}>
-                Nothing wrapped up yet. Once you check something off, it will land here.
+                Nothing wrapped up yet. Once you check something off, it will
+                land here.
               </Text>
             </View>
           ) : (
-            completedTasks.map((task) => {
+            completedTasks.map(task => {
               const category = detectCategory(task);
               const swatch = categoryStyles[category];
               const isPending = pendingId === task.id;
@@ -195,14 +251,17 @@ export const CompletedScreen = () => {
               return (
                 <Pressable
                   key={task.id}
-                  style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+                  style={({ pressed }) => [
+                    styles.card,
+                    pressed && styles.cardPressed,
+                  ]}
                   onPress={() => handleRestore(task)}
                   disabled={isPending}
                   accessibilityRole="button"
                   accessibilityLabel={`Restore ${task.content}`}
                 >
                   <View style={styles.cardHeader}>
-                    <View style={styles.checkmark}> 
+                    <View style={styles.checkmark}>
                       {isPending ? (
                         <ActivityIndicator size="small" color={palette.mint} />
                       ) : (
@@ -212,7 +271,11 @@ export const CompletedScreen = () => {
                     <Text style={styles.cardTitle} numberOfLines={2}>
                       {task.content}
                     </Text>
-                    <Feather name="corner-up-left" size={18} color={palette.slate600} />
+                    <Feather
+                      name="corner-up-left"
+                      size={18}
+                      color={palette.slate600}
+                    />
                   </View>
 
                   <View style={styles.cardMeta}>
@@ -225,9 +288,13 @@ export const CompletedScreen = () => {
                         },
                       ]}
                     >
-                      <Text style={[styles.tagLabel, { color: swatch.text }]}>{swatch.label}</Text>
+                      <Text style={[styles.tagLabel, { color: swatch.text }]}>
+                        {swatch.label}
+                      </Text>
                     </View>
-                    <Text style={styles.cardDate}>{formatTaskDate(task.completed_at ?? task.date)}</Text>
+                    <Text style={styles.cardDate}>
+                      {formatTaskDate(task.completed_at ?? task.date)}
+                    </Text>
                   </View>
                 </Pressable>
               );

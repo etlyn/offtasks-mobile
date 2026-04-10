@@ -1,6 +1,15 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { publishWidgetTheme } from '@/lib/widgetBridge';
 import { fetchUserPreferences, upsertUserPreferences } from '@/lib/supabase';
 import { useAuth } from './AuthProvider';
 
@@ -38,13 +47,18 @@ const PreferencesContext = createContext<PreferencesContextValue>({
   toggleTheme: () => undefined,
 });
 
-export const PreferencesProvider = ({ children }: { children: React.ReactNode }) => {
+export const PreferencesProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
   const { session } = useAuth();
   const [hideCompleted, setHideCompleted] = useState(false);
   const [advancedMode, setAdvancedMode] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>('Light');
   const [autoArrange, setAutoArrange] = useState(false);
   const [redTasks, setRedTasks] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const hydratedRef = useRef(false);
 
   useEffect(() => {
@@ -52,13 +66,14 @@ export const PreferencesProvider = ({ children }: { children: React.ReactNode })
 
     const hydrate = async () => {
       try {
-        const [hideEntry, advancedEntry, themeEntry, autoEntry, redEntry] = await AsyncStorage.multiGet([
-          HIDE_COMPLETED_KEY,
-          ADVANCED_MODE_KEY,
-          THEME_MODE_KEY,
-          AUTO_ARRANGE_KEY,
-          RED_TASKS_KEY,
-        ]);
+        const [hideEntry, advancedEntry, themeEntry, autoEntry, redEntry] =
+          await AsyncStorage.multiGet([
+            HIDE_COMPLETED_KEY,
+            ADVANCED_MODE_KEY,
+            THEME_MODE_KEY,
+            AUTO_ARRANGE_KEY,
+            RED_TASKS_KEY,
+          ]);
 
         if (!isMounted) {
           return;
@@ -81,6 +96,9 @@ export const PreferencesProvider = ({ children }: { children: React.ReactNode })
         console.warn('Failed to hydrate preferences', error);
       } finally {
         hydratedRef.current = true;
+        if (isMounted) {
+          setHydrated(true);
+        }
       }
     };
 
@@ -120,24 +138,54 @@ export const PreferencesProvider = ({ children }: { children: React.ReactNode })
   }, [session?.user?.id]);
 
   useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
     AsyncStorage.setItem(HIDE_COMPLETED_KEY, hideCompleted ? 'true' : 'false');
-  }, [hideCompleted]);
+  }, [hideCompleted, hydrated]);
 
   useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
     AsyncStorage.setItem(ADVANCED_MODE_KEY, advancedMode ? 'true' : 'false');
-  }, [advancedMode]);
+  }, [advancedMode, hydrated]);
 
   useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
     AsyncStorage.setItem(THEME_MODE_KEY, themeMode);
-  }, [themeMode]);
+  }, [hydrated, themeMode]);
 
   useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
     AsyncStorage.setItem(AUTO_ARRANGE_KEY, autoArrange ? 'true' : 'false');
-  }, [autoArrange]);
+  }, [autoArrange, hydrated]);
 
   useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
     AsyncStorage.setItem(RED_TASKS_KEY, redTasks ? 'true' : 'false');
-  }, [redTasks]);
+  }, [hydrated, redTasks]);
+
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
+    publishWidgetTheme(themeMode).catch(error => {
+      console.warn('Failed to sync widget theme', error);
+    });
+  }, [hydrated, themeMode]);
 
   useEffect(() => {
     if (!hydratedRef.current || !session?.user?.id) {
@@ -150,13 +198,13 @@ export const PreferencesProvider = ({ children }: { children: React.ReactNode })
       advanced_mode: advancedMode,
       theme_mode: themeMode,
       auto_arrange: autoArrange,
-    }).catch((error) => {
+    }).catch(error => {
       console.warn('Failed to sync preferences', error);
     });
   }, [advancedMode, autoArrange, hideCompleted, session?.user?.id, themeMode]);
 
   const toggleTheme = useCallback(() => {
-    setThemeMode((prev) => (prev === 'Light' ? 'Dark' : 'Light'));
+    setThemeMode(prev => (prev === 'Light' ? 'Dark' : 'Light'));
   }, []);
 
   const value = useMemo(
@@ -172,10 +220,21 @@ export const PreferencesProvider = ({ children }: { children: React.ReactNode })
       setRedTasks,
       toggleTheme,
     }),
-    [advancedMode, autoArrange, hideCompleted, redTasks, themeMode, toggleTheme]
+    [
+      advancedMode,
+      autoArrange,
+      hideCompleted,
+      redTasks,
+      themeMode,
+      toggleTheme,
+    ],
   );
 
-  return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
+  return (
+    <PreferencesContext.Provider value={value}>
+      {children}
+    </PreferencesContext.Provider>
+  );
 };
 
 export const usePreferences = () => useContext(PreferencesContext);

@@ -7,3 +7,10 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 jest.mock('react-native-screens', () => ({
   enableScreens: jest.fn(),
 }));
+
+jest.mock('react-native-device-info', () => ({
+  __esModule: true,
+  default: {
+    getVersion: jest.fn(() => '1.03'),
+  },
+}));

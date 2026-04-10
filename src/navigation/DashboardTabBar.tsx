@@ -6,33 +6,47 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabTodayIcon } from '@/components/icons/TabToday';
 import { TabTomorrowIcon } from '@/components/icons/TabTomorrow';
 import { TabUpcomingIcon } from '@/components/icons/TabUpcoming';
-import { palette } from '@/theme/colors';
+import { palette, useAppTheme } from '@/theme/colors';
 const labels: Record<string, string> = {
   Today: 'Today',
   Tomorrow: 'Tomorrow',
-  Upcoming: 'Later',
+  Later: 'Later',
 };
 
-const TabIcon = ({ route, focused }: { route: string; focused: boolean }) => {
-  const color = focused ? palette.mintStrong : '#71717b';
+const TabIcon = ({
+  route,
+  focused,
+  inactiveColor,
+}: {
+  route: string;
+  focused: boolean;
+  inactiveColor: string;
+}) => {
+  const color = focused ? palette.mintStrong : inactiveColor;
 
   switch (route) {
     case 'Today':
       return <TabTodayIcon size={20} color={color} />;
     case 'Tomorrow':
       return <TabTomorrowIcon size={20} color={color} />;
-    case 'Upcoming':
+    case 'Later':
       return <TabUpcomingIcon size={20} color={color} />;
     default:
       return <TabTodayIcon size={20} color={color} />;
   }
 };
 
-export const DashboardTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
+export const DashboardTabBar: React.FC<BottomTabBarProps> = ({
+  state,
+  descriptors,
+  navigation,
+}) => {
   const insets = useSafeAreaInsets();
+  const theme = useAppTheme();
+  const styles = React.useMemo(() => createStyles(theme), [theme]);
 
   return (
-    <View style={[styles.wrapper, { paddingBottom: insets.bottom + 12 }]}> 
+    <View style={[styles.wrapper, { paddingBottom: insets.bottom + 12 }]}>
       <View style={styles.container}>
         <View pointerEvents="none" style={styles.containerSheen} />
         {state.routes.map((route, index) => {
@@ -50,16 +64,16 @@ export const DashboardTabBar: React.FC<BottomTabBarProps> = ({ state, descriptor
             typeof label === 'function'
               ? label({
                   focused: isFocused,
-                  color: isFocused ? palette.mintStrong : palette.slate600,
+                  color: isFocused
+                    ? palette.mintStrong
+                    : theme.colors.textSecondary,
                   position: 'below-icon',
                   children: fallbackLabel,
                 })
               : label;
 
           const labelText =
-            typeof resolvedLabel === 'string'
-              ? resolvedLabel
-              : fallbackLabel;
+            typeof resolvedLabel === 'string' ? resolvedLabel : fallbackLabel;
 
           const handlePress = () => {
             const event = navigation.emit({
@@ -88,9 +102,17 @@ export const DashboardTabBar: React.FC<BottomTabBarProps> = ({ state, descriptor
               ]}
             >
               <View style={styles.tabIcon}>
-                <TabIcon route={route.name} focused={isFocused} />
+                <TabIcon
+                  route={route.name}
+                  focused={isFocused}
+                  inactiveColor={theme.colors.textMuted}
+                />
               </View>
-              <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>{labelText}</Text>
+              <Text
+                style={[styles.tabLabel, isFocused && styles.tabLabelActive]}
+              >
+                {labelText}
+              </Text>
             </Pressable>
           );
         })}
@@ -99,68 +121,70 @@ export const DashboardTabBar: React.FC<BottomTabBarProps> = ({ state, descriptor
   );
 };
 
-const styles = StyleSheet.create({
-  wrapper: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    pointerEvents: 'box-none',
-  },
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.28)',
-    overflow: 'hidden',
-    shadowColor: 'rgba(148, 163, 184, 0.35)',
-    shadowOpacity: 1,
-    shadowOffset: { width: 0, height: 12 },
-    shadowRadius: 26,
-    elevation: 12,
-    gap: 8,
-  },
-  containerSheen: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 20,
-    shadowColor: 'rgba(255, 255, 255, 0.85)',
-    shadowOpacity: 1,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
-  },
-  tabItem: {
-    flex: 1,
-    height: 56,
-    borderRadius: 16,
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-  },
-  tabItemActive: {
-    backgroundColor: 'rgba(0, 150, 137, 0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 150, 137, 0.32)',
-  },
-  tabItemPressed: {
-    opacity: 0.88,
-  },
-  tabIcon: {
-    marginBottom: 6,
-  },
-  tabLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#71717b',
-  },
-  tabLabelActive: {
-    color: palette.mintStrong,
-  },
-});
+const createStyles = (theme: ReturnType<typeof useAppTheme>) =>
+  StyleSheet.create({
+    wrapper: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      alignItems: 'center',
+      pointerEvents: 'box-none',
+    },
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginHorizontal: 16,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 20,
+      backgroundColor: theme.colors.tabBarBackground,
+      borderWidth: 1,
+      borderColor: theme.colors.tabBarBorder,
+      overflow: 'hidden',
+      shadowColor: theme.colors.shadow,
+      shadowOpacity: 1,
+      shadowOffset: { width: 0, height: 12 },
+      shadowRadius: 26,
+      elevation: 12,
+      gap: 8,
+    },
+    containerSheen: {
+      ...StyleSheet.absoluteFillObject,
+      borderRadius: 20,
+      opacity: theme.isDark ? 0 : 1,
+      shadowColor: 'rgba(255, 255, 255, 0.85)',
+      shadowOpacity: 1,
+      shadowOffset: { width: 0, height: 1 },
+      shadowRadius: 2,
+    },
+    tabItem: {
+      flex: 1,
+      height: 56,
+      borderRadius: 16,
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 8,
+    },
+    tabItemActive: {
+      backgroundColor: theme.colors.tabBarActiveBackground,
+      borderWidth: 1,
+      borderColor: theme.colors.tabBarActiveBorder,
+    },
+    tabItemPressed: {
+      opacity: 0.88,
+    },
+    tabIcon: {
+      marginBottom: 6,
+    },
+    tabLabel: {
+      fontSize: 11,
+      fontWeight: '500',
+      color: theme.colors.textMuted,
+    },
+    tabLabelActive: {
+      color: palette.mintStrong,
+    },
+  });

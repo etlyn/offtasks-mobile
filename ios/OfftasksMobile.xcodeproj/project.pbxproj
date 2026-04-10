@@ -381,7 +381,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = OfftasksMobile/OfftasksMobile.entitlements;
 				CURRENT_PROJECT_VERSION = 3;
-				DEVELOPMENT_TEAM = BTK7H8S6DM;
+				DEVELOPMENT_TEAM = R9289H8FFR;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = OfftasksMobile/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Offtasks;

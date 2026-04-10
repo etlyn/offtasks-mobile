@@ -104,7 +104,7 @@ export const createTask = async (params: {
   content: string;
   target_group: TaskGroup;
   userId: string;
-  date: string;
+  date?: string | null;
   priority?: number;
   label?: string | null;
 }) => {
@@ -114,7 +114,7 @@ export const createTask = async (params: {
     content,
     target_group,
     user_id: userId,
-    date,
+    date: date ?? null,
     priority,
     isComplete: false,
   };
@@ -162,7 +162,12 @@ export const createTask = async (params: {
 
 export const updateTask = async (
   taskId: string,
-  updates: Partial<Pick<Task, 'content' | 'isComplete' | 'priority' | 'target_group' | 'date' | 'completed_at' | 'label'>>
+  updates: Partial<
+    Pick<
+      Task,
+      'content' | 'isComplete' | 'priority' | 'target_group' | 'date' | 'completed_at' | 'label'
+    >
+  >
 ) => {
   const { label, ...restUpdates } = updates;
   const sanitizedUpdates = Object.fromEntries(
@@ -245,6 +250,7 @@ export const fetchAllUserTasks = async (userId: string): Promise<Task[]> => {
   const rows = (data as (Task & { category?: string | null })[] | null) ?? [];
   return rows.map((row) => ({
     ...row,
+    date: row.date ?? null,
     label: row.label ?? row.category ?? null,
   }));
 };

@@ -1,6 +1,6 @@
 import React from 'react';
-import { ActivityIndicator, StatusBar, View } from 'react-native';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -10,7 +10,7 @@ import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { PreferencesProvider } from '@/providers/PreferencesProvider';
 import { TasksProvider } from '@/providers/TasksProvider';
 import { SplashScreen } from '@/components/SplashScreen';
-import { palette } from '@/theme/colors';
+import { palette, useAppTheme } from '@/theme/colors';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { AppNavigator } from '@/navigation/AppNavigator';
 
@@ -18,33 +18,15 @@ enableScreens();
 
 const Stack = createNativeStackNavigator();
 
-const navigationTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    background: palette.background,
-    card: palette.surface,
-    text: palette.textPrimary,
-    border: palette.surface,
-    primary: palette.accent,
-  },
-};
-
-const LoadingScreen = () => (
-  <View
-    style={{
-      flex: 1,
-      backgroundColor: palette.background,
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}
-  >
-    <ActivityIndicator size="large" color={palette.accent} />
+const LoadingScreen = ({ backgroundColor }: { backgroundColor: string }) => (
+  <View style={[styles.loadingScreen, { backgroundColor }]}>
+    <ActivityIndicator size="large" color={palette.mint} />
   </View>
 );
 
 const RootNavigator = () => {
   const { session, loading } = useAuth();
+  const theme = useAppTheme();
   const [showSplash, setShowSplash] = React.useState(true);
 
   if (showSplash) {
@@ -52,18 +34,19 @@ const RootNavigator = () => {
   }
 
   if (loading) {
-    return <LoadingScreen />;
+    return <LoadingScreen backgroundColor={theme.colors.background} />;
   }
 
   return (
-    <NavigationContainer theme={navigationTheme}>
-      <StatusBar barStyle="light-content" />
+    <NavigationContainer theme={theme.navigationTheme}>
+      <StatusBar
+        barStyle={theme.statusBarStyle}
+        backgroundColor="transparent"
+      />
       {session ? (
-        <PreferencesProvider>
-          <TasksProvider>
-            <AppNavigator />
-          </TasksProvider>
-        </PreferencesProvider>
+        <TasksProvider>
+          <AppNavigator />
+        </TasksProvider>
       ) : (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Auth" component={LoginScreen} />
@@ -74,13 +57,26 @@ const RootNavigator = () => {
 };
 
 const App = () => (
-  <GestureHandlerRootView style={{ flex: 1 }}>
+  <GestureHandlerRootView style={styles.appRoot}>
     <SafeAreaProvider>
       <AuthProvider>
-        <RootNavigator />
+        <PreferencesProvider>
+          <RootNavigator />
+        </PreferencesProvider>
       </AuthProvider>
     </SafeAreaProvider>
   </GestureHandlerRootView>
 );
+
+const styles = StyleSheet.create({
+  appRoot: {
+    flex: 1,
+  },
+  loadingScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
 
 export default App;

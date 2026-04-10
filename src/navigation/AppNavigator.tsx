@@ -5,28 +5,23 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import { SideDrawerContent } from '@/components/navigation/SideDrawerContent';
 import { TabNav } from '@/navigation/TabNav';
-import { NavBar } from '@/navigation/NavBar';
-import { palette } from '@/theme/colors';
+import { palette, useAppTheme } from '@/theme/colors';
 import { DashboardScreen } from '@/features/dashboard/Dashboard.screen';
-import { SearchScreen } from '@/features/search/Search.screen';
-import { AnalyticsScreen } from '@/features/analytics/Analytics.screen';
-import { SettingsScreen } from '@/features/settings/Settings.screen';
-import { CompletedScreen } from '@/features/completed/Completed.screen';
+import { StatisticsScreen } from '@/features/completed/Completed.screen';
 
 const Drawer = createDrawerNavigator();
 const Tab = createBottomTabNavigator();
 
 const iconSize = 20;
 
-const HomeTabs = () => (
+const DashboardTabs = () => (
   <Tab.Navigator
     initialRouteName="Today"
     screenOptions={{
-      header: (props) => <NavBar {...props} />, // custom header bar
-      headerTransparent: true,
+      headerShown: false,
       tabBarHideOnKeyboard: true,
     }}
-    tabBar={(props) => <TabNav {...props} />}
+    tabBar={props => <TabNav {...props} />}
   >
     <Tab.Screen
       name="Today"
@@ -41,64 +36,55 @@ const HomeTabs = () => (
       options={{ tabBarLabel: 'Tomorrow' }}
     />
     <Tab.Screen
-      name="Upcoming"
+      name="Later"
       component={DashboardScreen}
       initialParams={{ group: 'upcoming' }}
-      options={{ tabBarLabel: 'Upcoming' }}
+      options={{ tabBarLabel: 'Later' }}
     />
   </Tab.Navigator>
 );
 
-export const AppNavigator = () => (
-  <Drawer.Navigator
-    drawerContent={(props) => <SideDrawerContent {...props} />}
-    screenOptions={{
-      headerShown: false,
-      drawerPosition: 'right',
-      drawerType: 'front',
-      drawerStyle: {
-        backgroundColor: palette.lightSurface,
-        width: 360,
-      },
-      drawerActiveTintColor: palette.mint,
-      drawerInactiveTintColor: palette.slate600,
-      overlayColor: 'rgba(15, 23, 42, 0.2)',
-    }}
-  >
-    <Drawer.Screen
-      name="Overview"
-      component={HomeTabs}
-      options={{
-        drawerIcon: ({ color }) => <Feather name="home" size={iconSize} color={color} />,
+export const AppNavigator = () => {
+  const theme = useAppTheme();
+
+  return (
+    <Drawer.Navigator
+      drawerContent={props => <SideDrawerContent {...props} />}
+      screenOptions={{
+        headerShown: false,
+        drawerPosition: 'left',
+        drawerType: 'front',
+        drawerStyle: {
+          backgroundColor: theme.colors.drawerBackground,
+          width: 360,
+        },
+        drawerActiveTintColor: palette.mint,
+        drawerInactiveTintColor: theme.colors.textSecondary,
+        overlayColor: theme.colors.overlay,
+        sceneStyle: {
+          backgroundColor: theme.colors.background,
+        },
       }}
-    />
-    <Drawer.Screen
-      name="Search"
-      component={SearchScreen}
-      options={{
-        drawerIcon: ({ color }) => <Feather name="search" size={iconSize} color={color} />,
-      }}
-    />
-    <Drawer.Screen
-      name="Analytics"
-      component={AnalyticsScreen}
-      options={{
-        drawerIcon: ({ color }) => <Feather name="bar-chart-2" size={iconSize} color={color} />,
-      }}
-    />
-    <Drawer.Screen
-      name="Completed"
-      component={CompletedScreen}
-      options={{
-        drawerIcon: ({ color }) => <Feather name="check-circle" size={iconSize} color={color} />,
-      }}
-    />
-    <Drawer.Screen
-      name="Settings"
-      component={SettingsScreen}
-      options={{
-        drawerIcon: ({ color }) => <Feather name="settings" size={iconSize} color={color} />,
-      }}
-    />
-  </Drawer.Navigator>
-);
+    >
+      <Drawer.Screen
+        name="Dashboard"
+        component={DashboardTabs}
+        options={{
+          drawerLabel: 'Dashboard',
+          drawerIcon: ({ color }) => (
+            <Feather name="home" size={iconSize} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="Statistics"
+        component={StatisticsScreen}
+        options={{
+          drawerIcon: ({ color }) => (
+            <Feather name="bar-chart-2" size={iconSize} color={color} />
+          ),
+        }}
+      />
+    </Drawer.Navigator>
+  );
+};

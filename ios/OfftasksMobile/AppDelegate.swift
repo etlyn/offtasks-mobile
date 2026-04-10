@@ -2,6 +2,7 @@ import UIKit
 import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
+import WidgetKit
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -44,5 +45,18 @@ class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
 #else
     Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
+  }
+}
+
+@objc(WidgetReloadHelper)
+class WidgetReloadHelper: NSObject {
+  @objc static func reloadOfftasksWidget() {
+    guard #available(iOS 14.0, *) else {
+      return
+    }
+
+    let widgetCenter = WidgetCenter.shared
+    widgetCenter.reloadTimelines(ofKind: "OfftasksWidget")
+    widgetCenter.reloadAllTimelines()
   }
 }

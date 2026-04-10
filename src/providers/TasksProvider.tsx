@@ -1,30 +1,24 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { fetchAllUserTasks, updateTask } from '@/lib/supabase';
 import type { Task, TaskGroup, TaskWithOverdueFlag } from '@/types/task';
 import { categorizeTasks, addOverdueFlag } from '@/utils/taskUtils';
-import { getAdjacentDay, getToday } from '@/hooks/useDate';
-import { publishWidgetSnapshot, clearWidgetSnapshot } from '@/lib/widgetBridge';
+import { getToday } from '@/hooks/useDate';
+import { publishWidgetSnapshot } from '@/lib/widgetBridge';
+import { shouldAutoMoveTaskToToday } from '@/utils/taskScheduling';
 
 import { useAuth } from './AuthProvider';
 import { usePreferences } from './PreferencesProvider';
 
 const groups: TaskGroup[] = ['today', 'tomorrow', 'upcoming', 'close'];
-
-const resolveGroupForDate = (date: string): Exclude<TaskGroup, 'close'> => {
-  const today = getToday();
-  const tomorrow = getAdjacentDay(1);
-
-  if (date <= today) {
-    return 'today';
-  }
-
-  if (date === tomorrow) {
-    return 'tomorrow';
-  }
-
-  return 'upcoming';
-};
 
 type TasksByGroup = Record<TaskGroup, TaskWithOverdueFlag[]>;
 
@@ -36,6 +30,21 @@ interface TasksContextValue {
     pending: number;
   };
   refresh: () => Promise<void>;
+  applyTaskUpdate: (
+    taskId: string,
+    updates: Partial<
+      Pick<
+        Task,
+        | 'content'
+        | 'isComplete'
+        | 'priority'
+        | 'target_group'
+        | 'date'
+        | 'completed_at'
+        | 'label'
+      >
+    >,
+  ) => void;
   loading: boolean;
 }
 
@@ -54,20 +63,128 @@ const TasksContext = createContext<TasksContextValue>({
     pending: 0,
   },
   refresh: async () => undefined,
+  applyTaskUpdate: () => undefined,
   loading: false,
 });
 
 export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
   const { session } = useAuth();
-  const { autoArrange } = usePreferences();
+  const { autoArrange, themeMode } = usePreferences();
   const [tasks, setTasks] = useState<TasksByGroup>(emptyState);
   const [loading, setLoading] = useState(false);
   const lastDayRef = useRef(getToday());
+  const tasksRef = useRef<TasksByGroup>(emptyState);
+
+  const syncWidgetSnapshot = useCallback(
+    (nextState: TasksByGroup) => {
+      const payload: Parameters<typeof publishWidgetSnapshot>[0] = {
+        generatedAt: new Date().toISOString(),
+        themeMode,
+        todayTotalCount: nextState.today.length,
+        todayCompletedCount: nextState.today.filter(task => task.isComplete)
+          .length,
+        today: nextState.today.slice(0, 5).map(task => ({
+          id: task.id,
+          content: task.content,
+          date: task.date,
+          targetGroup: task.target_group,
+          isComplete: task.isComplete,
+        })),
+        tomorrow: nextState.tomorrow
+          .filter(task => !task.isComplete)
+          .slice(0, 3)
+          .map(task => ({
+            id: task.id,
+            content: task.content,
+            date: task.date,
+            targetGroup: task.target_group,
+            isComplete: task.isComplete,
+          })),
+        upcoming: nextState.upcoming
+          .filter(task => !task.isComplete)
+          .slice(0, 3)
+          .map(task => ({
+            id: task.id,
+            content: task.content,
+            date: task.date,
+            targetGroup: task.target_group,
+            isComplete: task.isComplete,
+          })),
+      };
+
+      publishWidgetSnapshot(payload).catch(() => undefined);
+    },
+    [themeMode],
+  );
+
+  const commitTasksState = useCallback(
+    (nextState: TasksByGroup) => {
+      tasksRef.current = nextState;
+      setTasks(nextState);
+      syncWidgetSnapshot(nextState);
+    },
+    [syncWidgetSnapshot],
+  );
+
+  const buildTasksState = useCallback((sourceTasks: Task[]): TasksByGroup => {
+    const categorized = categorizeTasks(sourceTasks);
+
+    const applyOverdue = (task: Task): TaskWithOverdueFlag =>
+      addOverdueFlag(task);
+
+    return {
+      today: categorized.today.map(applyOverdue),
+      tomorrow: categorized.tomorrow.map(applyOverdue),
+      upcoming: categorized.upcoming.map(applyOverdue),
+      close: categorized.close.map(applyOverdue),
+    };
+  }, []);
+
+  const applyTaskUpdate = useCallback(
+    (
+      taskId: string,
+      updates: Partial<
+        Pick<
+          Task,
+          | 'content'
+          | 'isComplete'
+          | 'priority'
+          | 'target_group'
+          | 'date'
+          | 'completed_at'
+          | 'label'
+        >
+      >,
+    ) => {
+      const currentTasks = groups.flatMap(group =>
+        tasksRef.current[group].map(
+          ({ isOverdue: _isOverdue, ...task }) => task,
+        ),
+      );
+
+      if (!currentTasks.some(task => task.id === taskId)) {
+        return;
+      }
+
+      const nextTasks = currentTasks.map(task =>
+        task.id === taskId
+          ? {
+              ...task,
+              ...updates,
+            }
+          : task,
+      );
+
+      commitTasksState(buildTasksState(nextTasks));
+    },
+    [buildTasksState, commitTasksState],
+  );
 
   const refresh = useCallback(async () => {
     if (!session?.user?.id) {
+      tasksRef.current = emptyState;
       setTasks(emptyState);
-      clearWidgetSnapshot().catch(() => undefined);
+      syncWidgetSnapshot(emptyState);
       setLoading(false);
       return;
     }
@@ -83,18 +200,13 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
         const updates: Promise<void>[] = [];
 
         for (const task of allTasks) {
-          if (task.isComplete) {
-            continue;
-          }
-
-          const expectedGroup = resolveGroupForDate(task.date);
-
-          if (task.target_group !== expectedGroup) {
+          if (shouldAutoMoveTaskToToday(task)) {
             needsRefresh = true;
             updates.push(
               updateTask(task.id, {
-                target_group: expectedGroup,
-              })
+                target_group: 'today',
+                date: getToday(),
+              }),
             );
           }
         }
@@ -104,72 +216,27 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
 
-      const today = getToday();
+      const finalTasks = needsRefresh
+        ? await fetchAllUserTasks(session.user.id)
+        : allTasks;
 
-      const finalTasks = needsRefresh ? await fetchAllUserTasks(session.user.id) : allTasks;
-      
-      // Categorize tasks based on our business rules
-      const categorized = categorizeTasks(finalTasks);
-
-      const applyOverdue = (task: Task): TaskWithOverdueFlag => {
-        if (!autoArrange) {
-          return addOverdueFlag(task);
-        }
-        const isOverdue = !task.isComplete && task.target_group === 'today' && task.date !== today;
-        return {
-          ...task,
-          isOverdue,
-        };
-      };
-      
-      // Add overdue flags to tasks for UI styling
-      const nextState: TasksByGroup = {
-        today: categorized.today.map(applyOverdue),
-        tomorrow: categorized.tomorrow.map(applyOverdue),
-        upcoming: categorized.upcoming.map(applyOverdue),
-        close: categorized.close.map(applyOverdue),
-      };
-
-      setTasks(nextState);
-
-      publishWidgetSnapshot({
-        generatedAt: new Date().toISOString(),
-        today: nextState.today
-          .filter((task) => !task.isComplete)
-          .map((task) => ({
-            id: task.id,
-            content: task.content,
-            date: task.date,
-            targetGroup: task.target_group,
-            isComplete: task.isComplete,
-          })),
-        tomorrow: nextState.tomorrow
-          .filter((task) => !task.isComplete)
-          .slice(0, 3)
-          .map((task) => ({
-            id: task.id,
-            content: task.content,
-            date: task.date,
-            targetGroup: task.target_group,
-            isComplete: task.isComplete,
-          })),
-        upcoming: nextState.upcoming
-          .filter((task) => !task.isComplete)
-          .slice(0, 3)
-          .map((task) => ({
-            id: task.id,
-            content: task.content,
-            date: task.date,
-            targetGroup: task.target_group,
-            isComplete: task.isComplete,
-          })),
-      }).catch(() => undefined);
+      commitTasksState(buildTasksState(finalTasks));
     } catch (error) {
       console.error('Failed to refresh tasks', error);
     } finally {
       setLoading(false);
     }
-  }, [autoArrange, session?.user?.id]);
+  }, [
+    autoArrange,
+    buildTasksState,
+    commitTasksState,
+    session?.user?.id,
+    syncWidgetSnapshot,
+  ]);
+
+  useEffect(() => {
+    syncWidgetSnapshot(tasksRef.current);
+  }, [syncWidgetSnapshot]);
 
   useEffect(() => {
     refresh();
@@ -188,8 +255,8 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
   }, [refresh]);
 
   const totals = useMemo(() => {
-    const allTasks = groups.flatMap((group) => tasks[group]);
-    const completed = allTasks.filter((task) => task.isComplete).length;
+    const allTasks = groups.flatMap(group => tasks[group]);
+    const completed = allTasks.filter(task => task.isComplete).length;
     return {
       all: allTasks.length,
       completed,
@@ -202,12 +269,15 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
       tasks,
       totals,
       refresh,
+      applyTaskUpdate,
       loading,
     }),
-    [loading, refresh, tasks, totals]
+    [applyTaskUpdate, loading, refresh, tasks, totals],
   );
 
-  return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;
+  return (
+    <TasksContext.Provider value={value}>{children}</TasksContext.Provider>
+  );
 };
 
 export const useTasks = () => useContext(TasksContext);

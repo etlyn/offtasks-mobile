@@ -1,27 +1,57 @@
 import React from 'react';
-import {
-  Alert,
-  Pressable,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Keyboard, Pressable, Text, View } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import {
   DrawerContentScrollView,
   DrawerContentComponentProps,
 } from '@react-navigation/drawer';
+import { CommonActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabaseClient } from '@/lib/supabase';
+import { appVersion } from '@/lib/appVersion';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePreferences } from '@/providers/PreferencesProvider';
 import { useTasks } from '@/providers/TasksProvider';
-import { palette } from '@/theme/colors';
+import { useAppTheme } from '@/theme/colors';
 
-import { styles } from './SideDrawerContent.styles';
+import { createStyles } from './SideDrawerContent.styles';
 
-const appVersion = require('../../../package.json')?.version ?? '0.0.0';
+type ToggleControlProps = {
+  value: boolean;
+  onPress: () => void;
+  accessibilityLabel: string;
+  styles: ReturnType<typeof createStyles>;
+};
+
+const ToggleControl = ({
+  value,
+  onPress,
+  accessibilityLabel,
+  styles,
+}: ToggleControlProps) => (
+  <Pressable
+    accessibilityRole="switch"
+    accessibilityState={{ checked: value }}
+    accessibilityLabel={accessibilityLabel}
+    onPress={onPress}
+    style={({ pressed }) => [
+      styles.glassToggle,
+      value && styles.glassToggleActive,
+      pressed && styles.glassTogglePressed,
+    ]}
+  >
+    <View
+      style={[
+        styles.glassToggleTrackFill,
+        value && styles.glassToggleTrackFillActive,
+      ]}
+    />
+    <View
+      style={[styles.glassToggleThumb, value && styles.glassToggleThumbActive]}
+    />
+  </Pressable>
+);
 
 export const SideDrawerContent = (props: DrawerContentComponentProps) => {
   const { navigation } = props;
@@ -38,15 +68,35 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
     toggleTheme,
   } = usePreferences();
   const insets = useSafeAreaInsets();
+  const theme = useAppTheme();
+  const styles = React.useMemo(() => createStyles(theme), [theme]);
+  const isDarkMode = themeMode === 'Dark';
 
   const handleNavigate = React.useCallback(
     (routeName: string) => {
       navigation.navigate(routeName as never);
       navigation.closeDrawer();
     },
-    [navigation]
+    [navigation],
   );
 
+  const handleResetToHome = React.useCallback(() => {
+    Keyboard.dismiss();
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: 'Dashboard',
+            state: {
+              index: 0,
+              routes: [{ name: 'Today', params: { group: 'today' } }],
+            },
+          },
+        ],
+      }),
+    );
+  }, [navigation]);
 
   const handleSignOut = React.useCallback(async () => {
     try {
@@ -62,19 +112,29 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
   }, [navigation]);
 
   const email = session?.user?.email ?? 'Offline';
-  const fullName = session?.user?.user_metadata?.full_name as string | undefined;
+  const fullName = session?.user?.user_metadata?.full_name as
+    | string
+    | undefined;
   const userLabel = fullName?.trim() || email.split('@')[0] || 'User';
-  const initials = userLabel
-    .split(/[\s._-]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('') || 'U';
-  const completionLabel = totals.all > 0 ? `${totals.completed}/${totals.all} completed` : 'No tasks yet';
+  const initials =
+    userLabel
+      .split(/[\s._-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(part => part[0]?.toUpperCase() ?? '')
+      .join('') || 'U';
+  const completionLabel =
+    totals.all > 0
+      ? `${totals.completed}/${totals.all} completed`
+      : 'No tasks yet';
+  const handleCloseDrawer = React.useCallback(() => {
+    navigation.closeDrawer();
+  }, [navigation]);
 
   return (
     <DrawerContentScrollView
       {...props}
+      showsVerticalScrollIndicator={false}
       contentContainerStyle={[
         styles.container,
         {
@@ -83,126 +143,187 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
         },
       ]}
     >
-      <View style={styles.header}>
+      <View style={styles.headerActions}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close menu"
+          onPress={handleCloseDrawer}
+          style={({ pressed }) => [
+            styles.closeButton,
+            pressed && styles.closeButtonPressed,
+          ]}
+        >
+          <Feather name="x" size={18} color={theme.colors.textPrimary} />
+        </Pressable>
+      </View>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Go to home today"
+        onPress={handleResetToHome}
+        style={({ pressed }) => [
+          styles.heroCard,
+          pressed && styles.closeButtonPressed,
+        ]}
+      >
         <View style={styles.profileRow}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials}</Text>
           </View>
           <View style={styles.profileMeta}>
             <Text style={styles.profileName}>{userLabel}</Text>
-            <Text style={styles.profileStats}>{completionLabel}</Text>
+            <Text style={styles.profileEmail} numberOfLines={1}>
+              {email}
+            </Text>
+            <Text style={styles.profileMetaNote}>{completionLabel}</Text>
           </View>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close menu"
-          onPress={() => navigation.closeDrawer()}
-          style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
-        >
-          <Feather name="x" size={20} color={palette.slate600} />
-        </Pressable>
-      </View>
+      </Pressable>
 
       <View style={styles.menuCard}>
         <Pressable
-          style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
-          onPress={() => handleNavigate('Search')}
+          style={({ pressed }) => [
+            styles.menuRow,
+            pressed && styles.menuRowPressed,
+          ]}
+          onPress={() => handleNavigate('Statistics')}
         >
-          <View style={[styles.menuIcon, styles.searchIcon]}>
-            <Feather name="search" size={16} color={palette.slate700} />
+          <View style={[styles.menuIcon, styles.statisticsIcon]}>
+            <Feather
+              name="pie-chart"
+              size={16}
+              color={theme.colors.iconPrimary}
+            />
           </View>
-          <Text style={styles.menuLabel}>Search</Text>
-          <Feather name="chevron-right" size={18} color={palette.slate500} />
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
-          onPress={() => handleNavigate('Analytics')}
-        >
-          <View style={[styles.menuIcon, styles.analyticsIcon]}>
-            <Feather name="pie-chart" size={16} color={palette.slate700} />
+          <View style={styles.menuTextBlock}>
+            <Text style={styles.menuLabel}>Statistics</Text>
           </View>
-          <Text style={styles.menuLabel}>Analytics</Text>
-          <Feather name="chevron-right" size={18} color={palette.slate500} />
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
-          onPress={() => handleNavigate('Completed')}
-        >
-          <View style={[styles.menuIcon, styles.completedIcon]}>
-            <Feather name="check-circle" size={16} color={palette.slate700} />
+          <View style={styles.menuActionSlot}>
+            <Feather
+              name="chevron-right"
+              size={18}
+              color={theme.colors.iconMuted}
+              style={styles.menuChevron}
+            />
           </View>
-          <Text style={styles.menuLabel}>Completed Tasks</Text>
-          <Feather name="chevron-right" size={18} color={palette.slate500} />
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
-          onPress={toggleTheme}
-        >
-          <View style={[styles.menuIcon, styles.themeIcon]}>
-            <Feather name={themeMode === 'Light' ? 'sun' : 'moon'} size={16} color={palette.slate700} />
-          </View>
-          <Text style={styles.menuLabel}>Theme</Text>
-          <Text style={styles.menuValue}>{themeMode}</Text>
         </Pressable>
 
         <View style={styles.menuRow}>
-          <View style={[styles.menuIcon, styles.hideIcon]}>
-            <Feather name="eye-off" size={16} color={palette.slate700} />
+          <View style={[styles.menuIcon, styles.themeIcon]}>
+            <Feather
+              name={isDarkMode ? 'moon' : 'sun'}
+              size={16}
+              color={theme.isDark ? '#fde68a' : '#8a5a00'}
+            />
           </View>
-          <Text style={styles.menuLabel}>Hide Completed Tasks</Text>
-          <Switch
+          <View style={styles.menuTextBlock}>
+            <Text style={styles.menuLabel}>Appearance</Text>
+            <Text style={styles.menuValue}>
+              {isDarkMode ? 'Dark glass' : 'Light glass'}
+            </Text>
+          </View>
+          <ToggleControl
+            value={isDarkMode}
+            onPress={toggleTheme}
+            accessibilityLabel="Toggle dark mode"
+            styles={styles}
+          />
+        </View>
+
+        <View style={styles.menuRow}>
+          <View style={[styles.menuIcon, styles.hideIcon]}>
+            <Feather
+              name="eye-off"
+              size={16}
+              color={theme.colors.iconPrimary}
+            />
+          </View>
+          <View style={styles.menuTextBlock}>
+            <Text style={styles.menuLabel}>Hide Completed Tasks</Text>
+            <Text style={styles.menuValue}>
+              Keep the drawer focused on active work
+            </Text>
+          </View>
+          <ToggleControl
             value={hideCompleted}
-            onValueChange={(value: boolean) => {
-              setHideCompleted(value);
+            onPress={() => {
+              setHideCompleted(!hideCompleted);
             }}
-            thumbColor={hideCompleted ? palette.lightSurface : palette.lightSurface}
-            trackColor={{ false: '#d4d4d8', true: '#99f6e4' }}
+            accessibilityLabel="Toggle hide completed tasks"
+            styles={styles}
           />
         </View>
 
         <View style={styles.menuRow}>
           <View style={[styles.menuIcon, styles.advancedIcon]}>
-            <Feather name="cpu" size={16} color={palette.slate700} />
+            <Feather name="cpu" size={16} color={theme.colors.iconPrimary} />
           </View>
-          <Text style={styles.menuLabel}>Advanced Mode</Text>
-          <Switch
+          <View style={styles.menuTextBlock}>
+            <Text style={styles.menuLabel}>Advanced Mode</Text>
+            <Text style={styles.menuValue}>
+              Show extra controls and deeper task detail
+            </Text>
+          </View>
+          <ToggleControl
             value={advancedMode}
-            onValueChange={(value: boolean) => {
-              setAdvancedMode(value);
+            onPress={() => {
+              setAdvancedMode(!advancedMode);
             }}
-            thumbColor={advancedMode ? palette.lightSurface : palette.lightSurface}
-            trackColor={{ false: '#d4d4d8', true: '#99f6e4' }}
+            accessibilityLabel="Toggle advanced mode"
+            styles={styles}
+          />
+        </View>
+
+        <View style={styles.menuRow}>
+          <View style={[styles.menuIcon, styles.autoIcon]}>
+            <Feather
+              name="refresh-cw"
+              size={16}
+              color={theme.colors.iconPrimary}
+            />
+          </View>
+          <View style={styles.menuTextBlock}>
+            <Text style={styles.menuLabel}>Auto-move due tasks</Text>
+            <Text style={styles.menuValue}>
+              Reflow overdue items into the current day
+            </Text>
+          </View>
+          <ToggleControl
+            value={autoArrange}
+            onPress={() => {
+              setAutoArrange(!autoArrange);
+            }}
+            accessibilityLabel="Toggle auto move due tasks"
+            styles={styles}
           />
         </View>
 
         <View style={[styles.menuRow, styles.menuRowLast]}>
-          <View style={[styles.menuIcon, styles.autoIcon]}>
-            <Feather name="refresh-cw" size={16} color={palette.slate700} />
+          <View style={[styles.menuIcon, styles.versionIcon]}>
+            <Feather name="info" size={16} color={theme.colors.iconPrimary} />
           </View>
-          <Text style={styles.menuLabel}>Auto-move due tasks</Text>
-          <Switch
-            value={autoArrange}
-            onValueChange={(value: boolean) => {
-              setAutoArrange(value);
-            }}
-            thumbColor={autoArrange ? palette.lightSurface : palette.lightSurface}
-            trackColor={{ false: '#d4d4d8', true: '#99f6e4' }}
-          />
+          <View style={styles.menuTextBlock}>
+            <Text style={styles.menuLabel}>App Version</Text>
+          </View>
+          <View style={styles.menuActionSlot}>
+            <Text style={styles.menuActionValue}>{appVersion}</Text>
+          </View>
         </View>
       </View>
 
       <View style={styles.footer}>
         <Pressable
-          style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutButtonPressed]}
+          style={({ pressed }) => [
+            styles.logoutButton,
+            pressed && styles.logoutButtonPressed,
+          ]}
           onPress={handleSignOut}
         >
-          <Feather name="log-out" size={18} color="#e11d24" />
+          <View style={styles.logoutIconWrap}>
+            <Feather name="log-out" size={16} color="#e11d24" />
+          </View>
           <Text style={styles.logoutLabel}>Log Out</Text>
         </Pressable>
-        <Text style={styles.versionLabel}>{`v${appVersion}`}</Text>
       </View>
     </DrawerContentScrollView>
   );

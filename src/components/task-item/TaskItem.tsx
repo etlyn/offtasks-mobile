@@ -7,6 +7,7 @@ import { getToday } from '@/hooks/useDate';
 import { useTasks } from '@/providers/TasksProvider';
 import type { Task } from '@/types/task';
 import { palette } from '@/theme/colors';
+import { describeTaskSchedule, isTaskOverdue } from '@/utils/taskScheduling';
 
 import { styles } from './TaskItem.styles';
 
@@ -18,8 +19,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
   const { refresh } = useTasks();
   const [submitting, setSubmitting] = useState(false);
 
-  const today = getToday();
-  const isOverdue = !task.isComplete && task.date < today && task.target_group === 'today';
+  const isOverdue = isTaskOverdue(task);
 
   const handleToggle = async () => {
     if (submitting) {
@@ -71,7 +71,13 @@ export const TaskItem = ({ task }: TaskItemProps) => {
   };
 
   return (
-    <View style={[styles.container, isOverdue && styles.containerPriority, submitting && styles.disabled]}>
+    <View
+      style={[
+        styles.container,
+        isOverdue && styles.containerPriority,
+        submitting && styles.disabled,
+      ]}
+    >
       <Pressable
         style={({ pressed }) => [
           styles.check,
@@ -84,7 +90,13 @@ export const TaskItem = ({ task }: TaskItemProps) => {
         {submitting ? (
           <ActivityIndicator
             size="small"
-            color={task.isComplete ? palette.lightSurface : isOverdue ? palette.danger : palette.mintStrong}
+            color={
+              task.isComplete
+                ? palette.lightSurface
+                : isOverdue
+                ? palette.danger
+                : palette.mintStrong
+            }
           />
         ) : task.isComplete ? (
           <Feather name="check" size={16} color={palette.lightSurface} />
@@ -102,10 +114,16 @@ export const TaskItem = ({ task }: TaskItemProps) => {
         >
           {task.content}
         </Text>
-        <Text style={[styles.meta, task.isComplete && styles.metaDone]}>Due {task.date}</Text>
+        <Text style={[styles.meta, task.isComplete && styles.metaDone]}>
+          {describeTaskSchedule(task)}
+        </Text>
       </View>
 
-      <Pressable style={styles.delete} onPress={handleDelete} disabled={submitting}>
+      <Pressable
+        style={styles.delete}
+        onPress={handleDelete}
+        disabled={submitting}
+      >
         <Text style={styles.deleteText}>×</Text>
       </Pressable>
     </View>

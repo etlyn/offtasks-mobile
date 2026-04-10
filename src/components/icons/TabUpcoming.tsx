@@ -1,16 +1,62 @@
 import * as React from 'react';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Line, Rect } from 'react-native-svg';
 
 interface TabUpcomingProps {
   color?: string;
   size?: number;
 }
 
-export const TabUpcomingIcon = ({ color = '#71717b', size = 20 }: TabUpcomingProps) => (
+export const TabUpcomingIcon = ({
+  color = '#71717b',
+  size = 20,
+}: TabUpcomingProps) => (
   <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-    <Path
+    <Line
+      x1="6.75"
+      y1="3"
+      x2="6.75"
+      y2="5.5"
+      stroke={color}
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+    <Line
+      x1="13.25"
+      y1="3"
+      x2="13.25"
+      y2="5.5"
+      stroke={color}
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+    <Rect
+      x="3.5"
+      y="4.5"
+      width="13"
+      height="11.5"
+      rx="2.25"
+      stroke={color}
+      strokeWidth="1.5"
+    />
+    <Line
+      x1="3.5"
+      y1="7.75"
+      x2="16.5"
+      y2="7.75"
+      stroke={color}
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+    <Rect x="6.6" y="9.9" width="1.55" height="1.55" rx="0.4" fill={color} />
+    <Rect x="11.85" y="9.9" width="1.55" height="1.55" rx="0.4" fill={color} />
+    <Rect x="6.6" y="12.75" width="1.55" height="1.55" rx="0.4" fill={color} />
+    <Rect
+      x="11.85"
+      y="12.75"
+      width="1.55"
+      height="1.55"
+      rx="0.4"
       fill={color}
-      d="M6.667 2c.368 0 .667.298.667.667v.666h5.333v-.666a.667.667 0 1 1 1.333 0v.666h.667c1.84 0 3.333 1.492 3.333 3.334v7.999A3.333 3.333 0 0 1 14.667 18H5.333A3.333 3.333 0 0 1 2 15.333V6.667A3.333 3.333 0 0 1 5.333 3h.667v-.333c0-.369.298-.667.667-.667Zm8 4.666H5.333a2 2 0 0 0-1.999 1.999V15.333c0 1.104.895 2 1.999 2h9.334c1.104 0 1.999-.896 1.999-2V8.665a2 2 0 0 0-2-1.999ZM7.334 11.333a.666.666 0 0 1 0-1.333h5.332a.666.666 0 1 1 0 1.333H7.334Z"
     />
   </Svg>
 );

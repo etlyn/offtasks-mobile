@@ -1,5 +1,12 @@
 import React, { useCallback } from 'react';
-import { RefreshControl, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import {
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TaskSection } from '@/components/TaskSection';
@@ -17,7 +24,10 @@ export const UpcomingScreen = () => {
   return (
     <ScrollView
       style={[styles.container, { paddingTop: insets.top }]}
-      contentContainerStyle={[styles.content, { paddingBottom: 36 + insets.bottom }]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: 36 + insets.bottom },
+      ]}
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}
       refreshControl={
@@ -32,7 +42,9 @@ export const UpcomingScreen = () => {
       <StatusBar barStyle="light-content" />
       <View style={styles.header}>
         <Text style={styles.title}>Plan ahead</Text>
-        <Text style={styles.subtitle}>Organise what is coming up next and keep momentum.</Text>
+        <Text style={styles.subtitle}>
+          Organise what is coming up next and keep momentum.
+        </Text>
       </View>
 
       <TaskSection
@@ -40,7 +52,7 @@ export const UpcomingScreen = () => {
         group="tomorrow"
         tasks={tasks.tomorrow}
         highlight="#22d3ee"
-        emptyMessage="Nothing scheduled for tomorrow yet."
+        emptyMessage="Tomorrow tasks will appear here."
       />
 
       <TaskSection
@@ -48,7 +60,7 @@ export const UpcomingScreen = () => {
         group="upcoming"
         tasks={tasks.upcoming}
         highlight="#a855f7"
-        emptyMessage="Your later list is squeaky clean."
+        emptyMessage="Later tasks will appear here."
       />
     </ScrollView>
   );

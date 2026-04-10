@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  Alert,
-  Pressable,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import {
   DrawerContentScrollView,
@@ -20,7 +13,6 @@ import { useAuth } from '@/providers/AuthProvider';
 import { usePreferences } from '@/providers/PreferencesProvider';
 import { palette } from '@/theme/colors';
 
-
 export const SideDrawerContent = (props: DrawerContentComponentProps) => {
   const { navigation } = props;
   const { session } = useAuth();
@@ -31,13 +23,12 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
   const [advancedMode, setAdvancedMode] = React.useState(false);
   const [themeMode, setThemeMode] = React.useState<'Light' | 'Dark'>('Light');
 
-
   const handleNavigate = React.useCallback(
     (routeName: string) => {
       navigation.navigate(routeName as never);
       navigation.closeDrawer();
     },
-    [navigation]
+    [navigation],
   );
 
   const handleComingSoon = React.useCallback((feature: string) => {
@@ -45,7 +36,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
   }, []);
 
   const handleToggleTheme = React.useCallback(() => {
-    setThemeMode((prev) => (prev === 'Light' ? 'Dark' : 'Light'));
+    setThemeMode(prev => (prev === 'Light' ? 'Dark' : 'Light'));
     handleComingSoon('Theme switching');
   }, [handleComingSoon]);
 
@@ -62,16 +53,15 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
     navigation.closeDrawer();
   }, [navigation]);
 
-
   const email = session?.user?.email ?? 'Offline';
   const userLabel = email.split('@')[0] || 'User';
-  const initials = userLabel
-    .split(/[\s._-]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p: string) => p[0].toUpperCase())
-    .join('')
-    || 'U';
+  const initials =
+    userLabel
+      .split(/[\s._-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p: string) => p[0].toUpperCase())
+      .join('') || 'U';
 
   return (
     <DrawerContentScrollView
@@ -87,7 +77,9 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
       <View style={styles.header}>
         <LogoWordmark width={156} height={40} />
         <Text style={styles.helper}>Menu</Text>
-        <Text style={styles.subtitle}>Access profile, search, filters, and settings</Text>
+        <Text style={styles.subtitle}>
+          Access profile, filters, and settings
+        </Text>
       </View>
 
       <View style={styles.profileCard}>
@@ -104,21 +96,10 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
 
       <View style={styles.section}>
         <Pressable
-          style={({ pressed }) => [styles.primaryRow, pressed && styles.primaryRowPressed]}
-          onPress={() => handleComingSoon('Search')}
-        >
-          <View style={styles.primaryIcon}>
-            <Feather name="search" size={18} color={palette.mint} />
-          </View>
-          <View style={styles.primaryCopy}>
-            <Text style={styles.primaryLabel}>Search</Text>
-            <Text style={styles.primaryCaption}>Slice tasks with keywords and chips</Text>
-          </View>
-          <Feather name="chevron-right" size={18} color={palette.slate600} />
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [styles.primaryRow, pressed && styles.primaryRowPressed]}
+          style={({ pressed }) => [
+            styles.primaryRow,
+            pressed && styles.primaryRowPressed,
+          ]}
           onPress={() => handleComingSoon('Analytics')}
         >
           <View style={styles.primaryIcon}>
@@ -126,13 +107,18 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
           </View>
           <View style={styles.primaryCopy}>
             <Text style={styles.primaryLabel}>Analytics</Text>
-            <Text style={styles.primaryCaption}>See trends across focus areas</Text>
+            <Text style={styles.primaryCaption}>
+              See trends across focus areas
+            </Text>
           </View>
           <Feather name="chevron-right" size={18} color={palette.slate600} />
         </Pressable>
 
         <Pressable
-          style={({ pressed }) => [styles.primaryRow, pressed && styles.primaryRowPressed]}
+          style={({ pressed }) => [
+            styles.primaryRow,
+            pressed && styles.primaryRowPressed,
+          ]}
           onPress={() => handleNavigate('Completed')}
         >
           <View style={styles.primaryIcon}>
@@ -140,7 +126,9 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
           </View>
           <View style={styles.primaryCopy}>
             <Text style={styles.primaryLabel}>Completed Tasks</Text>
-            <Text style={styles.primaryCaption}>Review what you shipped recently</Text>
+            <Text style={styles.primaryCaption}>
+              Review what you shipped recently
+            </Text>
           </View>
           <Feather name="chevron-right" size={18} color={palette.slate600} />
         </Pressable>
@@ -148,15 +136,24 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
 
       <View style={styles.section}>
         <Pressable
-          style={({ pressed }) => [styles.primaryRow, pressed && styles.primaryRowPressed]}
+          style={({ pressed }) => [
+            styles.primaryRow,
+            pressed && styles.primaryRowPressed,
+          ]}
           onPress={handleToggleTheme}
         >
           <View style={styles.primaryIcon}>
-            <Feather name={themeMode === 'Light' ? 'sun' : 'moon'} size={18} color={palette.mint} />
+            <Feather
+              name={themeMode === 'Light' ? 'sun' : 'moon'}
+              size={18}
+              color={palette.mint}
+            />
           </View>
           <View style={styles.primaryCopy}>
             <Text style={styles.primaryLabel}>Theme</Text>
-            <Text style={styles.primaryCaption}>Switch between light and dark</Text>
+            <Text style={styles.primaryCaption}>
+              Switch between light and dark
+            </Text>
           </View>
           <Text style={styles.themeValue}>{themeMode}</Text>
         </Pressable>
@@ -167,7 +164,9 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
           </View>
           <View style={styles.primaryCopy}>
             <Text style={styles.primaryLabel}>Hide Completed Tasks</Text>
-            <Text style={styles.primaryCaption}>Only show what still needs energy</Text>
+            <Text style={styles.primaryCaption}>
+              Only show what still needs energy
+            </Text>
           </View>
           <Switch
             value={hideCompleted}
@@ -205,7 +204,9 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
           </View>
           <View style={styles.primaryCopy}>
             <Text style={styles.primaryLabel}>Red Tasks</Text>
-            <Text style={styles.primaryCaption}>Give tasks an urgent red look</Text>
+            <Text style={styles.primaryCaption}>
+              Give tasks an urgent red look
+            </Text>
           </View>
           <Switch
             value={redTasks}
@@ -218,7 +219,10 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
 
       <View style={styles.footer}>
         <Pressable
-          style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutButtonPressed]}
+          style={({ pressed }) => [
+            styles.logoutButton,
+            pressed && styles.logoutButtonPressed,
+          ]}
           onPress={handleSignOut}
         >
           <Feather name="log-out" size={18} color={palette.lightSurface} />

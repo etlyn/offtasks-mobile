@@ -19,6 +19,7 @@ import { useTasks } from '@/providers/TasksProvider';
 import type { Task, TaskGroup, TaskWithOverdueFlag } from '@/types/task';
 import { palette } from '@/theme/colors';
 
+import { EmptyState } from '@/components/empty-state';
 import { TaskItem } from './TaskItem';
 
 interface TaskSectionProps {
@@ -49,7 +50,7 @@ export const TaskSection = ({
   tasks,
   highlight,
   allowNewTask = true,
-  emptyMessage = 'No tasks yet. Plan something!',
+  emptyMessage = 'Tasks for this section will appear here.',
 }: TaskSectionProps) => {
   const { session } = useAuth();
   const { refresh } = useTasks();
@@ -84,7 +85,9 @@ export const TaskSection = ({
     <View style={styles.wrapper}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>{title}</Text>
-        {highlight ? <View style={[styles.pill, { backgroundColor: highlight }]} /> : null}
+        {highlight ? (
+          <View style={[styles.pill, { backgroundColor: highlight }]} />
+        ) : null}
       </View>
 
       {allowNewTask ? (
@@ -122,9 +125,14 @@ export const TaskSection = ({
 
       <View style={styles.list}>
         {tasks.length === 0 ? (
-          <Text style={styles.emptyState}>{emptyMessage}</Text>
+          <EmptyState
+            icon="inbox"
+            title="No tasks yet"
+            description={emptyMessage}
+            compact={!allowNewTask}
+          />
         ) : (
-          tasks.map((task) => <TaskItem key={task.id} task={task} />)
+          tasks.map(task => <TaskItem key={task.id} task={task} />)
         )}
       </View>
     </View>
