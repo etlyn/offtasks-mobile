@@ -1,5 +1,12 @@
 import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Logo } from '@/components/branding/Logo';
@@ -24,7 +31,10 @@ export const SettingsScreen = () => {
 
   return (
     <ScrollView
-      style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 }]}
+      style={[
+        styles.container,
+        { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 },
+      ]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
@@ -41,7 +51,9 @@ export const SettingsScreen = () => {
         <View style={styles.row}>
           <View>
             <Text style={styles.rowLabel}>Email</Text>
-            <Text style={styles.rowValue}>{session?.user?.email ?? 'Unknown user'}</Text>
+            <Text style={styles.rowValue}>
+              {session?.user?.email ?? 'Unknown user'}
+            </Text>
           </View>
         </View>
         <View style={[styles.row, styles.rowSpacing]}>
@@ -60,7 +72,7 @@ export const SettingsScreen = () => {
         <View style={styles.row}>
           <View>
             <Text style={styles.rowLabel}>Need a hand?</Text>
-            <Text style={styles.rowValue}>Email hello@offtasks.com</Text>
+            <Text style={styles.rowValue}>Visit offtasks.com/support</Text>
           </View>
         </View>
       </View>

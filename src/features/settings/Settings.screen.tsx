@@ -184,7 +184,9 @@ export const SettingsScreen = () => {
               <View style={styles.row}>
                 <View>
                   <Text style={styles.rowLabel}>Need a hand?</Text>
-                  <Text style={styles.rowValue}>Email hello@offtasks.com</Text>
+                  <Text style={styles.rowValue}>
+                    Visit offtasks.com/support
+                  </Text>
                 </View>
               </View>
             </View>
