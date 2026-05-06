@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { AppState } from 'react-native';
 
 import { fetchAllUserTasks, updateTask } from '@/lib/supabase';
 import type { Task, TaskGroup, TaskWithOverdueFlag } from '@/types/task';
@@ -74,42 +75,34 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(false);
   const lastDayRef = useRef(getToday());
   const tasksRef = useRef<TasksByGroup>(emptyState);
+  const appStateRef = useRef(AppState.currentState);
 
   const syncWidgetSnapshot = useCallback(
     (nextState: TasksByGroup) => {
+      const todayTasks = nextState.today;
+      const pendingTodayTasks = todayTasks.filter(task => !task.isComplete);
+      const mapWidgetTask = (task: TaskWithOverdueFlag) => ({
+        id: task.id,
+        content: task.content,
+        date: task.date,
+        targetGroup: task.target_group,
+        isComplete: task.isComplete,
+      });
+
       const payload: Parameters<typeof publishWidgetSnapshot>[0] = {
         generatedAt: new Date().toISOString(),
         themeMode,
-        todayTotalCount: nextState.today.length,
-        todayCompletedCount: nextState.today.filter(task => task.isComplete)
-          .length,
-        today: nextState.today.slice(0, 5).map(task => ({
-          id: task.id,
-          content: task.content,
-          date: task.date,
-          targetGroup: task.target_group,
-          isComplete: task.isComplete,
-        })),
+        todayTotalCount: todayTasks.length,
+        todayCompletedCount: todayTasks.length - pendingTodayTasks.length,
+        today: pendingTodayTasks.slice(0, 5).map(mapWidgetTask),
         tomorrow: nextState.tomorrow
           .filter(task => !task.isComplete)
           .slice(0, 3)
-          .map(task => ({
-            id: task.id,
-            content: task.content,
-            date: task.date,
-            targetGroup: task.target_group,
-            isComplete: task.isComplete,
-          })),
+          .map(mapWidgetTask),
         upcoming: nextState.upcoming
           .filter(task => !task.isComplete)
           .slice(0, 3)
-          .map(task => ({
-            id: task.id,
-            content: task.content,
-            date: task.date,
-            targetGroup: task.target_group,
-            isComplete: task.isComplete,
-          })),
+          .map(mapWidgetTask),
       };
 
       publishWidgetSnapshot(payload).catch(() => undefined);
@@ -240,6 +233,22 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      const wasInBackground =
+        appStateRef.current === 'inactive' ||
+        appStateRef.current === 'background';
+
+      appStateRef.current = nextAppState;
+
+      if (wasInBackground && nextAppState === 'active') {
+        refresh();
+      }
+    });
+
+    return () => subscription.remove();
   }, [refresh]);
 
   useEffect(() => {

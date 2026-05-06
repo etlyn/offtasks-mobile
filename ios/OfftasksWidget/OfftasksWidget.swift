@@ -176,14 +176,12 @@ struct OfftasksWidgetView: View {
             : Color(red: 226 / 255, green: 232 / 255, blue: 240 / 255).opacity(0.9)
     }
 
-    private var orderedTodayTasks: [WidgetTask] {
-        let pending = entry.snapshot.today.filter { !$0.isComplete }
-        let completed = entry.snapshot.today.filter { $0.isComplete }
-        return pending + completed
+    private var pendingTodayTasks: [WidgetTask] {
+        entry.snapshot.today.filter { !$0.isComplete }
     }
 
     private var visibleTasks: [WidgetTask] {
-        Array(orderedTodayTasks.prefix(rowLimit))
+        Array(pendingTodayTasks.prefix(rowLimit))
     }
 
     private var rowLimit: Int {
@@ -201,6 +199,22 @@ struct OfftasksWidgetView: View {
 
     private var totalCount: Int {
         entry.snapshot.todayTotalCount ?? entry.snapshot.today.count
+    }
+
+    private var emptyTitle: String {
+        if totalCount > 0 && completedCount >= totalCount {
+            return "All caught up"
+        }
+
+        return "No tasks for today"
+    }
+
+    private var emptyDescription: String {
+        if totalCount > 0 && completedCount >= totalCount {
+            return "Completed tasks are cleared from the widget automatically."
+        }
+
+        return "Add a task in the app and it will appear here on the next refresh."
     }
 
     var body: some View {
@@ -281,11 +295,11 @@ struct OfftasksWidgetView: View {
                     .foregroundStyle(tertiaryTextColor)
             }
 
-            Text("No tasks for today")
+            Text(emptyTitle)
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .foregroundStyle(secondaryTextColor)
 
-            Text("Add a task in the app and it will appear here on the next refresh.")
+            Text(emptyDescription)
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundStyle(tertiaryTextColor)
                 .multilineTextAlignment(.center)
