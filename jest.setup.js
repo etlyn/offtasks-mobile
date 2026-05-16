@@ -1,3 +1,5 @@
+/* eslint-env jest */
+
 import 'react-native-gesture-handler/jestSetup';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
@@ -11,6 +13,7 @@ jest.mock('react-native-screens', () => ({
 jest.mock('react-native-device-info', () => ({
   __esModule: true,
   default: {
-    getVersion: jest.fn(() => '1.03'),
+    getVersion: jest.fn(() => '1.05'),
+    getBuildNumber: jest.fn(() => '2'),
   },
 }));

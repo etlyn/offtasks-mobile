@@ -160,7 +160,7 @@ const getHeroTitle = (
 };
 
 export const AnalyticsScreen = () => {
-  const { tasks, totals, loading, refresh } = useTasks();
+  const { tasks, totals, refreshing, refresh } = useTasks();
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
@@ -227,8 +227,9 @@ export const AnalyticsScreen = () => {
 
   const completedToday = React.useMemo(
     () =>
-      completedTasks.filter(task => (task.completed_at ?? task.date) === todayKey)
-        .length,
+      completedTasks.filter(
+        task => (task.completed_at ?? task.date) === todayKey,
+      ).length,
     [completedTasks, todayKey],
   );
 
@@ -413,7 +414,7 @@ export const AnalyticsScreen = () => {
   }, [windowWidth]);
 
   const handleRefresh = React.useCallback(() => {
-    refresh();
+    refresh({ showRefreshSpinner: true });
   }, [refresh]);
 
   const handleBack = React.useCallback(() => {
@@ -465,7 +466,7 @@ export const AnalyticsScreen = () => {
         backgroundColor="transparent"
       />
 
-      <View style={[styles.topBarShell, { paddingTop: insets.top + 8 }]}> 
+      <View style={[styles.topBarShell, { paddingTop: insets.top + 8 }]}>
         <View style={styles.topBar}>
           <Pressable
             accessibilityRole="button"
@@ -497,7 +498,7 @@ export const AnalyticsScreen = () => {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={loading}
+            refreshing={refreshing}
             onRefresh={handleRefresh}
             tintColor={palette.mint}
             colors={[palette.mint]}
@@ -606,7 +607,9 @@ export const AnalyticsScreen = () => {
               size={14}
               color={theme.colors.textSecondary}
             />
-            <Text style={styles.overviewPillText}>{totals.pending} still open</Text>
+            <Text style={styles.overviewPillText}>
+              {totals.pending} still open
+            </Text>
           </View>
           <View style={styles.overviewPill}>
             <Feather

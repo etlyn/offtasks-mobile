@@ -8,6 +8,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LogoWordmark } from '@/components/branding/LogoWordmark';
+import { appVersion } from '@/lib/appVersion';
 import { supabaseClient } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePreferences } from '@/providers/PreferencesProvider';
@@ -228,7 +229,9 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
           <Feather name="log-out" size={18} color={palette.lightSurface} />
           <Text style={styles.logoutLabel}>Log Out</Text>
         </Pressable>
-        <Text style={styles.versionLabel}>offtasks mobile v1.0.0</Text>
+        <Text
+          style={styles.versionLabel}
+        >{`offtasks mobile v${appVersion}`}</Text>
       </View>
     </DrawerContentScrollView>
   );

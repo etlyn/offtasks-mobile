@@ -388,7 +388,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = OfftasksMobile/OfftasksMobile.entitlements;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = R9289H8FFR;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = OfftasksMobile/Info.plist;
@@ -399,7 +399,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.05;
+				MARKETING_VERSION = 1.05.2;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
@@ -422,7 +422,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = OfftasksMobile/OfftasksMobile.entitlements;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = R9289H8FFR;
 				INFOPLIST_FILE = OfftasksMobile/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Offtasks;
@@ -432,7 +432,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.05;
+				MARKETING_VERSION = 1.05.2;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
@@ -621,7 +621,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = OfftasksWidget/OfftasksWidget.entitlements;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = R9289H8FFR;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OfftasksWidget/Info.plist;
@@ -631,7 +631,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.05;
+				MARKETING_VERSION = 1.05.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.etlyn.offtasks.widget;
 				PRODUCT_NAME = OfftasksWidget;
 				SKIP_INSTALL = YES;
@@ -645,7 +645,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = OfftasksWidget/OfftasksWidget.entitlements;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = R9289H8FFR;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OfftasksWidget/Info.plist;
@@ -655,7 +655,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.05;
+				MARKETING_VERSION = 1.05.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.etlyn.offtasks.widget;
 				PRODUCT_NAME = OfftasksWidget;
 				SKIP_INSTALL = YES;

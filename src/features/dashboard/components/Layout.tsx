@@ -8,7 +8,7 @@ import { styles } from '../Dashboard.styles';
 
 export interface LayoutProps {
   bottomInset: number;
-  loading: boolean;
+  refreshing: boolean;
   onRefresh: () => void;
   onAddTask: () => void;
   showFab: boolean;
@@ -18,7 +18,7 @@ export interface LayoutProps {
 
 export const Layout = ({
   bottomInset,
-  loading,
+  refreshing,
   onRefresh,
   onAddTask,
   showFab,
@@ -42,7 +42,7 @@ export const Layout = ({
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={loading}
+            refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor={palette.mint}
             colors={[palette.mint]}

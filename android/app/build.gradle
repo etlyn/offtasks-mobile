@@ -84,8 +84,8 @@ android {
         applicationId "com.offtasksmobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.05"
+        versionCode 2
+        versionName "1.05.2"
     }
     signingConfigs {
         debug {

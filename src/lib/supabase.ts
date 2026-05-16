@@ -138,7 +138,8 @@ export const createTask = async (params: {
 
   const message = attempt.error.message?.toLowerCase() ?? '';
   if (message.includes('label') && Object.prototype.hasOwnProperty.call(payload, 'label')) {
-    const { label: _label, ...retryPayload } = payload;
+    const retryPayload = { ...payload };
+    delete retryPayload.label;
     if (typeof label !== 'undefined') {
       attempt = await insertTask({ ...retryPayload, category: label });
     } else {
@@ -149,7 +150,8 @@ export const createTask = async (params: {
   if (attempt.error) {
     const retryMessage = attempt.error.message?.toLowerCase() ?? '';
     if (retryMessage.includes('category') && Object.prototype.hasOwnProperty.call(payload, 'label')) {
-      const { label: _label, ...retryPayload } = payload;
+      const retryPayload = { ...payload };
+      delete retryPayload.label;
       attempt = await insertTask(retryPayload);
     }
   }

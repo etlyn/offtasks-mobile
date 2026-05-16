@@ -1,5 +1,5 @@
 import React from 'react';
-import { DrawerActions } from '@react-navigation/native';
+import { CommonActions, DrawerActions } from '@react-navigation/native';
 import type { BottomTabHeaderProps } from '@react-navigation/bottom-tabs';
 import Feather from 'react-native-vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -63,19 +63,23 @@ export const NavBar: React.FC<BottomTabHeaderProps> = ({
 
     const parent = navigation.getParent();
     if (parent) {
-      parent.navigate(
-        'Dashboard' as never,
-        {
-          screen: 'Today',
-          params: { searchToggleRequestId: Date.now() },
-        } as never,
+      parent.dispatch(
+        CommonActions.navigate({
+          name: 'Dashboard',
+          params: {
+            screen: 'Today',
+            params: { searchToggleRequestId: Date.now() },
+          },
+        }),
       );
       return;
     }
 
-    navigation.navigate(
-      'Today' as never,
-      { searchToggleRequestId: Date.now() } as never,
+    navigation.dispatch(
+      CommonActions.navigate({
+        name: 'Today',
+        params: { searchToggleRequestId: Date.now() },
+      }),
     );
   }, [dashboardGroup, navigation]);
 

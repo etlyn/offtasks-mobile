@@ -90,7 +90,7 @@ const priorityOptions: PriorityOption[] = [
 ];
 
 export const DashboardScreen = ({ route }: DashboardScreenProps) => {
-  const { tasks, loading, refresh, applyTaskUpdate } = useTasks();
+  const { tasks, loading, refreshing, refresh, applyTaskUpdate } = useTasks();
   const { session } = useAuth();
   const { hideCompleted, advancedMode } = usePreferences();
   const { categories, addCategory, removeCategory } = useTaskCategories();
@@ -299,7 +299,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   }, []);
 
   const handleRefresh = React.useCallback(() => {
-    refresh();
+    refresh({ showRefreshSpinner: true });
   }, [refresh]);
 
   const handleToggleTask = React.useCallback(
@@ -656,7 +656,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
 
       <Layout
         bottomInset={insets.bottom}
-        loading={loading}
+        refreshing={refreshing}
         onRefresh={handleRefresh}
         onAddTask={openComposer}
         showFab={!searchDockVisible}

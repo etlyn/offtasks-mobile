@@ -10,6 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Logo } from '@/components/branding/Logo';
+import { appVersion } from '@/lib/appVersion';
 import { supabaseClient } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import { palette } from '@/theme/colors';
@@ -77,7 +78,7 @@ export const SettingsScreen = () => {
         </View>
       </View>
 
-      <Text style={styles.versionText}>Version 0.1.0</Text>
+      <Text style={styles.versionText}>{`Version ${appVersion}`}</Text>
     </ScrollView>
   );
 };

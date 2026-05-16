@@ -21,6 +21,7 @@ import { supabaseClient, updateTask } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTasks } from '@/providers/TasksProvider';
 import { useAppTheme } from '@/theme/colors';
+import type { Task, TaskWithOverdueFlag } from '@/types/task';
 import { filterTasksForSearch, getTaskSearchContext } from '@/utils/taskSearch';
 
 import { createStyles } from './Settings.styles';
@@ -69,7 +70,7 @@ export const SettingsScreen = () => {
   }, [handleCloseSearch, searchVisible]);
 
   const handleToggleTask = React.useCallback(
-    async (task: (typeof allTasks)[number]) => {
+    async (task: Task | TaskWithOverdueFlag) => {
       const nextComplete = !task.isComplete;
       const today = getToday();
       const updates = {

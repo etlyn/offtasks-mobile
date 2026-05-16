@@ -14,11 +14,11 @@ import { useTasks } from '@/providers/TasksProvider';
 import { palette } from '@/theme/colors';
 
 export const UpcomingScreen = () => {
-  const { tasks, loading, refresh } = useTasks();
+  const { tasks, refreshing, refresh } = useTasks();
   const insets = useSafeAreaInsets();
 
   const handleRefresh = useCallback(() => {
-    refresh();
+    refresh({ showRefreshSpinner: true });
   }, [refresh]);
 
   return (
@@ -32,7 +32,7 @@ export const UpcomingScreen = () => {
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
-          refreshing={loading}
+          refreshing={refreshing}
           onRefresh={handleRefresh}
           tintColor={palette.accent}
           progressBackgroundColor={palette.surface}

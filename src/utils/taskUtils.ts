@@ -1,4 +1,4 @@
-import type { Task, TaskGroup, TaskWithOverdueFlag } from '@/types/task';
+import type { Task, TaskWithOverdueFlag } from '@/types/task';
 import { getToday } from '@/hooks/useDate';
 import {
   getScheduledDateForTask,

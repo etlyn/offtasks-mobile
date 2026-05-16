@@ -136,7 +136,7 @@ const formatTaskDate = (value: string | null | undefined) => {
 };
 
 export const CompletedScreen = () => {
-  const { tasks, totals, loading, refresh } = useTasks();
+  const { tasks, totals, refreshing, refresh } = useTasks();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
 
@@ -156,7 +156,7 @@ export const CompletedScreen = () => {
   );
 
   const handleRefresh = React.useCallback(() => {
-    refresh();
+    refresh({ showRefreshSpinner: true });
   }, [refresh]);
 
   const handleBack = React.useCallback(() => {
@@ -199,7 +199,7 @@ export const CompletedScreen = () => {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={loading}
+            refreshing={refreshing}
             onRefresh={handleRefresh}
             tintColor={palette.mint}
             colors={[palette.mint]}

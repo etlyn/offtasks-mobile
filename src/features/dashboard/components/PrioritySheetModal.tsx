@@ -13,7 +13,10 @@ import Feather from 'react-native-vector-icons/Feather';
 
 import type { PriorityOption } from '../Dashboard.types';
 import { palette } from '@/theme/colors';
-import { SHEET_MAX_HEIGHT, styles as dashboardStyles } from '../Dashboard.styles';
+import {
+  SHEET_MAX_HEIGHT,
+  styles as dashboardStyles,
+} from '../Dashboard.styles';
 
 interface PrioritySheetModalProps {
   visible: boolean;
@@ -70,10 +73,15 @@ export const PrioritySheetModal: React.FC<PrioritySheetModalProps> = ({
                 <Feather name="x" size={18} color={palette.slate600} />
               </Pressable>
             </View>
-            <Text style={priorityStyles.subtitle}>Choose the priority level for this task</Text>
+            <Text style={priorityStyles.subtitle}>
+              Choose the priority level for this task
+            </Text>
 
-            <ScrollView style={priorityStyles.list} keyboardShouldPersistTaps="handled">
-              {options.map((option, index) => {
+            <ScrollView
+              style={priorityStyles.list}
+              keyboardShouldPersistTaps="handled"
+            >
+              {options.map(option => {
                 const isActive = selectedPriority === option.value;
                 return (
                   <Pressable
@@ -94,23 +102,43 @@ export const PrioritySheetModal: React.FC<PrioritySheetModalProps> = ({
                         },
                       ]}
                     >
-                      <Feather name={option.icon} size={18} color={option.tint} />
+                      <Feather
+                        name={option.icon}
+                        size={18}
+                        color={option.tint}
+                      />
                     </View>
-                    <View style={priorityStyles.optionCopy} pointerEvents="none">
+                    <View
+                      style={priorityStyles.optionCopy}
+                      pointerEvents="none"
+                    >
                       <Text
-                        style={[priorityStyles.optionLabel, isActive && priorityStyles.optionLabelActive]}
+                        style={[
+                          priorityStyles.optionLabel,
+                          isActive && priorityStyles.optionLabelActive,
+                        ]}
                         numberOfLines={1}
                         ellipsizeMode="tail"
                       >
                         {option.label}
                       </Text>
                       {!!option.description && (
-                        <Text style={priorityStyles.optionCaption} numberOfLines={1} ellipsizeMode="tail">
+                        <Text
+                          style={priorityStyles.optionCaption}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
                           {option.description}
                         </Text>
                       )}
                     </View>
-                    {isActive && <Feather name="check" size={18} color={palette.mintStrong} />}
+                    {isActive && (
+                      <Feather
+                        name="check"
+                        size={18}
+                        color={palette.mintStrong}
+                      />
+                    )}
                   </Pressable>
                 );
               })}

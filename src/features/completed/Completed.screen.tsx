@@ -240,7 +240,8 @@ const sectionLabels = {
 } as const;
 
 export const StatisticsScreen = () => {
-  const { tasks, totals, loading, refresh, applyTaskUpdate } = useTasks();
+  const { tasks, totals, loading, refreshing, refresh, applyTaskUpdate } =
+    useTasks();
   const { categories, addCategory, removeCategory } = useTaskCategories();
   const theme = useAppTheme();
   const styles = React.useMemo(() => createStyles(theme), [theme]);
@@ -369,7 +370,7 @@ export const StatisticsScreen = () => {
     );
 
   const handleRefresh = React.useCallback(() => {
-    refresh();
+    refresh({ showRefreshSpinner: true });
   }, [refresh]);
 
   const handleCloseSearch = React.useCallback(() => {
@@ -854,9 +855,7 @@ export const StatisticsScreen = () => {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={
-              loading && openTasks.length === 0 && completedTasks.length === 0
-            }
+            refreshing={refreshing}
             onRefresh={handleRefresh}
             tintColor={theme.colors.textSecondary}
           />

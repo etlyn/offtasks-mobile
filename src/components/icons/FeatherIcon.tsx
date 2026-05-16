@@ -18,12 +18,6 @@ interface IconProps {
  * Feather-compatible SVG icon paths.
  * viewBox is always "0 0 24 24", stroke-based, strokeWidth=2, strokeLinecap="round", strokeLinejoin="round".
  */
-const ICONS: Record<string, React.ReactNode> = {};
-
-const icon = (name: string, children: (color: string) => React.ReactNode) => {
-  ICONS[name] = children;
-};
-
 // We register a render-function per icon so colour is injected at render time.
 
 const FeatherIcon = ({ name, size = 24, color = '#000', style }: IconProps) => {
@@ -31,7 +25,13 @@ const FeatherIcon = ({ name, size = 24, color = '#000', style }: IconProps) => {
   if (!renderFn) {
     // Fallback: render a simple circle with the first letter
     return (
-      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        style={style}
+      >
         <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
       </Svg>
     );
@@ -167,7 +167,9 @@ const ICON_RENDERERS: Record<string, RenderFn> = {
       <Line x1="12" y1="16" x2="12.01" y2="16" />
     </>
   ),
-  flag: () => <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />,
+  flag: () => (
+    <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+  ),
   'trending-up': () => (
     <>
       <Polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
@@ -221,7 +223,10 @@ const ICON_RENDERERS: Record<string, RenderFn> = {
   ),
   mail: () => (
     <>
-      <Path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" fill="none" />
+      <Path
+        d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+        fill="none"
+      />
       <Polyline points="22 6 12 13 2 6" />
     </>
   ),

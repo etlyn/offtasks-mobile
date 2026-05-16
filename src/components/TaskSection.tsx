@@ -7,8 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 

@@ -7,6 +7,6 @@ module.exports = {
     '^react-native-vector-icons/(.*)$': '<rootDir>/__mocks__/react-native-vector-icons.js',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(@react-native|react-native|@react-navigation|@react-native-async-storage|react-native-url-polyfill|react-native-gesture-handler|react-native-drawer-layout|react-native-reanimated|react-native-worklets)/)',
+    'node_modules/(?!(@react-native|@react-native-community|react-native|@react-navigation|@react-native-async-storage|react-native-url-polyfill|react-native-gesture-handler|react-native-drawer-layout|react-native-reanimated|react-native-worklets)/)',
   ],
 };
