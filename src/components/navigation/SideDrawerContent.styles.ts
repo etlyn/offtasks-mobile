@@ -236,6 +236,43 @@ export const createStyles = (theme: AppTheme) => StyleSheet.create({
   footer: {
     marginTop: 'auto',
     alignItems: 'center',
+    gap: 12,
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: 'transparent',
+    borderRadius: 18,
+    borderWidth: 0.628,
+    borderColor: 'transparent',
+    paddingVertical: 11,
+    paddingHorizontal: 18,
+    minWidth: 172,
+    maxWidth: 220,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  deleteAccountButtonPressed: {
+    backgroundColor: theme.colors.dangerSurface,
+    opacity: 0.88,
+  },
+  deleteAccountIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  deleteAccountLabel: {
+    color: theme.isDark ? '#f87171' : '#b91c1c',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  footerButtonDisabled: {
+    opacity: 0.62,
   },
   logoutButton: {
     flexDirection: 'row',

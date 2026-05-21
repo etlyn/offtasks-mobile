@@ -13,7 +13,7 @@ jest.mock('react-native-screens', () => ({
 jest.mock('react-native-device-info', () => ({
   __esModule: true,
   default: {
-    getVersion: jest.fn(() => '1.05'),
+    getVersion: jest.fn(() => '1.06'),
     getBuildNumber: jest.fn(() => '2'),
   },
 }));

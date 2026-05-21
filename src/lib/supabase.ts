@@ -234,6 +234,65 @@ export const deleteTask = async (taskId: string) => {
   }
 };
 
+interface DeleteAccountResponse {
+  success?: boolean;
+  error?: string;
+}
+
+const getFunctionErrorMessage = async (error: unknown): Promise<string> => {
+  const response = (error as { context?: { clone?: () => { json?: () => Promise<unknown> }; json?: () => Promise<unknown> } })
+    ?.context;
+
+  try {
+    const responseBodyReader = typeof response?.clone === 'function' ? response.clone() : response;
+    const payload = await responseBodyReader?.json?.();
+
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      'error' in payload &&
+      typeof payload.error === 'string'
+    ) {
+      return payload.error;
+    }
+  } catch {
+    // Fall through to the default error message.
+  }
+
+  return error instanceof Error
+    ? error.message
+    : 'Unable to delete account right now. Please try again.';
+};
+
+export const deleteAccount = async (): Promise<void> => {
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+
+  if (!accessToken) {
+    throw new Error('You need to be signed in to delete your account.');
+  }
+
+  const { data, error } = await supabaseClient.functions.invoke<DeleteAccountResponse>('delete-account', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: {},
+  });
+
+  if (error) {
+    console.error('Error deleting account', error);
+    throw new Error(await getFunctionErrorMessage(error));
+  }
+
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
+  if (!data?.success) {
+    throw new Error('Account deletion did not complete.');
+  }
+};
+
 /**
  * Fetch all tasks for a user (needed for proper categorization based on business rules)
  */

@@ -5,6 +5,7 @@ This folder hosts the React Native client for Offtasks. It mirrors the dark, car
 ### 1. Prerequisites
 
 - React Native CLI environment set up (Xcode, Android Studio, simulators/emulators).
+- Xcode 26 or later for App Store Connect uploads. Apple checks the SDK used to build the archive, so keeping `IPHONEOS_DEPLOYMENT_TARGET` at 15.1 is fine, but the release archive must be produced by the iOS 26 SDK or later.
 - Node.js 20 (the repo currently uses 20.19.3; upgrade to ≥20.19.4 to avoid `--ignore-engines`).
 - Ruby + Bundler for managing CocoaPods via the supplied `Gemfile`.
 
@@ -12,15 +13,16 @@ This folder hosts the React Native client for Offtasks. It mirrors the dark, car
 
 1. Duplicate the sample file and fill in the existing Supabase values used by the web app:
    ```sh
-   cd OfftasksMobile
+   cd mobile
    cp .env.example .env
    ```
-2. Update `SUPABASE_URL` and `SUPABASE_ANON_KEY` to match `NEXT_PUBLIC_SUPABASE_*` from the root project. These are already public in the web bundle, so reusing them in mobile is safe.
+2. Update `SUPABASE_URL` and `SUPABASE_ANON_KEY` to match `VITE_PUBLIC_SUPABASE_URL` and `VITE_PUBLIC_SUPABASE_ANON_KEY` from the root project. These are already public in the web bundle, so reusing them in mobile is safe.
+3. Account deletion requires the Supabase `delete-account` Edge Function to be deployed for the same project. The mobile client sends the active access token to that function and then clears the local native session.
 
 ### 3. Install dependencies
 
 ```sh
-cd OfftasksMobile
+cd mobile
 # JS dependencies
 yarn install --ignore-engines
 
@@ -29,7 +31,7 @@ bundle install
 bundle exec pod install --project-directory=ios
 ```
 
-For Xcode Cloud builds, the repository includes [ios/ci_scripts/ci_post_clone.sh](ios/ci_scripts/ci_post_clone.sh) so the workflow installs `node_modules`, Bundler gems, and CocoaPods before `xcodebuild` starts.
+For Xcode Cloud builds, the repository includes [ios/ci_scripts/ci_post_clone.sh](ios/ci_scripts/ci_post_clone.sh) so the workflow installs `node_modules`, Bundler gems, and CocoaPods before `xcodebuild` starts. The pre-build guard in [ios/ci_scripts/ci_pre_xcodebuild.sh](ios/ci_scripts/ci_pre_xcodebuild.sh) also fails early if the workflow is still using an iPhoneOS SDK older than 26. If App Store Connect reports an old SDK, update the Xcode Cloud workflow's Environment Xcode version to Xcode 26 or later and rebuild the archive.
 
 ### 4. Run the app
 
@@ -68,6 +70,6 @@ Jest is configured to resolve the `@/` alias and to mock `@env` variables.
 
 ### 7. Keeping parity with the web app
 
-- Supabase helpers (`src/lib/supabase.ts`) intentionally mirror `src/lib/supabase.ts` from the Next.js app.
+- Supabase helpers (`src/lib/supabase.ts`) intentionally mirror `src/lib/supabase.ts` from the Vite web app.
 - UI colours live in `src/theme/colors.ts` and follow the dark palette used on the web.
 - New backend columns/endpoints should be updated in both projects so the experiences stay aligned.

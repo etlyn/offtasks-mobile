@@ -1,6 +1,6 @@
 {
   "name": "offtasks-mobile",
-  "version": "1.0.5.2",
+  "version": "1.06",
   "private": true,
   "scripts": {
     "android": "react-native run-android",

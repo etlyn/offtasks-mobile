@@ -19,7 +19,8 @@ import { palette } from '@/theme/colors';
 import { styles } from './Login.styles';
 import type { AuthMode } from './Login.types';
 
-const redirectUrl = SUPABASE_RESET_REDIRECT_URL || 'https://offtasks.com/reset-password';
+const redirectUrl =
+  SUPABASE_RESET_REDIRECT_URL || 'https://offtasks.com/reset-password';
 
 export const LoginScreen = () => {
   const [email, setEmail] = useState('');
@@ -29,7 +30,7 @@ export const LoginScreen = () => {
   const [loading, setLoading] = useState(false);
 
   const toggleMode = () => {
-    setMode((prev) => (prev === 'signIn' ? 'signUp' : 'signIn'));
+    setMode(prev => (prev === 'signIn' ? 'signUp' : 'signIn'));
     setEmail('');
     setPassword('');
     setConfirmPassword('');
@@ -42,7 +43,10 @@ export const LoginScreen = () => {
     }
 
     if (mode === 'signUp' && password !== confirmPassword) {
-      Alert.alert('Passwords do not match', 'Ensure both password fields are identical.');
+      Alert.alert(
+        'Passwords do not match',
+        'Ensure both password fields are identical.',
+      );
       return;
     }
 
@@ -59,7 +63,7 @@ export const LoginScreen = () => {
           throw error;
         }
       } else {
-        const { error } = await supabaseClient.auth.signUp({
+        const { data, error } = await supabaseClient.auth.signUp({
           email,
           password,
         });
@@ -68,11 +72,13 @@ export const LoginScreen = () => {
           throw error;
         }
 
-        Alert.alert(
-          'Check your inbox',
-          'Confirm your email address to complete the signup, then sign in here.'
-        );
-        setMode('signIn');
+        if (!data.session) {
+          Alert.alert(
+            'Account created',
+            'Sign in with your new account to continue.',
+          );
+          setMode('signIn');
+        }
       }
     } catch (error) {
       Alert.alert('Authentication error', (error as Error).message);
@@ -98,7 +104,10 @@ export const LoginScreen = () => {
         throw error;
       }
 
-      Alert.alert('Reset link sent', 'Check your email to finish resetting your password.');
+      Alert.alert(
+        'Reset link sent',
+        'Check your email to finish resetting your password.',
+      );
     } catch (error) {
       Alert.alert('Reset failed', (error as Error).message);
     } finally {
@@ -119,7 +128,9 @@ export const LoginScreen = () => {
       >
         <Text style={styles.title}>Offtasks</Text>
         <Text style={styles.subtitle}>
-          {mode === 'signIn' ? 'Welcome back. Sign in to continue.' : 'Create an account to get started.'}
+          {mode === 'signIn'
+            ? 'Welcome back. Sign in to continue.'
+            : 'Create an account to get started.'}
         </Text>
 
         <View style={styles.formGroup}>
@@ -168,7 +179,11 @@ export const LoginScreen = () => {
           </View>
         ) : null}
 
-        <TouchableOpacity style={styles.primaryButton} onPress={handleSubmit} disabled={loading}>
+        <TouchableOpacity
+          style={styles.primaryButton}
+          onPress={handleSubmit}
+          disabled={loading}
+        >
           {loading ? (
             <ActivityIndicator color={palette.textPrimary} />
           ) : (
@@ -178,7 +193,11 @@ export const LoginScreen = () => {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.secondaryButton} onPress={toggleMode} disabled={loading}>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={toggleMode}
+          disabled={loading}
+        >
           <Text style={styles.secondaryButtonText}>
             {mode === 'signIn'
               ? "Don't have an account? Sign up"
@@ -186,7 +205,11 @@ export const LoginScreen = () => {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.linkButton} onPress={handleResetPassword} disabled={loading}>
+        <TouchableOpacity
+          style={styles.linkButton}
+          onPress={handleResetPassword}
+          disabled={loading}
+        >
           <Text style={styles.linkButtonText}>Forgot your password?</Text>
         </TouchableOpacity>
       </ScrollView>

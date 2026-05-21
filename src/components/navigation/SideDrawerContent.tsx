@@ -8,7 +8,7 @@ import {
 import { CommonActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { supabaseClient } from '@/lib/supabase';
+import { deleteAccount, supabaseClient } from '@/lib/supabase';
 import { appVersion } from '@/lib/appVersion';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePreferences } from '@/providers/PreferencesProvider';
@@ -71,6 +71,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
   const theme = useAppTheme();
   const styles = React.useMemo(() => createStyles(theme), [theme]);
   const isDarkMode = themeMode === 'Dark';
+  const [isDeletingAccount, setIsDeletingAccount] = React.useState(false);
 
   const handleNavigate = React.useCallback(
     (routeName: string) => {
@@ -110,6 +111,53 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
     }
     navigation.closeDrawer();
   }, [navigation]);
+
+  const performDeleteAccount = React.useCallback(async () => {
+    setIsDeletingAccount(true);
+
+    try {
+      await deleteAccount();
+      const { error } = await supabaseClient.auth.signOut({ scope: 'local' });
+
+      if (error) {
+        console.warn(
+          'Account deleted, but local session cleanup reported an error',
+          error,
+        );
+      }
+
+      navigation.closeDrawer();
+    } catch (error) {
+      Alert.alert(
+        'Delete account failed',
+        error instanceof Error
+          ? error.message
+          : 'Unable to delete account right now. Please try again.',
+      );
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  }, [navigation]);
+
+  const handleDeleteAccount = React.useCallback(() => {
+    if (isDeletingAccount) {
+      return;
+    }
+
+    Alert.alert(
+      'Delete account',
+      'This permanently deletes your account and all synced tasks. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: performDeleteAccount,
+        },
+      ],
+      { cancelable: true },
+    );
+  }, [isDeletingAccount, performDeleteAccount]);
 
   const email = session?.user?.email ?? 'Offline';
   const fullName = session?.user?.user_metadata?.full_name as
@@ -312,6 +360,25 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
       </View>
 
       <View style={styles.footer}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Delete account"
+          disabled={isDeletingAccount}
+          style={({ pressed }) => [
+            styles.deleteAccountButton,
+            pressed && styles.deleteAccountButtonPressed,
+            isDeletingAccount && styles.footerButtonDisabled,
+          ]}
+          onPress={handleDeleteAccount}
+        >
+          <View style={styles.deleteAccountIconWrap}>
+            <Feather name="trash-2" size={16} color="#b91c1c" />
+          </View>
+          <Text style={styles.deleteAccountLabel}>
+            {isDeletingAccount ? 'Deleting Account' : 'Delete Account'}
+          </Text>
+        </Pressable>
+
         <Pressable
           style={({ pressed }) => [
             styles.logoutButton,

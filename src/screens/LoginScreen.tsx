@@ -66,7 +66,7 @@ export const LoginScreen = () => {
           throw error;
         }
       } else {
-        const { error } = await supabaseClient.auth.signUp({
+        const { data, error } = await supabaseClient.auth.signUp({
           email,
           password,
         });
@@ -75,11 +75,13 @@ export const LoginScreen = () => {
           throw error;
         }
 
-        Alert.alert(
-          'Check your inbox',
-          'Confirm your email address to complete the signup, then sign in here.',
-        );
-        setMode('signIn');
+        if (!data.session) {
+          Alert.alert(
+            'Account created',
+            'Sign in with your new account to continue.',
+          );
+          setMode('signIn');
+        }
       }
     } catch (error) {
       Alert.alert('Authentication error', (error as Error).message);
