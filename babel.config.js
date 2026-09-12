@@ -1,14 +1,14 @@
-module.exports = {
+module.exports = api => ({
   presets: ['module:@react-native/babel-preset'],
   plugins: [
-    [
+    ...(api.env('test') ? [] : [[
       'module:react-native-dotenv',
       {
         moduleName: '@env',
         path: '.env',
         allowUndefined: true,
       },
-    ],
+    ]]),
     [
       'module-resolver',
       {
@@ -21,4 +21,4 @@ module.exports = {
     ],
     'react-native-reanimated/plugin',
   ],
-};
+});
