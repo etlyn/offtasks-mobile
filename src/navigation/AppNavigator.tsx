@@ -8,6 +8,9 @@ import { TabNav } from '@/navigation/TabNav';
 import { palette, useAppTheme } from '@/theme/colors';
 import { DashboardScreen } from '@/features/dashboard/Dashboard.screen';
 import { StatisticsScreen } from '@/features/completed/Completed.screen';
+import { NotesScreen } from '@/features/planner/Notes.screen';
+import { GoalsScreen } from '@/features/planner/Goals.screen';
+import { AccountScreen } from '@/screens/AccountScreen';
 
 const Drawer = createDrawerNavigator();
 const Tab = createBottomTabNavigator();
@@ -16,7 +19,7 @@ const iconSize = 20;
 
 const DashboardTabs = () => (
   <Tab.Navigator
-    initialRouteName="Today"
+    initialRouteName="Calendar"
     screenOptions={{
       headerShown: false,
       tabBarHideOnKeyboard: true,
@@ -24,16 +27,20 @@ const DashboardTabs = () => (
     tabBar={props => <TabNav {...props} />}
   >
     <Tab.Screen
-      name="Today"
+      name="Calendar"
       component={DashboardScreen}
-      initialParams={{ group: 'today' }}
-      options={{ tabBarLabel: 'Today' }}
+      initialParams={{ group: 'today', view: 'calendar' }}
+      options={{ tabBarLabel: 'Calendar' }}
     />
     <Tab.Screen
-      name="Tomorrow"
-      component={DashboardScreen}
-      initialParams={{ group: 'tomorrow' }}
-      options={{ tabBarLabel: 'Tomorrow' }}
+      name="Notes"
+      component={NotesScreen}
+      options={{ tabBarLabel: 'Notes' }}
+    />
+    <Tab.Screen
+      name="Goals"
+      component={GoalsScreen}
+      options={{ tabBarLabel: 'Goals' }}
     />
     <Tab.Screen
       name="Later"
@@ -49,6 +56,7 @@ export const AppNavigator = () => {
 
   return (
     <Drawer.Navigator
+      initialRouteName="Dashboard"
       drawerContent={props => <SideDrawerContent {...props} />}
       screenOptions={{
         headerShown: false,
@@ -66,6 +74,7 @@ export const AppNavigator = () => {
         },
       }}
     >
+      <Drawer.Screen name="Account" component={AccountScreen} options={{drawerItemStyle: {display: 'none'}}} />
       <Drawer.Screen
         name="Dashboard"
         component={DashboardTabs}

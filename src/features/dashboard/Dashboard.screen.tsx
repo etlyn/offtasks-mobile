@@ -2,8 +2,10 @@ import * as React from 'react';
 import {
   Alert,
   Keyboard,
+  Pressable,
   StyleSheet,
   StatusBar,
+  Text,
   TextInput,
   View,
 } from 'react-native';
@@ -12,14 +14,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDrawerStatus } from '@react-navigation/drawer';
 
 import { TopBar } from '@/components/navigation/TopBar';
+import { PlannerHeader } from '@/components/navigation/PlannerHeader';
+import { tasksForDay, tasksForGoal } from '@/utils/planner';
 import { TaskList } from '@/components/task-quick-list';
 import {
   normalizeCategory,
   useTaskCategories,
 } from '@/hooks/useTaskCategories';
-import { createTask, deleteTask, updateTask } from '@/lib/supabase';
+import { useTaskRepository } from '@/lib/taskRepository';
 import { getToday } from '@/hooks/useDate';
-import { useAuth } from '@/providers/AuthProvider';
 import { usePreferences } from '@/providers/PreferencesProvider';
 import { useTasks } from '@/providers/TasksProvider';
 import type { Task, TaskWithOverdueFlag } from '@/types/task';
@@ -41,6 +44,7 @@ import type {
 import { FilterBar } from './components/FilterBar';
 import { Layout } from './components/Layout';
 import { TaskComposerModal } from './components/TaskComposerModal';
+import { MonthCalendar } from './components/MonthCalendar';
 
 const groupSegments: GroupSegment[] = [
   { key: 'today', label: 'Today' },
@@ -89,9 +93,9 @@ const priorityOptions: PriorityOption[] = [
   },
 ];
 
-export const DashboardScreen = ({ route }: DashboardScreenProps) => {
-  const { tasks, loading, refreshing, refresh, applyTaskUpdate } = useTasks();
-  const { session } = useAuth();
+export const DashboardScreen = ({ route, onBack }: DashboardScreenProps) => {
+  const { tasks, loading, error, refreshing, refresh, applyTaskUpdate } = useTasks();
+  const {create: createTask, update: updateTask, remove: deleteTask} = useTaskRepository();
   const { hideCompleted, advancedMode } = usePreferences();
   const { categories, addCategory, removeCategory } = useTaskCategories();
   const theme = useAppTheme();
@@ -145,11 +149,20 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
     [theme],
   );
 
-  const activeGroup = route?.params?.group ?? 'tomorrow';
+  const activeGroup = route?.params?.group ?? 'today';
+  const isCalendar = route?.params?.view === 'calendar';
+  const goal =
+    route?.params?.view === 'goal' ? route.params.category : undefined;
+  const [calendarDay, setCalendarDay] = React.useState(getToday());
   const allTasks = React.useMemo(() => Object.values(tasks).flat(), [tasks]);
   const baseTasks = React.useMemo(
-    () => tasks[activeGroup] ?? [],
-    [activeGroup, tasks],
+    () =>
+      goal
+        ? tasksForGoal(allTasks, goal)
+        : isCalendar
+        ? tasksForDay(allTasks, calendarDay)
+        : tasks[activeGroup] ?? [],
+    [activeGroup, tasks, goal, isCalendar, calendarDay, allTasks],
   );
 
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -310,8 +323,6 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
         const taskUpdates = {
           isComplete: nextComplete,
           completed_at: nextComplete ? today : null,
-          target_group: nextComplete ? 'today' : task.target_group,
-          date: nextComplete ? today : task.date,
         };
 
         applyTaskUpdate(task.id, taskUpdates);
@@ -323,7 +334,7 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
         Alert.alert('Update failed', (error as Error).message);
       }
     },
-    [applyTaskUpdate, refresh],
+    [applyTaskUpdate, refresh, updateTask],
   );
 
   const handleDeleteTask = React.useCallback(
@@ -344,15 +355,11 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
         },
       ]);
     },
-    [refresh],
+    [refresh, deleteTask],
   );
 
   const handleEditTask = React.useCallback(
     (task: Task | TaskWithOverdueFlag) => {
-      if (!session?.user?.id) {
-        return;
-      }
-
       const groupOverride = groupSegments.some(
         segment => segment.key === task.target_group,
       )
@@ -362,17 +369,13 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
       setComposerMode('edit');
       setEditingTask(task);
       setNewTaskContent(task.content);
-      setSelectedDate(
-        normalizeScheduledDate(
-          task.date ?? getDefaultDateForGroup(groupOverride),
-        ),
-      );
+      setSelectedDate(task.date ?? getDefaultDateForGroup(groupOverride));
       setSelectedPriority(task.priority ?? 0);
       setCategoryQuery('');
       setSelectedCategory(task.label ?? null);
       setComposerVisible(true);
     },
-    [activeGroup, session?.user?.id],
+    [activeGroup],
   );
 
   const handleShowTaskDetails = React.useCallback(
@@ -400,19 +403,19 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   );
 
   const openComposer = React.useCallback(() => {
-    if (!session?.user?.id) {
-      Alert.alert('Not signed in', 'Sign in to add tasks.');
-      return;
-    }
     setComposerMode('create');
     setEditingTask(null);
     setNewTaskContent('');
-    setSelectedDate(getDefaultDateForGroup(activeGroup));
+    setSelectedDate(
+      isCalendar
+        ? normalizeScheduledDate(calendarDay)
+        : getDefaultDateForGroup(activeGroup),
+    );
     setSelectedPriority(0);
     setCategoryQuery('');
-    setSelectedCategory(null);
+    setSelectedCategory(goal ?? null);
     setComposerVisible(true);
-  }, [activeGroup, session?.user?.id]);
+  }, [activeGroup, isCalendar, calendarDay, goal]);
 
   const closeComposer = React.useCallback(() => {
     setComposerVisible(false);
@@ -453,10 +456,6 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   );
 
   const handleSubmitTask = React.useCallback(async () => {
-    if (!session?.user?.id) {
-      return;
-    }
-
     const trimmed = newTaskContent.trim();
     if (!trimmed || submitting) {
       return;
@@ -464,8 +463,16 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
 
     setSubmitting(true);
     try {
-      const normalizedDate = normalizeScheduledDate(selectedDate);
-      const effectiveGroup = getTargetGroupForDate(normalizedDate);
+      const unchangedSchedule =
+        composerMode === 'edit' &&
+        editingTask &&
+        selectedDate === editingTask.date;
+      const normalizedDate = unchangedSchedule
+        ? selectedDate
+        : normalizeScheduledDate(selectedDate);
+      const effectiveGroup = unchangedSchedule
+        ? editingTask.target_group
+        : getTargetGroupForDate(normalizedDate);
       let resolvedCategory = selectedCategory ?? null;
       const normalizedQuery = normalizeCategory(categoryQuery);
 
@@ -485,7 +492,6 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
         await createTask({
           content: trimmed,
           target_group: effectiveGroup,
-          userId: session.user.id,
           date: normalizedDate,
           priority: selectedPriority,
           label: resolvedCategory,
@@ -514,7 +520,8 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
     selectedCategory,
     selectedDate,
     selectedPriority,
-    session?.user?.id,
+    createTask,
+    updateTask,
     submitting,
   ]);
 
@@ -584,12 +591,6 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
   }, [categoryPendingDelete, categoryQuery, removeCategory, selectedCategory]);
 
   React.useEffect(() => {
-    if (composerVisible && composerMode === 'create') {
-      setSelectedDate(getDefaultDateForGroup(activeGroup));
-    }
-  }, [activeGroup, composerMode, composerVisible]);
-
-  React.useEffect(() => {
     const prev = prevDrawerStatusRef.current;
     prevDrawerStatusRef.current = drawerStatus;
 
@@ -635,31 +636,59 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
         backgroundColor="transparent"
       />
 
-      <TopBar
-        topInset={insets.top}
-        titlePrimary={String(completedCount)}
-        titleSecondary={` / ${totalCount}`}
-        subtitle={groupLabels[activeGroup]}
-        searchVisible={searchDockVisible}
-        searchValue={searchQuery}
-        searchPlaceholder="Search all tasks"
-        onSearchChangeText={setSearchQuery}
-        onSearchToggle={handleToggleSearch}
-        onSearchClose={handleCloseSearch}
-        inputRef={searchInputRef}
-        leftAction={{
-          icon: 'menu',
-          label: 'Open navigation menu',
-          onPress: handleOpenDrawer,
-        }}
-      />
+      {!searchDockVisible ? (
+        <PlannerHeader
+          title={
+            goal ||
+            (isCalendar
+              ? new Date(`${calendarDay}T12:00:00`).toLocaleDateString(
+                  undefined,
+                  { weekday: 'long', month: 'short', day: 'numeric' },
+                )
+              : groupLabels[activeGroup])
+          }
+          onBack={onBack}
+          actions={[
+            {
+              icon: 'search',
+              label: 'Search tasks',
+              onPress: handleToggleSearch,
+            },
+            {
+              icon: 'plus',
+              label: 'Add task',
+              onPress: openComposer,
+              disabled: isCalendar && calendarDay < getToday(),
+            },
+          ]}
+        />
+      ) : (
+        <TopBar
+          topInset={insets.top}
+          titlePrimary={String(completedCount)}
+          titleSecondary={` / ${totalCount}`}
+          subtitle={groupLabels[activeGroup]}
+          searchVisible={searchDockVisible}
+          searchValue={searchQuery}
+          searchPlaceholder="Search all tasks"
+          onSearchChangeText={setSearchQuery}
+          onSearchToggle={handleToggleSearch}
+          onSearchClose={handleCloseSearch}
+          inputRef={searchInputRef}
+          leftAction={{
+            icon: 'menu',
+            label: 'Open navigation menu',
+            onPress: handleOpenDrawer,
+          }}
+        />
+      )}
 
       <Layout
         bottomInset={insets.bottom}
         refreshing={refreshing}
         onRefresh={handleRefresh}
         onAddTask={openComposer}
-        showFab={!searchDockVisible}
+        showFab={false}
         filterBar={
           !searchDockVisible && advancedMode ? (
             <FilterBar
@@ -676,6 +705,41 @@ export const DashboardScreen = ({ route }: DashboardScreenProps) => {
           ) : null
         }
       >
+        {error ? <Pressable accessibilityRole="button" accessibilityLabel="Retry loading tasks" onPress={handleRefresh}><Text accessibilityRole="alert" style={{color: theme.colors.textPrimary}}>{error} Tap to retry.</Text></Pressable> : null}
+        {isCalendar && !searchDockVisible ? (
+          <MonthCalendar
+            day={calendarDay}
+            onChange={setCalendarDay}
+            tasks={allTasks}
+          />
+        ) : null}
+        {!searchDockVisible ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              marginBottom: 16,
+              paddingHorizontal: 4,
+            }}
+          >
+            <Text
+              style={{
+                color: theme.colors.textPrimary,
+                fontWeight: '600',
+                fontSize: 15,
+              }}
+            >
+              {isCalendar
+                ? calendarDay === getToday()
+                  ? "Today's plan"
+                  : 'Day plan'
+                : 'Tasks'}
+            </Text>
+            <Text style={{ color: theme.colors.textSecondary }}>
+              {completedCount} / {totalCount}
+            </Text>
+          </View>
+        ) : null}
         <TaskList
           tasks={displayTasks}
           onToggle={handleToggleTask}

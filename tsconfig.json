@@ -12,5 +12,5 @@
     "src/types/*.d.ts",
     "src/types/**/*.d.ts"
   ],
-  "exclude": ["**/node_modules", "**/Pods"]
+  "exclude": ["**/node_modules", "**/Pods", "build"]
 }

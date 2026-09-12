@@ -11,6 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { publishWidgetTheme } from '@/lib/widgetBridge';
 import { fetchUserPreferences, upsertUserPreferences } from '@/lib/supabase';
+import {GUEST_ID} from '@/lib/localTasks';
 import { useAuth } from './AuthProvider';
 
 type ThemeMode = 'Light' | 'Dark';
@@ -53,6 +54,7 @@ export const PreferencesProvider = ({
   children: React.ReactNode;
 }) => {
   const { session } = useAuth();
+  const owner = session?.user.id || GUEST_ID;
   const [hideCompleted, setHideCompleted] = useState(false);
   const [advancedMode, setAdvancedMode] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>('Light');
@@ -60,9 +62,13 @@ export const PreferencesProvider = ({
   const [redTasks, setRedTasks] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const hydratedRef = useRef(false);
+  const [remoteReady, setRemoteReady] = useState(false);
+  const initialRemote = useRef<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
+    setHydrated(false);
+    hydratedRef.current = false;
 
     const hydrate = async () => {
       try {
@@ -73,7 +79,7 @@ export const PreferencesProvider = ({
             THEME_MODE_KEY,
             AUTO_ARRANGE_KEY,
             RED_TASKS_KEY,
-          ]);
+          ].map(key => `${key}:${owner}`));
 
         if (!isMounted) {
           return;
@@ -107,10 +113,12 @@ export const PreferencesProvider = ({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [owner]);
 
   useEffect(() => {
-    if (!session?.user?.id) {
+    setRemoteReady(false);
+    initialRemote.current = null;
+    if (!hydrated || !session?.user?.id) {
       return;
     }
 
@@ -118,64 +126,67 @@ export const PreferencesProvider = ({
 
     const hydrateRemote = async () => {
       const prefs = await fetchUserPreferences(session.user.id);
-      if (!active || !prefs) {
+      if (!active) {
         return;
       }
-
+      if (prefs) {
+      initialRemote.current = JSON.stringify([!!prefs.hide_completed, !!prefs.advanced_mode, !!prefs.auto_arrange, prefs.theme_mode]);
       setHideCompleted(!!prefs.hide_completed);
       setAdvancedMode(!!prefs.advanced_mode);
       setAutoArrange(!!prefs.auto_arrange);
       if (prefs.theme_mode === 'Light' || prefs.theme_mode === 'Dark') {
         setThemeMode(prefs.theme_mode);
       }
+      }
+      setRemoteReady(true);
     };
 
-    hydrateRemote();
+    hydrateRemote().catch(error => console.warn('Preferences sync unavailable', error));
 
     return () => {
       active = false;
     };
-  }, [session?.user?.id]);
+  }, [session?.user?.id, hydrated]);
 
   useEffect(() => {
     if (!hydrated) {
       return;
     }
 
-    AsyncStorage.setItem(HIDE_COMPLETED_KEY, hideCompleted ? 'true' : 'false');
-  }, [hideCompleted, hydrated]);
+    AsyncStorage.setItem(`${HIDE_COMPLETED_KEY}:${owner}`, hideCompleted ? 'true' : 'false').catch(() => undefined);
+  }, [hideCompleted, hydrated, owner]);
 
   useEffect(() => {
     if (!hydrated) {
       return;
     }
 
-    AsyncStorage.setItem(ADVANCED_MODE_KEY, advancedMode ? 'true' : 'false');
-  }, [advancedMode, hydrated]);
+    AsyncStorage.setItem(`${ADVANCED_MODE_KEY}:${owner}`, advancedMode ? 'true' : 'false').catch(() => undefined);
+  }, [advancedMode, hydrated, owner]);
 
   useEffect(() => {
     if (!hydrated) {
       return;
     }
 
-    AsyncStorage.setItem(THEME_MODE_KEY, themeMode);
-  }, [hydrated, themeMode]);
+    AsyncStorage.setItem(`${THEME_MODE_KEY}:${owner}`, themeMode).catch(() => undefined);
+  }, [hydrated, themeMode, owner]);
 
   useEffect(() => {
     if (!hydrated) {
       return;
     }
 
-    AsyncStorage.setItem(AUTO_ARRANGE_KEY, autoArrange ? 'true' : 'false');
-  }, [autoArrange, hydrated]);
+    AsyncStorage.setItem(`${AUTO_ARRANGE_KEY}:${owner}`, autoArrange ? 'true' : 'false').catch(() => undefined);
+  }, [autoArrange, hydrated, owner]);
 
   useEffect(() => {
     if (!hydrated) {
       return;
     }
 
-    AsyncStorage.setItem(RED_TASKS_KEY, redTasks ? 'true' : 'false');
-  }, [hydrated, redTasks]);
+    AsyncStorage.setItem(`${RED_TASKS_KEY}:${owner}`, redTasks ? 'true' : 'false').catch(() => undefined);
+  }, [hydrated, redTasks, owner]);
 
   useEffect(() => {
     if (!hydrated) {
@@ -188,9 +199,11 @@ export const PreferencesProvider = ({
   }, [hydrated, themeMode]);
 
   useEffect(() => {
-    if (!hydratedRef.current || !session?.user?.id) {
+    if (!hydratedRef.current || !remoteReady || !session?.user?.id) {
       return;
     }
+    const snapshot = JSON.stringify([hideCompleted, advancedMode, autoArrange, themeMode]);
+    if (initialRemote.current === snapshot) return;
 
     upsertUserPreferences({
       user_id: session.user.id,
@@ -198,10 +211,10 @@ export const PreferencesProvider = ({
       advanced_mode: advancedMode,
       theme_mode: themeMode,
       auto_arrange: autoArrange,
-    }).catch(error => {
+    }).then(() => {initialRemote.current = snapshot;}).catch(error => {
       console.warn('Failed to sync preferences', error);
     });
-  }, [advancedMode, autoArrange, hideCompleted, session?.user?.id, themeMode]);
+  }, [advancedMode, autoArrange, hideCompleted, session?.user?.id, themeMode, remoteReady]);
 
   const toggleTheme = useCallback(() => {
     setThemeMode(prev => (prev === 'Light' ? 'Dark' : 'Light'));

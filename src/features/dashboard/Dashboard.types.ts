@@ -4,10 +4,13 @@ export type DashboardGroup = Exclude<TaskGroup, 'close'>;
 
 export interface DashboardScreenRouteParams {
   group?: DashboardGroup;
+  view?: 'calendar' | 'goal';
+  category?: string;
   searchToggleRequestId?: number;
 }
 
 export interface DashboardScreenProps {
+  onBack?: () => void;
   route?: {
     params?: DashboardScreenRouteParams;
   };

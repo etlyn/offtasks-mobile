@@ -1,8 +1,8 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import * as React from 'react';
-
-const CATEGORY_STORAGE_KEY = '@offtasks/task-categories:v1';
+import { useAuth } from '@/providers/AuthProvider';
+import { GUEST_ID } from '@/lib/localTasks';
+import { readPlanner, writePlanner, syncPlanner } from '@/lib/plannerSync';
 
 export const DEFAULT_TASK_CATEGORIES = [
   'Work',
@@ -29,22 +29,10 @@ const applyCategoryUpdate = (
   updater: (current: string[]) => string[],
 ) => sanitizeCategories(updater(previous));
 
-const readStoredCategories = async () => {
-  const storedValue = await AsyncStorage.getItem(CATEGORY_STORAGE_KEY);
-
-  if (!storedValue) {
-    return DEFAULT_TASK_CATEGORIES;
-  }
-
-  const parsed = JSON.parse(storedValue);
-  if (!Array.isArray(parsed)) {
-    return DEFAULT_TASK_CATEGORIES;
-  }
-
-  return sanitizeCategories(parsed.filter(value => typeof value === 'string'));
-};
-
 export const useTaskCategories = () => {
+  const userId = useAuth().session?.user.id || GUEST_ID;
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
   const [categories, setCategories] = React.useState<string[]>(
     DEFAULT_TASK_CATEGORIES,
   );
@@ -55,38 +43,50 @@ export const useTaskCategories = () => {
   }, [categories]);
 
   const loadCategories = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setCategories(await readStoredCategories());
+      const next = await readPlanner(userId, 'goal');
+      categoriesRef.current = next;
+      setCategories(next);
     } catch {
-      setCategories(DEFAULT_TASK_CATEGORIES);
+      setError('Saved goals could not be loaded. Try again before editing.');
+    } finally {
+      setLoading(false);
     }
-  }, []);
-
-  React.useEffect(() => {
-    loadCategories().catch(() => {});
-  }, [loadCategories]);
+  }, [userId]);
 
   useFocusEffect(
     React.useCallback(() => {
       loadCategories().catch(() => {});
-    }, [loadCategories]),
+      let active = true;
+      void syncPlanner(userId, 'goal').then(() => {
+        if (active) void loadCategories();
+      });
+      return () => {
+        active = false;
+      };
+    }, [loadCategories, userId]),
   );
 
   const updateCategories = React.useCallback(
     async (updater: (previous: string[]) => string[]) => {
-      const nextCategories = applyCategoryUpdate(categoriesRef.current, updater);
-
-      categoriesRef.current = nextCategories;
-      setCategories(nextCategories);
-
-      await AsyncStorage.setItem(
-        CATEGORY_STORAGE_KEY,
-        JSON.stringify(nextCategories),
+      if (!userId || loading || error)
+        throw new Error('Goals are not ready. Please try again.');
+      const nextCategories = applyCategoryUpdate(
+        categoriesRef.current,
+        updater,
       );
+
+      await writePlanner(userId, 'goal', nextCategories, categoriesRef.current);
+      const saved = await readPlanner(userId, 'goal');
+      void syncPlanner(userId, 'goal');
+      categoriesRef.current = saved;
+      setCategories(saved);
 
       return nextCategories;
     },
-    [],
+    [userId, loading, error],
   );
 
   const addCategory = React.useCallback(
@@ -120,5 +120,8 @@ export const useTaskCategories = () => {
     categories,
     addCategory,
     removeCategory,
+    loading,
+    error,
+    reload: loadCategories,
   };
 };

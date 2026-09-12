@@ -16,7 +16,10 @@ import {
 import { SUPABASE_RESET_REDIRECT_URL } from '@env';
 
 import { supabaseClient } from '@/lib/supabase';
+import { authErrorMessage } from '@/utils/authErrors';
 import { palette, useAppTheme } from '@/theme/colors';
+import { useNavigation } from '@react-navigation/native';
+import { PlannerHeader } from '@/components/navigation/PlannerHeader';
 
 const redirectUrl =
   SUPABASE_RESET_REDIRECT_URL || 'https://offtasks.com/reset-password';
@@ -24,6 +27,7 @@ const redirectUrl =
 type AuthMode = 'signIn' | 'signUp';
 
 export const LoginScreen = () => {
+  const navigation = useNavigation();
   const theme = useAppTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,6 +37,7 @@ export const LoginScreen = () => {
   const styles = React.useMemo(() => createStyles(theme), [theme]);
 
   const toggleMode = () => {
+    if (loading) return;
     setMode(prev => (prev === 'signIn' ? 'signUp' : 'signIn'));
     setEmail('');
     setPassword('');
@@ -40,6 +45,7 @@ export const LoginScreen = () => {
   };
 
   const handleSubmit = async () => {
+    if (loading) return;
     if (!email || !password) {
       Alert.alert('Missing details', 'Provide both email and password.');
       return;
@@ -78,19 +84,20 @@ export const LoginScreen = () => {
         if (!data.session) {
           Alert.alert(
             'Account created',
-            'Sign in with your new account to continue.',
+            'Check your email to confirm your account, then sign in for sync.',
           );
           setMode('signIn');
         }
       }
     } catch (error) {
-      Alert.alert('Authentication error', (error as Error).message);
+      Alert.alert('Authentication error', authErrorMessage(error));
     } finally {
       setLoading(false);
     }
   };
 
   const handleResetPassword = async () => {
+    if (loading) return;
     if (!email) {
       Alert.alert('Email required', 'Enter your account email first.');
       return;
@@ -112,7 +119,7 @@ export const LoginScreen = () => {
         'Check your email to finish resetting your password.',
       );
     } catch (error) {
-      Alert.alert('Reset failed', (error as Error).message);
+      Alert.alert('Reset failed', authErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -128,6 +135,7 @@ export const LoginScreen = () => {
         barStyle={theme.statusBarStyle}
         backgroundColor="transparent"
       />
+      <PlannerHeader title="Account" onBack={() => navigation.goBack()} />
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
@@ -136,13 +144,14 @@ export const LoginScreen = () => {
         <Text style={styles.title}>Offtasks</Text>
         <Text style={styles.subtitle}>
           {mode === 'signIn'
-            ? 'Welcome back. Sign in to continue.'
-            : 'Create an account to get started.'}
+            ? 'Sign in for cross-device sync.'
+            : 'Create your sync account.'}
         </Text>
 
         <View style={styles.formGroup}>
           <Text style={styles.label}>Email</Text>
           <TextInput
+            accessibilityLabel="Email"
             style={styles.input}
             placeholder="you@example.com"
             placeholderTextColor={theme.colors.textMuted}
@@ -159,6 +168,7 @@ export const LoginScreen = () => {
         <View style={styles.formGroup}>
           <Text style={styles.label}>Password</Text>
           <TextInput
+            accessibilityLabel="Password"
             style={styles.input}
             placeholder="••••••••"
             placeholderTextColor={theme.colors.textMuted}
@@ -174,6 +184,7 @@ export const LoginScreen = () => {
           <View style={styles.formGroup}>
             <Text style={styles.label}>Confirm password</Text>
             <TextInput
+              accessibilityLabel="Confirm password"
               style={styles.input}
               placeholder="••••••••"
               placeholderTextColor={theme.colors.textMuted}

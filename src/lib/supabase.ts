@@ -305,7 +305,7 @@ export const fetchAllUserTasks = async (userId: string): Promise<Task[]> => {
 
   if (error) {
     console.error('Error fetching all tasks', error);
-    return [];
+    throw error;
   }
 
   const rows = (data as (Task & { category?: string | null })[] | null) ?? [];
@@ -325,7 +325,7 @@ export const fetchUserPreferences = async (userId: string): Promise<UserPreferen
 
   if (error) {
     console.error('Error fetching user preferences', error);
-    return null;
+    throw error;
   }
 
   return (data as UserPreferences | null) ?? null;

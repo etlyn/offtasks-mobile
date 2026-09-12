@@ -2,14 +2,12 @@ import * as React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import { TabTodayIcon } from '@/components/icons/TabToday';
-import { TabTomorrowIcon } from '@/components/icons/TabTomorrow';
-import { TabUpcomingIcon } from '@/components/icons/TabUpcoming';
+import Feather from 'react-native-vector-icons/Feather';
 import { palette, useAppTheme } from '@/theme/colors';
 const labels: Record<string, string> = {
-  Today: 'Today',
-  Tomorrow: 'Tomorrow',
+  Calendar: 'Calendar',
+  Notes: 'Notes',
+  Goals: 'Goals',
   Later: 'Later',
 };
 
@@ -24,16 +22,13 @@ const TabIcon = ({
 }) => {
   const color = focused ? palette.mintStrong : inactiveColor;
 
-  switch (route) {
-    case 'Today':
-      return <TabTodayIcon size={20} color={color} />;
-    case 'Tomorrow':
-      return <TabTomorrowIcon size={20} color={color} />;
-    case 'Later':
-      return <TabUpcomingIcon size={20} color={color} />;
-    default:
-      return <TabTodayIcon size={20} color={color} />;
-  }
+  const icons: Record<string, string> = {
+    Calendar: 'calendar',
+    Notes: 'file-text',
+    Goals: 'folder',
+    Later: 'clock',
+  };
+  return <Feather name={icons[route] || 'calendar'} size={21} color={color} />;
 };
 
 export const DashboardTabBar: React.FC<BottomTabBarProps> = ({
@@ -90,10 +85,13 @@ export const DashboardTabBar: React.FC<BottomTabBarProps> = ({
           return (
             <Pressable
               key={route.key}
-              accessibilityRole="button"
+              accessibilityRole="tab"
               accessibilityState={isFocused ? { selected: true } : {}}
-              accessibilityLabel={options.tabBarAccessibilityLabel}
-              accessibilityHint={options.tabBarButtonTestID}
+              accessibilityLabel={options.tabBarAccessibilityLabel || labelText}
+              testID={options.tabBarButtonTestID}
+              onLongPress={() =>
+                navigation.emit({ type: 'tabLongPress', target: route.key })
+              }
               onPress={handlePress}
               style={({ pressed }) => [
                 styles.tabItem,
@@ -129,13 +127,15 @@ const createStyles = (theme: ReturnType<typeof useAppTheme>) =>
       left: 0,
       right: 0,
       alignItems: 'center',
+      paddingHorizontal: 16,
       pointerEvents: 'box-none',
     },
     container: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginHorizontal: 16,
+      width: '100%',
+      maxWidth: 600,
       paddingHorizontal: 10,
       paddingVertical: 4,
       borderRadius: 20,
@@ -161,7 +161,7 @@ const createStyles = (theme: ReturnType<typeof useAppTheme>) =>
     },
     tabItem: {
       flex: 1,
-      height: 56,
+      minHeight: 58,
       borderRadius: 16,
       flexDirection: 'column',
       alignItems: 'center',

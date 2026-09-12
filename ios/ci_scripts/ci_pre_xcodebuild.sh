@@ -11,6 +11,9 @@ if ! xcode_version_output="$(xcodebuild -version 2>&1)"; then
   exit 1
 fi
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+node "$SCRIPT_DIR/../../scripts/verify-production.mjs"
+
 if ! ios_sdk_version="$(xcrun --sdk iphoneos --show-sdk-version 2>&1)"; then
   echo "$ios_sdk_version" >&2
   echo "error: Could not resolve the iPhoneOS SDK from the active Xcode." >&2

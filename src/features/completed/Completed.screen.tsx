@@ -28,7 +28,7 @@ import {
   useTaskCategories,
 } from '@/hooks/useTaskCategories';
 import { TopBar } from '@/components/navigation/TopBar';
-import { updateTask } from '@/lib/supabase';
+import { useTaskRepository } from '@/lib/taskRepository';
 import { getToday } from '@/hooks/useDate';
 import { TaskList } from '@/components/task-quick-list';
 import { useTasks } from '@/providers/TasksProvider';
@@ -240,6 +240,7 @@ const sectionLabels = {
 } as const;
 
 export const StatisticsScreen = () => {
+  const {update: updateTask} = useTaskRepository();
   const { tasks, totals, loading, refreshing, refresh, applyTaskUpdate } =
     useTasks();
   const { categories, addCategory, removeCategory } = useTaskCategories();
@@ -398,7 +399,7 @@ export const StatisticsScreen = () => {
             name: 'Dashboard',
             state: {
               index: 0,
-              routes: [{ name: 'Today', params: { group: 'today' } }],
+              routes: [{ name: 'Calendar', params: { group: 'today', view: 'calendar' } }],
             },
           },
         ],
@@ -413,8 +414,6 @@ export const StatisticsScreen = () => {
       const updates = {
         isComplete: nextComplete,
         completed_at: nextComplete ? today : null,
-        target_group: nextComplete ? 'today' : task.target_group,
-        date: nextComplete ? today : task.date,
       };
 
       applyTaskUpdate(task.id, updates);
@@ -423,10 +422,10 @@ export const StatisticsScreen = () => {
         await updateTask(task.id, updates);
       } catch (error) {
         await refresh();
-        throw error;
+        Alert.alert('Update failed', (error as Error).message);
       }
     },
-    [applyTaskUpdate, refresh],
+    [applyTaskUpdate, refresh, updateTask],
   );
 
   const handleRestore = React.useCallback(
@@ -437,10 +436,10 @@ export const StatisticsScreen = () => {
         await updateTask(task.id, { isComplete: false, completed_at: null });
       } catch (error) {
         await refresh();
-        throw error;
+        Alert.alert('Restore failed', (error as Error).message);
       }
     },
-    [applyTaskUpdate, refresh],
+    [applyTaskUpdate, refresh, updateTask],
   );
 
   const handleEditTask = React.useCallback((task: Task) => {
@@ -453,11 +452,7 @@ export const StatisticsScreen = () => {
     setComposerMode('edit');
     setEditingTask(task);
     setNewTaskContent(task.content);
-    setSelectedDate(
-      normalizeScheduledDate(
-        task.date ?? getDefaultDateForGroup(fallbackGroup),
-      ),
-    );
+    setSelectedDate(task.date ?? getDefaultDateForGroup(fallbackGroup));
     setSelectedPriority(task.priority ?? 0);
     setCategoryQuery('');
     setSelectedCategory(task.label ?? null);
@@ -512,8 +507,9 @@ export const StatisticsScreen = () => {
 
     setSubmitting(true);
     try {
-      const normalizedDate = normalizeScheduledDate(selectedDate);
-      const effectiveGroup = getTargetGroupForDate(normalizedDate);
+      const unchangedSchedule = selectedDate === editingTask.date;
+      const normalizedDate = unchangedSchedule ? selectedDate : normalizeScheduledDate(selectedDate);
+      const effectiveGroup = unchangedSchedule ? editingTask.target_group : getTargetGroupForDate(normalizedDate);
       let resolvedCategory = selectedCategory ?? null;
       const normalizedQuery = normalizeCategory(categoryQuery);
 
@@ -530,6 +526,8 @@ export const StatisticsScreen = () => {
       });
       handleCloseComposer();
       await refresh();
+    } catch (error) {
+      Alert.alert('Could not update task', (error as Error).message);
     } finally {
       setSubmitting(false);
     }
@@ -544,6 +542,7 @@ export const StatisticsScreen = () => {
     selectedDate,
     selectedPriority,
     submitting,
+    updateTask,
   ]);
 
   const handleSelectPriority = React.useCallback((value: number) => {

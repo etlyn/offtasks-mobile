@@ -9,14 +9,13 @@ import React, {
 } from 'react';
 import { AppState } from 'react-native';
 
-import { fetchAllUserTasks, updateTask } from '@/lib/supabase';
+import { useTaskRepository } from '@/lib/taskRepository';
 import type { Task, TaskGroup, TaskWithOverdueFlag } from '@/types/task';
 import { categorizeTasks, addOverdueFlag } from '@/utils/taskUtils';
 import { getToday } from '@/hooks/useDate';
 import { publishWidgetSnapshot } from '@/lib/widgetBridge';
 import { shouldAutoMoveTaskToToday } from '@/utils/taskScheduling';
 
-import { useAuth } from './AuthProvider';
 import { usePreferences } from './PreferencesProvider';
 
 const groups: TaskGroup[] = ['today', 'tomorrow', 'upcoming', 'close'];
@@ -47,6 +46,7 @@ interface TasksContextValue {
     >,
   ) => void;
   loading: boolean;
+  error: string | null;
   refreshing: boolean;
 }
 
@@ -93,14 +93,16 @@ const TasksContext = createContext<TasksContextValue>({
   refresh: async () => undefined,
   applyTaskUpdate: () => undefined,
   loading: false,
+  error: null,
   refreshing: false,
 });
 
 export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
-  const { session } = useAuth();
+  const repository = useTaskRepository();
   const { autoArrange, themeMode } = usePreferences();
   const [tasks, setTasks] = useState<TasksByGroup>(emptyState);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const lastDayRef = useRef(getToday());
   const tasksRef = useRef<TasksByGroup>(emptyState);
@@ -111,6 +113,7 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
   const visibleRefreshCountRef = useRef(0);
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
     };
@@ -156,12 +159,6 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
     },
     [updateRefreshIndicators],
   );
-
-  const resetRefreshIndicators = useCallback(() => {
-    activeRefreshCountRef.current = 0;
-    visibleRefreshCountRef.current = 0;
-    updateRefreshIndicators();
-  }, [updateRefreshIndicators]);
 
   const syncWidgetSnapshot = useCallback(
     (nextState: TasksByGroup) => {
@@ -264,26 +261,16 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
   const refresh = useCallback(
     async (options: RefreshOptions = {}) => {
       const showRefreshSpinner = options.showRefreshSpinner === true;
-      const userId = session?.user?.id;
       const refreshId = latestRefreshIdRef.current + 1;
       latestRefreshIdRef.current = refreshId;
 
-      if (!userId) {
-        tasksRef.current = emptyState;
-        if (mountedRef.current) {
-          setTasks(emptyState);
-        }
-        syncWidgetSnapshot(emptyState);
-        resetRefreshIndicators();
-        return;
-      }
-
       beginRefresh(showRefreshSpinner);
+      setError(null);
 
       try {
         // Fetch all tasks at once instead of by group
         const allTasks = await withTimeout(
-          fetchAllUserTasks(userId),
+          repository.read(),
           TASK_REFRESH_TIMEOUT_MS,
           'Task refresh',
         );
@@ -296,7 +283,7 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
             if (shouldAutoMoveTaskToToday(task)) {
               needsRefresh = true;
               updates.push(
-                updateTask(task.id, {
+                repository.update(task.id, {
                   target_group: 'today',
                   date: getToday(),
                 }),
@@ -315,7 +302,7 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
 
         const finalTasks = needsRefresh
           ? await withTimeout(
-              fetchAllUserTasks(userId),
+              repository.read(),
               TASK_REFRESH_TIMEOUT_MS,
               'Task refresh',
             )
@@ -327,6 +314,7 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
 
         commitTasksState(buildTasksState(finalTasks));
       } catch (error) {
+        if (mountedRef.current && refreshId === latestRefreshIdRef.current) setError(error instanceof Error ? error.message : 'Tasks could not be loaded.');
         if (isTimeoutError(error)) {
           console.warn('Task refresh timed out', error);
         } else {
@@ -342,9 +330,7 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
       buildTasksState,
       commitTasksState,
       endRefresh,
-      resetRefreshIndicators,
-      session?.user?.id,
-      syncWidgetSnapshot,
+      repository,
     ],
   );
 
@@ -401,9 +387,10 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
       refresh,
       applyTaskUpdate,
       loading,
+      error,
       refreshing,
     }),
-    [applyTaskUpdate, loading, refresh, refreshing, tasks, totals],
+    [applyTaskUpdate, loading, error, refresh, refreshing, tasks, totals],
   );
 
   return (

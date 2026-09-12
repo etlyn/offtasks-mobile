@@ -9,6 +9,7 @@ import { CommonActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { deleteAccount, supabaseClient } from '@/lib/supabase';
+import {clearPlanner} from '@/lib/plannerSync';
 import { appVersion } from '@/lib/appVersion';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePreferences } from '@/providers/PreferencesProvider';
@@ -91,7 +92,12 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
             name: 'Dashboard',
             state: {
               index: 0,
-              routes: [{ name: 'Today', params: { group: 'today' } }],
+              routes: [
+                {
+                  name: 'Calendar',
+                  params: { group: 'today', view: 'calendar' },
+                },
+              ],
             },
           },
         ],
@@ -117,6 +123,13 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
 
     try {
       await deleteAccount();
+      if (session) {
+        try {
+          await clearPlanner(session.user.id);
+        } catch {
+          Alert.alert('Account deleted', 'Local cache cleanup failed. Sign-out will still continue.');
+        }
+      }
       const { error } = await supabaseClient.auth.signOut({ scope: 'local' });
 
       if (error) {
@@ -137,7 +150,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
     } finally {
       setIsDeletingAccount(false);
     }
-  }, [navigation]);
+  }, [navigation, session]);
 
   const handleDeleteAccount = React.useCallback(() => {
     if (isDeletingAccount) {
@@ -146,7 +159,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
 
     Alert.alert(
       'Delete account',
-      'This permanently deletes your account and all synced tasks. This cannot be undone.',
+      'This permanently deletes your account and all synced tasks, notes and goals. Device guest items are kept. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -159,11 +172,11 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
     );
   }, [isDeletingAccount, performDeleteAccount]);
 
-  const email = session?.user?.email ?? 'Offline';
+  const email = session?.user?.email ?? 'Stored on this device';
   const fullName = session?.user?.user_metadata?.full_name as
     | string
     | undefined;
-  const userLabel = fullName?.trim() || email.split('@')[0] || 'User';
+  const userLabel = session ? fullName?.trim() || email.split('@')[0] : 'Guest';
   const initials =
     userLabel
       .split(/[\s._-]+/)
@@ -207,7 +220,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Go to home today"
+        accessibilityLabel="Go to Calendar"
         onPress={handleResetToHome}
         style={({ pressed }) => [
           styles.heroCard,
@@ -360,6 +373,15 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
       </View>
 
       <View style={styles.footer}>
+        {!session ? (
+          <Pressable accessibilityRole="button" accessibilityLabel="Sign in for sync" style={styles.logoutButton} onPress={() => handleNavigate('Account')}>
+            <Feather name="log-in" size={18} color={theme.colors.textPrimary} />
+            <Text style={styles.menuLabel}>Sign in for sync</Text>
+          </Pressable>
+        ) : <>
+        <Pressable accessibilityRole="button" accessibilityLabel="Account and sync" style={styles.logoutButton} onPress={() => handleNavigate('Account')}>
+          <Feather name="refresh-cw" size={18} color={theme.colors.textPrimary} /><Text style={styles.menuLabel}>Account and sync</Text>
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Delete account"
@@ -380,6 +402,8 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
         </Pressable>
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Log out"
           style={({ pressed }) => [
             styles.logoutButton,
             pressed && styles.logoutButtonPressed,
@@ -391,6 +415,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
           </View>
           <Text style={styles.logoutLabel}>Log Out</Text>
         </Pressable>
+        </>}
       </View>
     </DrawerContentScrollView>
   );

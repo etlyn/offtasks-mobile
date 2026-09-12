@@ -19,4 +19,5 @@ jobs:
           cache: yarn
       - run: npx --yes yarn@1.22.22 install --frozen-lockfile
       - run: npx --yes yarn@1.22.22 test --runInBand --watchman=false
+      - run: node --test scripts/verify-production.test.mjs
       - run: bash -n ios/ci_scripts/ci_post_clone.sh ios/ci_scripts/ci_pre_xcodebuild.sh

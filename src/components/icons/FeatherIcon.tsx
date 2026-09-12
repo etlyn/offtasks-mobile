@@ -6,6 +6,7 @@
  */
 import React from 'react';
 import Svg, { Path, Circle, Line, Polyline, Rect } from 'react-native-svg';
+import { Bookmark, ChevronUp, FileText, Folder } from 'lucide-react-native';
 
 interface IconProps {
   name: string;
@@ -21,6 +22,14 @@ interface IconProps {
 // We register a render-function per icon so colour is injected at render time.
 
 const FeatherIcon = ({ name, size = 24, color = '#000', style }: IconProps) => {
+  const SupplementalIcon = {
+    bookmark: Bookmark,
+    'chevron-up': ChevronUp,
+    'file-text': FileText,
+    folder: Folder,
+  }[name];
+  if (SupplementalIcon)
+    return <SupplementalIcon size={size} color={color} style={style} />;
   const renderFn = ICON_RENDERERS[name];
   if (!renderFn) {
     // Fallback: render a simple circle with the first letter

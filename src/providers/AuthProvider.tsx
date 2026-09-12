@@ -21,6 +21,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     let active = true;
 
     const hydrate = async () => {
+      try {
       const { data, error } = await supabaseClient.auth.getSession();
 
       if (error) {
@@ -32,7 +33,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       setSession(data.session ?? null);
-      setLoading(false);
+      } catch (error) {
+        console.warn('Session unavailable; opening device workspace', error);
+      } finally {
+        if (active) setLoading(false);
+      }
     };
 
     hydrate();

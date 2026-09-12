@@ -53,15 +53,27 @@ the existing private release keystore supplied securely, not the debug keystore.
 
 ### 4. Run the app
 
-```sh
-# Terminal 1 – start Metro
-yarn start
+All device runs use **Release** and the production Supabase project. The `ios`
+and `android` commands run `verify:production` first, checking HTTPS, anonymous
+key/project matching, expiry, and auth health without submitting account credentials.
+Do not substitute localhost, staging, or a different project to bypass a failed
+check. Confirm the production project in Supabase before changing `.env`.
 
-# Terminal 2 – launch a simulator/device
-yarn ios      # defaults to the last-used iOS simulator
-# or
+Device commands set `NODE_ENV=production`. Preflight reads `.env`,
+`.env.production`, `.env.local`, then `.env.production.local`, with process
+values taking precedence, matching the bundler. Non-production `APP_ENV` or
+`BABEL_ENV` overrides are rejected.
+
+```sh
+npm run verify:production
+yarn ios      # paired iPhone, Release configuration
 yarn android
 ```
+
+Release bundles include JavaScript and do not require Metro. Before a manual
+`xcodebuild` invocation, run `npm run verify:production` and pass
+`-configuration Release` with `NODE_ENV=production`. Xcode Cloud also runs the same preflight.
+`yarn start` remains available for explicit Metro development, not device releases.
 
 Tips for iOS:
 
@@ -71,6 +83,22 @@ Tips for iOS:
 
 ### 5. Project layout
 
+- The main tabs are Calendar, Notes, Goals, and Later.
+- Calendar uses `react-native-calendars`, opens on today, marks scheduled days,
+  and filters tasks by the selected date. Unfinished older tasks also appear
+  today. New tasks are scheduled for the selected current/future day; historical
+  days are view/edit only. Completion preserves a task's scheduled date.
+- Notes supports create/edit/delete, search, pinning, and timestamps. Notes are
+  stored **on this device only**, scoped to the signed-in user in AsyncStorage.
+  They do not sync to Supabase or the web app; uninstalling or clearing app data
+  may remove them. Failed saves retain the draft; corrupt storage is not reset.
+- Goals are task lists backed by existing task labels/categories, with completion
+  progress. Lists can be created and empty lists removed without deleting tasks.
+  Saved empty list names are account-scoped locally; labels on tasks still sync
+  through the existing Supabase task contract. Existing task labels are always
+  included. Legacy shared-device category suggestions are not copied between accounts.
+- Later retains the existing upcoming/backlog task workflow. Statistics and
+  account/preferences remain in the drawer.
 - `App.tsx` wires navigation, auth state, and shared providers.
 - `src/lib/supabase.ts` configures the Supabase client with AsyncStorage.
 - `src/providers/` exposes auth + tasks contexts that mirror the web app behaviour.
@@ -82,6 +110,8 @@ Tips for iOS:
 
 ```sh
 yarn test --runInBand --watchman=false
+npm run test:release
+npx tsc --noEmit
 ```
 
 Jest is configured to resolve the `@/` alias and to mock `@env` variables.
@@ -93,6 +123,13 @@ The 50 mobile manual acceptance scenarios live in
 [etlyn-e2e/offtasks/mobile](https://github.com/etlyn/etlyn-e2e/tree/main/offtasks/mobile).
 From an `etlyn-e2e` checkout, run `yarn e2e:test:offtasks:mobile`.
 Manual scenarios are not automated test results.
+
+The September 2026 sign-in investigation reproduced `ENOTFOUND` for the obsolete
+project origin inherited from the deployed website. The healthy production
+project is `nqsclqtpnosuhoobgyxc` (Task App in Etlyn's Org), verified against all
+four checked-in migration versions. The preflight pins this project; configure
+its public URL and anonymous key locally before rebuilding. No production
+schema changes or authentication bypasses are part of this UI update.
 
 ### 7. Keeping parity with the web app
 
