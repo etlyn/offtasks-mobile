@@ -40,16 +40,20 @@ const RootNavigator = () => {
         barStyle={theme.statusBarStyle}
         backgroundColor="transparent"
       />
-        <TasksProvider key={session?.user.id || GUEST_ID}>
-          <AppNavigator />
-        </TasksProvider>
+      <TasksProvider key={session?.user.id || GUEST_ID}>
+        <AppNavigator />
+      </TasksProvider>
     </NavigationContainer>
   );
 };
 
 const AccountWorkspace = () => {
-  const {session} = useAuth();
-  return <PreferencesProvider key={session?.user.id || GUEST_ID}><RootNavigator /></PreferencesProvider>;
+  const { session } = useAuth();
+  return (
+    <PreferencesProvider key={session?.user.id || GUEST_ID}>
+      <RootNavigator />
+    </PreferencesProvider>
+  );
 };
 
 const App = () => (

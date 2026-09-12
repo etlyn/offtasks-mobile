@@ -5,7 +5,9 @@ maintained by Etlyn. It was extracted from `etlyn/offtasks.com` with the mobile
 Git history preserved. The landing pages and browser app remain in
 [offtasks.com](https://github.com/etlyn/offtasks.com).
 
-The clients use the same Supabase backend for auth, tasks, and preferences.
+The app opens a device-local workspace without requiring an account. Sign-in
+is optional for cross-device sync. The clients use the same Supabase backend
+for auth, tasks, and preferences.
 Shared database migrations and Edge Functions remain in
 [offtasks.com/supabase](https://github.com/etlyn/offtasks.com/tree/main/supabase).
 No sibling checkout is required to install or run this app.
@@ -88,17 +90,26 @@ Tips for iOS:
   and filters tasks by the selected date. Unfinished older tasks also appear
   today. New tasks are scheduled for the selected current/future day; historical
   days are view/edit only. Completion preserves a task's scheduled date.
-- Notes supports create/edit/delete, search, pinning, and timestamps. Notes are
-  stored **on this device only**, scoped to the signed-in user in AsyncStorage.
-  They do not sync to Supabase or the web app; uninstalling or clearing app data
-  may remove them. Failed saves retain the draft; corrupt storage is not reset.
+- Guest tasks, notes, goals, and preferences persist in device-local AsyncStorage.
+  Uninstalling or clearing app data can remove them; local storage is not an
+  encrypted backup. No account is required for the four planner tabs or Statistics.
+- Notes supports create/edit/delete, search, pinning, and timestamps. Account
+  notes and empty goals use a durable local sync outbox; failed saves retain the
+  draft and corrupt storage is not reset. The new backend migration must be
+  deployed before account Notes/Goals sync and device import work.
 - Goals are task lists backed by existing task labels/categories, with completion
   progress. Lists can be created and empty lists removed without deleting tasks.
-  Saved empty list names are account-scoped locally; labels on tasks still sync
-  through the existing Supabase task contract. Existing task labels are always
+  List names are owner-scoped locally and sync for accounts after backend rollout.
+  Labels on account tasks still use the existing Supabase task contract. Existing task labels are always
   included. Legacy shared-device category suggestions are not copied between accounts.
 - Later retains the existing upcoming/backlog task workflow. Statistics and
   account/preferences remain in the drawer.
+- The guest drawer offers **Sign in for sync** using the existing auth flows.
+  Signed-in users can select **Account and sync > Import device items** and
+  explicitly confirm adding their guest copy to the account. Import retains the
+  guest copy and does not replace existing account items. Signing out returns
+  to the separate guest workspace. Account tasks remain online-first, unlike
+  guest tasks and the Notes/Goals outbox.
 - `App.tsx` wires navigation, auth state, and shared providers.
 - `src/lib/supabase.ts` configures the Supabase client with AsyncStorage.
 - `src/providers/` exposes auth + tasks contexts that mirror the web app behaviour.
@@ -119,7 +130,7 @@ GitHub CI performs a frozen dependency install and runs these tests. Native
 compilation, signing, device testing, and store uploads remain separate gates.
 `yarn lint` runs the existing ESLint configuration.
 
-The 50 mobile manual acceptance scenarios live in
+The 58 mobile manual acceptance scenarios and a Maestro guest flow live in
 [etlyn-e2e/offtasks/mobile](https://github.com/etlyn/etlyn-e2e/tree/main/offtasks/mobile).
 From an `etlyn-e2e` checkout, run `yarn e2e:test:offtasks:mobile`.
 Manual scenarios are not automated test results.
@@ -130,6 +141,18 @@ project is `nqsclqtpnosuhoobgyxc` (Task App in Etlyn's Org), verified against al
 four checked-in migration versions. The preflight pins this project; configure
 its public URL and anonymous key locally before rebuilding. No production
 schema changes or authentication bypasses are part of this UI update.
+
+### Device-first Release Gate
+
+The new `20260912000000_device_planner_sync.sql` migration is owned by
+`offtasks.com/supabase/migrations`. It adds owner-protected planner records and
+a transactional, retry-safe guest import RPC. It has **not been deployed** by
+this work. Test the migration, RLS, auth, import, and deletion against an isolated
+Supabase environment before a separately authorized production rollout.
+
+See [the readiness report](docs/guest-first-readiness.md) for actual execution
+counts and blockers. The web client has no Notes/Goals UI yet; storing those
+records in Supabase does not establish web feature parity.
 
 ### 7. Keeping parity with the web app
 

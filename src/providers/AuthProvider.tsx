@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import type { Session } from '@supabase/supabase-js';
 
 import { supabaseClient } from '@/lib/supabase';
@@ -22,17 +28,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const hydrate = async () => {
       try {
-      const { data, error } = await supabaseClient.auth.getSession();
+        const { data, error } = await supabaseClient.auth.getSession();
 
-      if (error) {
-        console.error('Error getting session', error);
-      }
+        if (error) {
+          console.error('Error getting session', error);
+        }
 
-      if (!active) {
-        return;
-      }
+        if (!active) {
+          return;
+        }
 
-      setSession(data.session ?? null);
+        setSession(data.session ?? null);
       } catch (error) {
         console.warn('Session unavailable; opening device workspace', error);
       } finally {
@@ -42,9 +48,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     hydrate();
 
-    const { data: subscription } = supabaseClient.auth.onAuthStateChange((_, nextSession) => {
-      setSession(nextSession ?? null);
-    });
+    const { data: subscription } = supabaseClient.auth.onAuthStateChange(
+      (_, nextSession) => {
+        setSession(nextSession ?? null);
+      },
+    );
 
     return () => {
       active = false;
@@ -57,7 +65,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       session,
       loading,
     }),
-    [session, loading]
+    [session, loading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

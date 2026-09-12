@@ -9,7 +9,7 @@ import { CommonActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { deleteAccount, supabaseClient } from '@/lib/supabase';
-import {clearPlanner} from '@/lib/plannerSync';
+import { clearPlanner } from '@/lib/plannerSync';
 import { appVersion } from '@/lib/appVersion';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePreferences } from '@/providers/PreferencesProvider';
@@ -127,7 +127,10 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
         try {
           await clearPlanner(session.user.id);
         } catch {
-          Alert.alert('Account deleted', 'Local cache cleanup failed. Sign-out will still continue.');
+          Alert.alert(
+            'Account deleted',
+            'Local cache cleanup failed. Sign-out will still continue.',
+          );
         }
       }
       const { error } = await supabaseClient.auth.signOut({ scope: 'local' });
@@ -374,48 +377,65 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
 
       <View style={styles.footer}>
         {!session ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="Sign in for sync" style={styles.logoutButton} onPress={() => handleNavigate('Account')}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Sign in for sync"
+            style={styles.logoutButton}
+            onPress={() => handleNavigate('Account')}
+          >
             <Feather name="log-in" size={18} color={theme.colors.textPrimary} />
             <Text style={styles.menuLabel}>Sign in for sync</Text>
           </Pressable>
-        ) : <>
-        <Pressable accessibilityRole="button" accessibilityLabel="Account and sync" style={styles.logoutButton} onPress={() => handleNavigate('Account')}>
-          <Feather name="refresh-cw" size={18} color={theme.colors.textPrimary} /><Text style={styles.menuLabel}>Account and sync</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Delete account"
-          disabled={isDeletingAccount}
-          style={({ pressed }) => [
-            styles.deleteAccountButton,
-            pressed && styles.deleteAccountButtonPressed,
-            isDeletingAccount && styles.footerButtonDisabled,
-          ]}
-          onPress={handleDeleteAccount}
-        >
-          <View style={styles.deleteAccountIconWrap}>
-            <Feather name="trash-2" size={16} color="#b91c1c" />
-          </View>
-          <Text style={styles.deleteAccountLabel}>
-            {isDeletingAccount ? 'Deleting Account' : 'Delete Account'}
-          </Text>
-        </Pressable>
+        ) : (
+          <>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Account and sync"
+              style={styles.logoutButton}
+              onPress={() => handleNavigate('Account')}
+            >
+              <Feather
+                name="refresh-cw"
+                size={18}
+                color={theme.colors.textPrimary}
+              />
+              <Text style={styles.menuLabel}>Account and sync</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Delete account"
+              disabled={isDeletingAccount}
+              style={({ pressed }) => [
+                styles.deleteAccountButton,
+                pressed && styles.deleteAccountButtonPressed,
+                isDeletingAccount && styles.footerButtonDisabled,
+              ]}
+              onPress={handleDeleteAccount}
+            >
+              <View style={styles.deleteAccountIconWrap}>
+                <Feather name="trash-2" size={16} color="#b91c1c" />
+              </View>
+              <Text style={styles.deleteAccountLabel}>
+                {isDeletingAccount ? 'Deleting Account' : 'Delete Account'}
+              </Text>
+            </Pressable>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Log out"
-          style={({ pressed }) => [
-            styles.logoutButton,
-            pressed && styles.logoutButtonPressed,
-          ]}
-          onPress={handleSignOut}
-        >
-          <View style={styles.logoutIconWrap}>
-            <Feather name="log-out" size={16} color="#e11d24" />
-          </View>
-          <Text style={styles.logoutLabel}>Log Out</Text>
-        </Pressable>
-        </>}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Log out"
+              style={({ pressed }) => [
+                styles.logoutButton,
+                pressed && styles.logoutButtonPressed,
+              ]}
+              onPress={handleSignOut}
+            >
+              <View style={styles.logoutIconWrap}>
+                <Feather name="log-out" size={16} color="#e11d24" />
+              </View>
+              <Text style={styles.logoutLabel}>Log Out</Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </DrawerContentScrollView>
   );

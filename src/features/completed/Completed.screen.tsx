@@ -240,7 +240,7 @@ const sectionLabels = {
 } as const;
 
 export const StatisticsScreen = () => {
-  const {update: updateTask} = useTaskRepository();
+  const { update: updateTask } = useTaskRepository();
   const { tasks, totals, loading, refreshing, refresh, applyTaskUpdate } =
     useTasks();
   const { categories, addCategory, removeCategory } = useTaskCategories();
@@ -399,7 +399,12 @@ export const StatisticsScreen = () => {
             name: 'Dashboard',
             state: {
               index: 0,
-              routes: [{ name: 'Calendar', params: { group: 'today', view: 'calendar' } }],
+              routes: [
+                {
+                  name: 'Calendar',
+                  params: { group: 'today', view: 'calendar' },
+                },
+              ],
             },
           },
         ],
@@ -508,8 +513,12 @@ export const StatisticsScreen = () => {
     setSubmitting(true);
     try {
       const unchangedSchedule = selectedDate === editingTask.date;
-      const normalizedDate = unchangedSchedule ? selectedDate : normalizeScheduledDate(selectedDate);
-      const effectiveGroup = unchangedSchedule ? editingTask.target_group : getTargetGroupForDate(normalizedDate);
+      const normalizedDate = unchangedSchedule
+        ? selectedDate
+        : normalizeScheduledDate(selectedDate);
+      const effectiveGroup = unchangedSchedule
+        ? editingTask.target_group
+        : getTargetGroupForDate(normalizedDate);
       let resolvedCategory = selectedCategory ?? null;
       const normalizedQuery = normalizeCategory(categoryQuery);
 

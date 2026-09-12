@@ -314,7 +314,12 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
 
         commitTasksState(buildTasksState(finalTasks));
       } catch (error) {
-        if (mountedRef.current && refreshId === latestRefreshIdRef.current) setError(error instanceof Error ? error.message : 'Tasks could not be loaded.');
+        if (mountedRef.current && refreshId === latestRefreshIdRef.current)
+          setError(
+            error instanceof Error
+              ? error.message
+              : 'Tasks could not be loaded.',
+          );
         if (isTimeoutError(error)) {
           console.warn('Task refresh timed out', error);
         } else {

@@ -16,7 +16,8 @@ export interface UserPreferences {
 }
 
 const runtimeEnv =
-  (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
+  (globalThis as { process?: { env?: Record<string, string | undefined> } })
+    .process?.env ?? {};
 
 const supabaseUrl = SUPABASE_URL || runtimeEnv.SUPABASE_URL;
 const supabaseAnonKey = SUPABASE_ANON_KEY || runtimeEnv.SUPABASE_ANON_KEY;
@@ -42,7 +43,9 @@ type CategoryColumn = 'label' | 'category';
 const CATEGORY_COLUMNS: CategoryColumn[] = ['label', 'category'];
 let detectedCategoryColumn: CategoryColumn | null = null;
 
-const ensureCategoryColumn = async (userId?: string): Promise<CategoryColumn | null> => {
+const ensureCategoryColumn = async (
+  userId?: string,
+): Promise<CategoryColumn | null> => {
   if (detectedCategoryColumn) {
     return detectedCategoryColumn;
   }
@@ -94,7 +97,7 @@ export const fetchTasksByGroup = async (group: TaskGroup, userId: string) => {
   }
 
   const rows = (data as (Task & { category?: string | null })[] | null) ?? [];
-  return rows.map((row) => ({
+  return rows.map(row => ({
     ...row,
     label: row.label ?? row.category ?? null,
   }));
@@ -137,7 +140,10 @@ export const createTask = async (params: {
   }
 
   const message = attempt.error.message?.toLowerCase() ?? '';
-  if (message.includes('label') && Object.prototype.hasOwnProperty.call(payload, 'label')) {
+  if (
+    message.includes('label') &&
+    Object.prototype.hasOwnProperty.call(payload, 'label')
+  ) {
     const retryPayload = { ...payload };
     delete retryPayload.label;
     if (typeof label !== 'undefined') {
@@ -149,7 +155,10 @@ export const createTask = async (params: {
 
   if (attempt.error) {
     const retryMessage = attempt.error.message?.toLowerCase() ?? '';
-    if (retryMessage.includes('category') && Object.prototype.hasOwnProperty.call(payload, 'label')) {
+    if (
+      retryMessage.includes('category') &&
+      Object.prototype.hasOwnProperty.call(payload, 'label')
+    ) {
       const retryPayload = { ...payload };
       delete retryPayload.label;
       attempt = await insertTask(retryPayload);
@@ -167,13 +176,21 @@ export const updateTask = async (
   updates: Partial<
     Pick<
       Task,
-      'content' | 'isComplete' | 'priority' | 'target_group' | 'date' | 'completed_at' | 'label'
+      | 'content'
+      | 'isComplete'
+      | 'priority'
+      | 'target_group'
+      | 'date'
+      | 'completed_at'
+      | 'label'
     >
-  >
+  >,
 ) => {
   const { label, ...restUpdates } = updates;
   const sanitizedUpdates = Object.fromEntries(
-    Object.entries(restUpdates).filter(([, value]) => typeof value !== 'undefined')
+    Object.entries(restUpdates).filter(
+      ([, value]) => typeof value !== 'undefined',
+    ),
   );
 
   const attemptUpdate = async (payload: Record<string, unknown>) =>
@@ -199,12 +216,18 @@ export const updateTask = async (
     const message = error.message?.toLowerCase() ?? '';
     let updated = false;
 
-    if (message.includes('completed_at') && Object.prototype.hasOwnProperty.call(payload, 'completed_at')) {
+    if (
+      message.includes('completed_at') &&
+      Object.prototype.hasOwnProperty.call(payload, 'completed_at')
+    ) {
       delete payload.completed_at;
       updated = true;
     }
 
-    if (message.includes('label') && Object.prototype.hasOwnProperty.call(payload, 'label')) {
+    if (
+      message.includes('label') &&
+      Object.prototype.hasOwnProperty.call(payload, 'label')
+    ) {
       const labelValue = payload.label;
       delete payload.label;
       if (typeof labelValue !== 'undefined') {
@@ -213,7 +236,10 @@ export const updateTask = async (
       updated = true;
     }
 
-    if (message.includes('category') && Object.prototype.hasOwnProperty.call(payload, 'category')) {
+    if (
+      message.includes('category') &&
+      Object.prototype.hasOwnProperty.call(payload, 'category')
+    ) {
       delete payload.category;
       updated = true;
     }
@@ -226,7 +252,10 @@ export const updateTask = async (
 };
 
 export const deleteTask = async (taskId: string) => {
-  const { error } = await supabaseClient.from('tasks').delete().eq('id', taskId);
+  const { error } = await supabaseClient
+    .from('tasks')
+    .delete()
+    .eq('id', taskId);
 
   if (error) {
     console.error('Error deleting task', error);
@@ -240,11 +269,18 @@ interface DeleteAccountResponse {
 }
 
 const getFunctionErrorMessage = async (error: unknown): Promise<string> => {
-  const response = (error as { context?: { clone?: () => { json?: () => Promise<unknown> }; json?: () => Promise<unknown> } })
-    ?.context;
+  const response = (
+    error as {
+      context?: {
+        clone?: () => { json?: () => Promise<unknown> };
+        json?: () => Promise<unknown>;
+      };
+    }
+  )?.context;
 
   try {
-    const responseBodyReader = typeof response?.clone === 'function' ? response.clone() : response;
+    const responseBodyReader =
+      typeof response?.clone === 'function' ? response.clone() : response;
     const payload = await responseBodyReader?.json?.();
 
     if (
@@ -272,12 +308,16 @@ export const deleteAccount = async (): Promise<void> => {
     throw new Error('You need to be signed in to delete your account.');
   }
 
-  const { data, error } = await supabaseClient.functions.invoke<DeleteAccountResponse>('delete-account', {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: {},
-  });
+  const { data, error } =
+    await supabaseClient.functions.invoke<DeleteAccountResponse>(
+      'delete-account',
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: {},
+      },
+    );
 
   if (error) {
     console.error('Error deleting account', error);
@@ -309,14 +349,16 @@ export const fetchAllUserTasks = async (userId: string): Promise<Task[]> => {
   }
 
   const rows = (data as (Task & { category?: string | null })[] | null) ?? [];
-  return rows.map((row) => ({
+  return rows.map(row => ({
     ...row,
     date: row.date ?? null,
     label: row.label ?? row.category ?? null,
   }));
 };
 
-export const fetchUserPreferences = async (userId: string): Promise<UserPreferences | null> => {
+export const fetchUserPreferences = async (
+  userId: string,
+): Promise<UserPreferences | null> => {
   const { data, error } = await supabaseClient
     .from('user_preferences')
     .select('*')
@@ -332,15 +374,13 @@ export const fetchUserPreferences = async (userId: string): Promise<UserPreferen
 };
 
 export const upsertUserPreferences = async (prefs: UserPreferences) => {
-  const { error } = await supabaseClient
-    .from('user_preferences')
-    .upsert(
-      {
-        ...prefs,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
-    );
+  const { error } = await supabaseClient.from('user_preferences').upsert(
+    {
+      ...prefs,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id' },
+  );
 
   if (error) {
     console.error('Error updating user preferences', error);

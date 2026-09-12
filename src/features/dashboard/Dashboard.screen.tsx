@@ -94,8 +94,13 @@ const priorityOptions: PriorityOption[] = [
 ];
 
 export const DashboardScreen = ({ route, onBack }: DashboardScreenProps) => {
-  const { tasks, loading, error, refreshing, refresh, applyTaskUpdate } = useTasks();
-  const {create: createTask, update: updateTask, remove: deleteTask} = useTaskRepository();
+  const { tasks, loading, error, refreshing, refresh, applyTaskUpdate } =
+    useTasks();
+  const {
+    create: createTask,
+    update: updateTask,
+    remove: deleteTask,
+  } = useTaskRepository();
   const { hideCompleted, advancedMode } = usePreferences();
   const { categories, addCategory, removeCategory } = useTaskCategories();
   const theme = useAppTheme();
@@ -705,7 +710,20 @@ export const DashboardScreen = ({ route, onBack }: DashboardScreenProps) => {
           ) : null
         }
       >
-        {error ? <Pressable accessibilityRole="button" accessibilityLabel="Retry loading tasks" onPress={handleRefresh}><Text accessibilityRole="alert" style={{color: theme.colors.textPrimary}}>{error} Tap to retry.</Text></Pressable> : null}
+        {error ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading tasks"
+            onPress={handleRefresh}
+          >
+            <Text
+              accessibilityRole="alert"
+              style={{ color: theme.colors.textPrimary }}
+            >
+              {error} Tap to retry.
+            </Text>
+          </Pressable>
+        ) : null}
         {isCalendar && !searchDockVisible ? (
           <MonthCalendar
             day={calendarDay}

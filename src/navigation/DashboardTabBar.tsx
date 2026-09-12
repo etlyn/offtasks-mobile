@@ -122,11 +122,8 @@ export const DashboardTabBar: React.FC<BottomTabBarProps> = ({
 const createStyles = (theme: ReturnType<typeof useAppTheme>) =>
   StyleSheet.create({
     wrapper: {
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
       alignItems: 'center',
+      backgroundColor: theme.colors.background,
       paddingHorizontal: 16,
       pointerEvents: 'box-none',
     },

@@ -74,7 +74,11 @@ export const AppNavigator = () => {
         },
       }}
     >
-      <Drawer.Screen name="Account" component={AccountScreen} options={{drawerItemStyle: {display: 'none'}}} />
+      <Drawer.Screen
+        name="Account"
+        component={AccountScreen}
+        options={{ drawerItemStyle: { display: 'none' } }}
+      />
       <Drawer.Screen
         name="Dashboard"
         component={DashboardTabs}
