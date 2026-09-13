@@ -7,13 +7,13 @@ import {
   Keyboard,
   StyleSheet,
   FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
+  ScrollView,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { DetachedSheet } from '@/components/DetachedSheet';
+import { SheetHeader } from '@/components/SheetHeader';
 import Feather from 'react-native-vector-icons/Feather';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTaskCreation } from '@/navigation/TaskCreationContext';
@@ -64,6 +64,9 @@ export const NotesScreen = ({
     title: string;
     body: string;
   } | null>(null);
+  const titleInput = useRef<TextInput>(null);
+  const [editorClosing, setEditorClosing] = useState(false);
+  const dismissEditor = () => setEditorClosing(true);
   const [saving, setSaving] = useState(false);
   const handledRequest = useRef<number | null>(null);
   const openRequest = route?.params?.openNoteRequest;
@@ -180,10 +183,10 @@ export const NotesScreen = ({
       editor &&
       (editor.title !== (original?.title || '') ||
         editor.body !== (original?.body || ''));
-    if (!changed) return setEditor(null);
+    if (!changed) return dismissEditor();
     Alert.alert('Discard changes?', 'Your unsaved changes will be lost.', [
       { text: 'Keep editing', style: 'cancel' },
-      { text: 'Discard', style: 'destructive', onPress: () => setEditor(null) },
+      { text: 'Discard', style: 'destructive', onPress: dismissEditor },
     ]);
   };
 
@@ -191,7 +194,7 @@ export const NotesScreen = ({
     if (!editor || busy.current) return;
     try {
       const next = saveNote(notes, editor, editor.id);
-      if ((await persist(next)) && alive.current) setEditor(null);
+      if ((await persist(next)) && alive.current) dismissEditor();
     } catch (error) {
       Alert.alert('Could not save note', (error as Error).message);
     }
@@ -215,7 +218,7 @@ export const NotesScreen = ({
               (await persist(notes.filter(note => note.id !== id))) &&
               alive.current
             )
-              setEditor(null);
+              dismissEditor();
           },
         },
       ],
@@ -416,53 +419,34 @@ export const NotesScreen = ({
           </Animated.View>
         </View>
       ) : null}
-      <Modal
-        visible={!!editor}
-        animationType={reduceMotion ? 'none' : 'slide'}
-        presentationStyle="pageSheet"
-        onRequestClose={closeEditor}
+      <DetachedSheet
+        visible={!!editor && !editorClosing}
+        reduceMotion={reduceMotion}
+        insetTop={insets.top}
+        insetBottom={insets.bottom}
+        dismissLabel="Dismiss note editor"
+        onClose={closeEditor}
+        onShow={() => titleInput.current?.focus()}
+        onDismiss={() => {
+          setEditor(null);
+          setEditorClosing(false);
+        }}
       >
-        <KeyboardAvoidingView
-          style={styles.modal}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        <SheetHeader
+          onClose={closeEditor}
+          onSave={submit}
+          closeLabel="Close note"
+          saveLabel="Save note"
+          busy={saving}
+          disabled={!(editor?.title.trim() || editor?.body.trim())}
+        />
+        <ScrollView
+          style={{ flexGrow: 0, flexShrink: 1 }}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 12 }}
         >
-          <PageBackdrop />
-          <View style={styles.modalHeader}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close note"
-              disabled={saving}
-              style={styles.iconButton}
-              onPress={closeEditor}
-            >
-              <Feather name="x" size={18} color={theme.colors.textPrimary} />
-            </Pressable>
-            <Text style={styles.modalTitle}>
-              {editor?.id ? 'Edit note' : 'New note'}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Save note"
-              disabled={
-                saving || !(editor?.title.trim() || editor?.body.trim())
-              }
-              onPress={submit}
-              style={[
-                styles.save,
-                (saving || !(editor?.title.trim() || editor?.body.trim())) &&
-                  styles.disabled,
-              ]}
-            >
-              {saving ? (
-                <ActivityIndicator
-                  color={theme.isDark ? '#101916' : '#FFFFFF'}
-                />
-              ) : (
-                <Text style={styles.saveText}>Save</Text>
-              )}
-            </Pressable>
-          </View>
           <TextInput
+            ref={titleInput}
             selectionColor={brand}
             keyboardAppearance={theme.keyboardAppearance}
             accessibilityLabel="Note title"
@@ -497,15 +481,15 @@ export const NotesScreen = ({
               disabled={saving}
               style={[
                 styles.iconButton,
-                { margin: 18, marginBottom: insets.bottom + 12 },
+                { marginHorizontal: 12, marginTop: 4 },
               ]}
               onPress={remove}
             >
               <Feather name="trash-2" size={18} color={palette.danger} />
             </Pressable>
           ) : null}
-        </KeyboardAvoidingView>
-      </Modal>
+        </ScrollView>
+      </DetachedSheet>
     </View>
   );
 };

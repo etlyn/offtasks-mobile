@@ -6,15 +6,14 @@ import {
   StyleSheet,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
   Keyboard,
-  Modal,
-  Platform,
+  ScrollView,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
+import { DetachedSheet } from '@/components/DetachedSheet';
+import { SheetHeader } from '@/components/SheetHeader';
 import { Flag } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -83,6 +82,7 @@ export const GoalsScreen = ({
       return () => back.remove();
     }, [detailVisible, searchVisible, closeSearch]),
   );
+  const nameInput = useRef<TextInput>(null);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -173,7 +173,6 @@ export const GoalsScreen = ({
     try {
       const created = await addCategory(normalized);
       setCreating(false);
-      setName('');
       setSelected(created);
       setDetailVisible(true);
     } catch {
@@ -390,49 +389,35 @@ export const GoalsScreen = ({
           </HeaderLayer.Provider>
         </Animated.View>
       ) : null}
-      <Modal
+      <DetachedSheet
         visible={creating}
-        presentationStyle="pageSheet"
-        animationType={reduceMotion ? 'none' : 'slide'}
-        onRequestClose={closeCreate}
+        reduceMotion={reduceMotion}
+        insetTop={insets.top}
+        insetBottom={insets.bottom}
+        dismissLabel="Dismiss goal editor"
+        onClose={closeCreate}
+        onShow={() => nameInput.current?.focus()}
+        onDismiss={() => setName('')}
       >
-        <KeyboardAvoidingView
-          style={styles.modal}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        <SheetHeader
+          onClose={closeCreate}
+          onSave={create}
+          closeLabel="Cancel new goal"
+          saveLabel="Save goal"
+          action="Add"
+          busy={saving}
+          disabled={!name.trim()}
+        />
+        <ScrollView
+          style={{ flexGrow: 0, flexShrink: 1 }}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 16 }}
         >
-          <PageBackdrop />
-          <View style={styles.modalHeader}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Cancel new goal"
-              disabled={saving}
-              style={styles.iconButton}
-              onPress={closeCreate}
-            >
-              <Feather name="x" size={18} color={theme.colors.textPrimary} />
-            </Pressable>
-            <Text style={styles.modalTitle}>New goal</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Save goal"
-              disabled={saving || !name.trim()}
-              onPress={create}
-              style={[styles.save, (saving || !name.trim()) && styles.disabled]}
-            >
-              {saving ? (
-                <ActivityIndicator
-                  color={theme.isDark ? '#101916' : '#FFFFFF'}
-                />
-              ) : (
-                <Text style={styles.saveText}>Save</Text>
-              )}
-            </Pressable>
-          </View>
           <TextInput
             selectionColor={brand}
             keyboardAppearance={theme.keyboardAppearance}
             accessibilityLabel="Goal name"
-            autoFocus
+            ref={nameInput}
             maxLength={80}
             value={name}
             onChangeText={setName}
@@ -443,8 +428,8 @@ export const GoalsScreen = ({
             onSubmitEditing={create}
             editable={!saving}
           />
-        </KeyboardAvoidingView>
-      </Modal>
+        </ScrollView>
+      </DetachedSheet>
     </View>
   );
 };

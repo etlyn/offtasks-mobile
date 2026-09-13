@@ -488,6 +488,9 @@ export const DashboardScreen = ({
 
   const closeComposer = React.useCallback(() => {
     setComposerVisible(false);
+  }, []);
+
+  const finishClosingComposer = React.useCallback(() => {
     setNewTaskContent('');
     setSelectedPriority(0);
     setSelectedDate(getDefaultDateForGroup(activeGroup));
@@ -543,12 +546,9 @@ export const DashboardScreen = ({
       const effectiveGroup = unchangedSchedule
         ? editingTask.target_group
         : getTargetGroupForDate(normalizedDate);
-      let resolvedCategory = selectedCategory ?? null;
-      const normalizedQuery = normalizeCategory(categoryQuery);
-
-      if (normalizedQuery && normalizedQuery !== selectedCategory) {
-        resolvedCategory = await handleCategorySubmit(categoryQuery);
-      }
+      // Goal search is not a selection. Only an explicit selection/create action
+      // assigns a goal; ordinary task saving never creates one implicitly.
+      const resolvedCategory = selectedCategory ?? null;
 
       if (composerMode === 'edit' && editingTask) {
         await updateTask(editingTask.id, {
@@ -580,11 +580,9 @@ export const DashboardScreen = ({
       setSubmitting(false);
     }
   }, [
-    categoryQuery,
     closeComposer,
     composerMode,
     editingTask,
-    handleCategorySubmit,
     newTaskContent,
     refresh,
     selectedCategory,
@@ -603,12 +601,10 @@ export const DashboardScreen = ({
     await handleCategorySubmit(categoryQuery);
   }, [categoryQuery, handleCategorySubmit]);
 
-  const handleSelectCategory = React.useCallback(
-    async (category: string) => {
-      await handleCategorySubmit(category);
-    },
-    [handleCategorySubmit],
-  );
+  const handleSelectCategory = React.useCallback((category: string) => {
+    setSelectedCategory(category);
+    setCategoryQuery('');
+  }, []);
 
   const handleClearCategory = React.useCallback(() => {
     setSelectedCategory(null);
@@ -698,6 +694,7 @@ export const DashboardScreen = ({
     <TaskComposerModal
       visible={composerVisible}
       onClose={closeComposer}
+      onDismiss={finishClosingComposer}
       insetTop={insets.top}
       insetBottom={insets.bottom}
       newTaskContent={newTaskContent}
