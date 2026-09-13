@@ -478,6 +478,7 @@ test('creates a goal and opens its task list', async () => {
   fireEvent.changeText(screen.getByLabelText('Goal name'), 'Summer plans');
   fireEvent.press(screen.getByLabelText('Save goal'));
   await screen.findByText('Goal tasks: Summer Plans');
+  await waitFor(() => expect(screen.getByLabelText('Add task')).toBeEnabled());
   fireEvent.press(screen.getByLabelText('Add task'));
   expect(mockGoalTask).toHaveBeenCalledWith(undefined, 'Summer Plans');
   expect(await readPlanner('screen-test-user', 'goal')).toContain(
