@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  ActivityIndicator,
   Animated,
   BackHandler,
   FlatList,
@@ -9,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { FileText, Flag, Search, SquareCheck } from 'lucide-react-native';
+import { OfftasksLoader } from '@/components/OfftasksLoader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GentlePressable,
@@ -186,7 +186,7 @@ export function GlobalSearchOverlay({
           }
           ListEmptyComponent={
             loading ? (
-              <ActivityIndicator color={brand} style={styles.empty} />
+              <OfftasksLoader style={styles.empty} />
             ) : (
               <View style={styles.empty}>
                 <QuietEmpty

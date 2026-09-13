@@ -4,14 +4,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { GUEST_ID } from '@/lib/localTasks';
 import { readPlanner, writePlanner, syncPlanner } from '@/lib/plannerSync';
 
-export const DEFAULT_TASK_CATEGORIES = [
-  'Work',
-  'Personal',
-  'Home',
-  'Shopping',
-  'Health',
-  'Finance',
-];
+export const DEFAULT_TASK_CATEGORIES: string[] = [];
 
 export const normalizeCategory = (value: string) =>
   value

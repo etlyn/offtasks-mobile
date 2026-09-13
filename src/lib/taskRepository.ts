@@ -1,3 +1,4 @@
+import { trackTaskCreated } from '@/analytics';
 import { useMemo } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
 import * as cloud from './supabase';
@@ -26,6 +27,7 @@ export function taskRepository(userId?: string) {
           priority: values.priority ?? 0,
           isComplete: false,
         });
+      trackTaskCreated();
     },
     update: async (
       id: string,

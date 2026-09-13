@@ -96,3 +96,9 @@ Verified expanded/collapsed light-mode Calendar, completed/unchecked tasks, sear
 - Populated visual checks used temporary in-memory source fixtures, never saved tasks. Those fixtures and the temporary theme override were removed afterward.
 - Confirmed live updates without rebuilding the native app. Native view registration is isolated in `OfftasksBlurNative.ts` so theme/component Fast Refresh does not register it twice. Editing that native registration module itself requires a full app reload.
 - Follow-up simulator verification: expanded default, manual collapse/expand, and global task creation from Notes with cancellation returning to Notes. Swipe/scroll collapse has automated component coverage; computer-use drag/scroll gestures did not reliably reach the simulator, so tactile validation was requested from the user.
+
+## Month swipes
+
+- Swipe left for the next month and right for the previous month, expanded or collapsed. Compact mode shows the corresponding week in the destination month, clamping short months while retaining the selected day-of-month as its anchor. Browsing never changes the selected date or task list; expansion preserves the month browsed in compact mode.
+- Horizontal intent and distance/velocity thresholds leave taps and vertical scrolling alone. Cancelled/multi-touch gestures do not navigate. A start/end fallback handles drags whose move events are coalesced; movement guards prevent accidental date or toolbar presses, and responder ownership prevents double navigation. The grabber also exposes accessible previous/next-month actions.
+- Month changes reuse the gentle calendar content easing. Verified left/right swipes in both simulator views and restored the expanded selected month without saving task changes. All 143 tests in 26 suites and TypeScript pass, including year rollover, leap-day clamping, rapid swipes, cancellation, selection preservation, and duplicate-gesture prevention.

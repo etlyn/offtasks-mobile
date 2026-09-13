@@ -52,13 +52,11 @@ jest.mock('react-native-safe-area-context', () => {
 test.each([true, false])(
   'navigator isolation=%s controls mid-slide restarts in the real tab navigator',
   async isolated => {
-    const timing = jest
-      .spyOn(Animated, 'timing')
-      .mockImplementation(() => ({
-        start: jest.fn(),
-        stop: jest.fn(),
-        reset: jest.fn(),
-      }));
+    const timing = jest.spyOn(Animated, 'timing').mockImplementation(() => ({
+      start: jest.fn(),
+      stop: jest.fn(),
+      reset: jest.fn(),
+    }));
     const navigation = createNavigationContainerRef<{
       Calendar: undefined;
       Notes: undefined;
@@ -95,9 +93,18 @@ test.each([true, false])(
       'Goals',
       'Later',
       'Goals',
+      'Later',
+      'Goals',
+      'Later',
+      'Goals',
       'Notes',
     ] as const) {
       await act(async () => navigation.navigate(route));
+      const nativeScreens = view.UNSAFE_queryAllByType(
+        require('react-native-screens').Screen,
+      );
+      for (const nativeScreen of nativeScreens)
+        expect(nativeScreen.props.enabled).toBe(false);
       const callsAtSlideStart = timing.mock.calls.length;
       expect(callsAtSlideStart).toBeGreaterThan(0);
       await act(async () => updateShell(`after-${route}`));

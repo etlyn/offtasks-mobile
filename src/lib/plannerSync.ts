@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabaseClient } from './supabase';
+import { clearGoalAppearances } from './goalAppearance';
 import { GUEST_ID } from './localTasks';
 import { notesStorageKey, parseNotes, type Note } from './notes';
 
@@ -28,7 +29,6 @@ export const plannerSyncProblem = (owner: string) =>
   problems.get(plannerKey(owner, 'note')) ??
   problems.get(plannerKey(owner, 'goal')) ??
   null;
-const defaults = ['Work', 'Personal', 'Home', 'Shopping', 'Health', 'Finance'];
 
 const serial = <Result>(
   key: string,
@@ -77,9 +77,7 @@ async function readState(owner: string, kind: Collection): Promise<State> {
     kind === 'note'
       ? parseNotes(legacy)
       : legacy === null
-      ? owner === GUEST_ID
-        ? defaults
-        : []
+      ? []
       : JSON.parse(legacy);
   if (
     !Array.isArray(values) ||
@@ -243,6 +241,7 @@ export async function clearPlanner(owner: string) {
     syncs.get(plannerKey(owner, 'note')),
     syncs.get(plannerKey(owner, 'goal')),
   ]);
+  await clearGoalAppearances(owner);
   await AsyncStorage.multiRemove([
     plannerKey(owner, 'note'),
     plannerKey(owner, 'goal'),

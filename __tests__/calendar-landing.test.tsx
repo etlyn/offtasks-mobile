@@ -114,12 +114,14 @@ const tabProps = (index = 0) =>
   } as unknown as React.ComponentProps<typeof DashboardTabBar>);
 function LandingHarness() {
   const [calendarDay, setCalendarDay] = React.useState(getToday());
-  const [creationDate, setCreationDate] = React.useState<string | null>(null);
+  const [creationDate, setCreationDate] = React.useState<
+    string | null | undefined
+  >(undefined);
   const value = {
     calendarDay,
     setCalendarDay,
-    openTask: (day?: string) =>
-      setCreationDate(day && day >= getToday() ? day : getToday()),
+    openTask: (day?: string | null) =>
+      setCreationDate(day === undefined ? getToday() : day),
   };
   return (
     <TaskCreationContext.Provider value={value}>
@@ -127,11 +129,11 @@ function LandingHarness() {
         route={{ params: { group: 'today', view: 'calendar' } }}
       />
       <DashboardTabBar {...tabProps()} />
-      {creationDate ? (
+      {creationDate !== undefined ? (
         <DashboardScreen
           composerOnly
           initialDate={creationDate}
-          onComposerClose={() => setCreationDate(null)}
+          onComposerClose={() => setCreationDate(undefined)}
         />
       ) : null}
     </TaskCreationContext.Provider>
@@ -169,8 +171,11 @@ test('search uses compact glass and Calendar rows across dates, including comple
     within(screen.getByTestId('task-search-second-row')).getByText('All tasks'),
   ).toBeTruthy();
   expect(screen.getByTestId('task-search-field')).toHaveStyle({
-    minHeight: 44,
+    flex: 1,
     borderRadius: 22,
+  });
+  expect(screen.getByTestId('task-search-expanding-field')).toHaveStyle({
+    height: 44,
   });
   expect(screen.getByText('Find a task, from any day')).toBeTruthy();
   expect(screen.queryByLabelText('Clear search')).toBeNull();
@@ -512,7 +517,7 @@ test.each([false, true])(
   },
 );
 
-test('global creation stays available on past dates and defaults to today', async () => {
+test('global creation preserves the selected past date', async () => {
   renderLanding();
   fireEvent.press(screen.getByLabelText('Previous month'));
   const previous = new Date(`${getToday()}T12:00:00`);
@@ -529,7 +534,13 @@ test('global creation stays available on past dates and defaults to today', asyn
     }),
   );
   fireEvent.press(screen.getByLabelText('Add task'));
-  expect(screen.getByText(`Composer date: ${getToday()}`)).toBeTruthy();
+  expect(
+    screen.getByText(
+      `Composer date: ${previous.getFullYear()}-${String(
+        previous.getMonth() + 1,
+      ).padStart(2, '0')}-01`,
+    ),
+  ).toBeTruthy();
   fireEvent.press(screen.getByLabelText('Close test composer'));
   expect(screen.queryByLabelText('Plan your first task')).toBeNull();
   expect(screen.getByText('No tasks planned')).toBeTruthy();
@@ -563,11 +574,13 @@ test('populated landing preserves completion and editing interactions', async ()
   expect(screen.getByText(`Composer date: ${getToday()}`)).toBeTruthy();
 });
 
-test('hidden completed tasks show completion, not a misleading first-task prompt', async () => {
+test('retired hide-completed preference never hides calendar tasks', async () => {
   mockTasks = [task({ isComplete: true })];
   mockHideCompleted = true;
   renderLanding();
-  expect(screen.getByText('All done')).toBeTruthy();
+  expect(
+    screen.getByLabelText('Task: Take a little time outside'),
+  ).toBeTruthy();
   expect(screen.queryByLabelText('Plan your first task')).toBeNull();
   await waitFor(() => expect(screen.getByText('1/1')).toBeTruthy());
 });
@@ -772,7 +785,11 @@ test.each(names)(
       expect(openTask).not.toHaveBeenCalled();
     } else {
       expect(openTask).toHaveBeenCalledWith(
-        name === 'Calendar' ? '2027-01-05' : undefined,
+        name === 'Calendar'
+          ? '2027-01-05'
+          : name === 'Later'
+          ? null
+          : undefined,
       );
       expect(openNote).not.toHaveBeenCalled();
     }

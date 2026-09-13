@@ -26,8 +26,7 @@ export const normalizeScheduledDate = (date: string | null): string | null => {
     return null;
   }
 
-  const today = getToday();
-  return date < today ? today : date;
+  return date;
 };
 
 export const getTargetGroupForDate = (
@@ -102,12 +101,10 @@ export const isTaskOverdue = (task: TaskOverdueShape): boolean => {
   return !!scheduledDate && scheduledDate < getToday();
 };
 
-export const shouldAutoMoveTaskToToday = (
-  task: TaskOverdueShape,
-): boolean => {
-  if (task.isComplete || task.target_group !== 'tomorrow' || !task.date) {
-    return false;
-  }
-
-  return task.date <= getToday();
-};
+/** Only opt-in callers may clear an incomplete task's past assigned date. */
+export const shouldMovePastTaskToLater = (task: TaskOverdueShape): boolean =>
+  !task.isComplete &&
+  !!task.date &&
+  /^\d{4}-\d{2}-\d{2}$/.test(task.date) &&
+  !Number.isNaN(new Date(`${task.date}T12:00:00`).getTime()) &&
+  task.date < getToday();

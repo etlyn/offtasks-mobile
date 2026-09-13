@@ -27,6 +27,7 @@ export const MainTabNavigator = React.memo(function MainTabNavigator() {
   const options = React.useMemo(
     () => ({
       headerShown: false,
+      freezeOnBlur: false,
       tabBarHideOnKeyboard: true,
       ...tabMotion(width, reduceMotion),
     }),
@@ -35,6 +36,8 @@ export const MainTabNavigator = React.memo(function MainTabNavigator() {
   return (
     <Tab.Navigator
       initialRouteName="Calendar"
+      backBehavior="history"
+      detachInactiveScreens={false}
       screenOptions={options}
       tabBar={renderTabBar}
     >

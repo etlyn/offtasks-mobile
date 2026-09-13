@@ -10,6 +10,8 @@ import {
   Pressable,
   StyleSheet,
   View,
+  useWindowDimensions,
+  type KeyboardEvent,
 } from 'react-native';
 import { OfftasksBlurNative } from '@/components/OfftasksBlurNative';
 import { GlassSurface } from '@/components/GlassSurface';
@@ -26,6 +28,7 @@ export function DetachedSheet({
   insetBottom,
   children,
   dismissLabel = 'Dismiss sheet',
+  coordinateKeyboard = false,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -36,8 +39,18 @@ export function DetachedSheet({
   insetTop: number;
   insetBottom: number;
   children: React.ReactNode;
+  coordinateKeyboard?: boolean;
 }) {
   const theme = useAppTheme();
+  const { height: windowHeight } = useWindowDimensions();
+  const coordinated = coordinateKeyboard && Platform.OS === 'ios';
+  const restingGap = Math.max(insetBottom, 12) + 12;
+  const initialGap = Math.max(
+    restingGap,
+    windowHeight - (Keyboard.metrics()?.screenY ?? windowHeight) + 12,
+  );
+  const keyboardGap = React.useRef(new Animated.Value(initialGap)).current;
+  const keyboardTarget = React.useRef(initialGap);
   const [reduceTransparency, setReduceTransparency] = React.useState(true);
   React.useEffect(() => {
     if (!OfftasksBlurNative) return;
@@ -64,19 +77,61 @@ export function DetachedSheet({
   dismissed.current = onDismiss;
 
   React.useEffect(() => {
-    const show = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => setKeyboardVisible(true),
-    );
-    const hide = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setKeyboardVisible(false),
-    );
-    return () => {
-      show.remove();
-      hide.remove();
+    const updateKeyboard = (event: KeyboardEvent, showing: boolean) => {
+      if (coordinated) {
+        // Do not mix KeyboardAvoidingView's LayoutAnimation with composer
+        // resizing. Retarget this value from its current presentation instead.
+        const target = showing
+          ? Math.max(
+              windowHeight - event.endCoordinates.screenY + 12,
+              restingGap,
+            )
+          : restingGap;
+        keyboardTarget.current = target;
+        keyboardGap.stopAnimation();
+        if (reduceMotion) keyboardGap.setValue(target);
+        else
+          Animated.timing(keyboardGap, {
+            toValue: target,
+            duration: Math.max(event.duration || 0, 320),
+            easing: Easing.inOut(Easing.cubic),
+            useNativeDriver: false,
+            isInteraction: false,
+          }).start();
+      }
+      setKeyboardVisible(showing);
     };
-  }, []);
+    const show = !coordinated
+      ? Keyboard.addListener(
+          Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+          event => updateKeyboard(event, true),
+        )
+      : null;
+    const hide = !coordinated
+      ? Keyboard.addListener(
+          Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+          event => updateKeyboard(event, false),
+        )
+      : null;
+    const frame = coordinated
+      ? Keyboard.addListener('keyboardWillChangeFrame', event =>
+          updateKeyboard(event, event.endCoordinates.screenY < windowHeight),
+        )
+      : null;
+    return () => {
+      show?.remove();
+      hide?.remove();
+      frame?.remove();
+      keyboardGap.stopAnimation();
+    };
+  }, [coordinated, reduceMotion, windowHeight, restingGap, keyboardGap]);
+
+  React.useEffect(() => {
+    if (reduceMotion) {
+      keyboardGap.stopAnimation();
+      keyboardGap.setValue(keyboardTarget.current);
+    }
+  }, [reduceMotion, keyboardGap]);
 
   React.useEffect(() => {
     if (visible) setPresent(true);
@@ -129,6 +184,7 @@ export function DetachedSheet({
           <OfftasksBlurNative
             testID="sheet-backdrop-blur"
             dark={theme.isDark}
+            intensity={0.015}
             style={StyleSheet.absoluteFill}
           />
         ) : null}
@@ -137,8 +193,8 @@ export function DetachedSheet({
             StyleSheet.absoluteFill,
             {
               backgroundColor: theme.isDark
-                ? 'rgba(0,0,0,0.28)'
-                : 'rgba(17,29,24,0.12)',
+                ? 'rgba(0,0,0,0.18)'
+                : 'rgba(17,29,24,0.08)',
             },
           ]}
         />
@@ -153,14 +209,17 @@ export function DetachedSheet({
         pointerEvents="box-none"
         style={s.avoidKeyboard}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        enabled={!coordinated}
       >
-        <View
+        <Animated.View
           pointerEvents="box-none"
           style={[
             s.position,
             {
               paddingTop: insetTop + 12,
-              paddingBottom: keyboardVisible
+              paddingBottom: coordinated
+                ? keyboardGap
+                : keyboardVisible
                 ? 12
                 : Math.max(insetBottom, 12) + 12,
             },
@@ -202,7 +261,7 @@ export function DetachedSheet({
               {children}
             </GlassSurface>
           </Animated.View>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );

@@ -1,8 +1,9 @@
 import React from 'react';
+import { BrandedRefreshControl } from '@/components/BrandedRefreshControl';
 import {
   Alert,
+  AccessibilityInfo,
   Keyboard,
-  RefreshControl,
   ScrollView,
   StatusBar,
   Text,
@@ -21,6 +22,7 @@ import {
   NavigationProp,
   ParamListBase,
   useNavigation,
+  useIsFocused,
 } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -36,14 +38,17 @@ import { TaskList } from '@/components/task-quick-list';
 import { useTasks } from '@/providers/TasksProvider';
 import type { Task } from '@/types/task';
 import { useAppTheme } from '@/theme/colors';
-import { filterTasksForSearch, getTaskSearchContext } from '@/utils/taskSearch';
+import { filterTasksForSearch } from '@/utils/taskSearch';
 import {
   getDefaultDateForGroup,
   getTargetGroupForDate,
   normalizeScheduledDate,
+  formatScheduledDate,
 } from '@/utils/taskScheduling';
 
 import { createStyles } from './Completed.styles';
+import { StatisticsOverview } from './StatisticsOverview';
+import { EmojiCelebration } from './EmojiCelebration';
 import type {
   DashboardGroup,
   GroupSegment,
@@ -103,11 +108,13 @@ export const StatisticsScreen = () => {
   const sharedHeader = useSharedHeader();
   const searchInput = React.useRef<TextInput>(null);
   const { update: updateTask } = useTaskRepository();
-  const { tasks, totals, loading, refreshing, refresh, applyTaskUpdate } =
-    useTasks();
+  const { tasks, loading, refreshing, refresh, applyTaskUpdate } = useTasks();
   const { categories, addCategory, removeCategory } = useTaskCategories();
   const theme = useAppTheme();
-  const { animateLayout } = useCalendarTransition();
+  const { animateLayout, reduceMotion } = useCalendarTransition();
+  const focused = useIsFocused();
+  const [celebration, setCelebration] = React.useState(0);
+  const celebratedEntry = React.useRef(false);
   const styles = React.useMemo(() => createStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
@@ -160,12 +167,37 @@ export const StatisticsScreen = () => {
         }),
     [allTasks],
   );
-  const todayKey = React.useMemo(() => getToday(), []);
-  const overdueCount = React.useMemo(
-    () =>
-      openTasks.filter(task => Boolean(task.date && task.date < todayKey))
-        .length,
-    [openTasks, todayKey],
+  React.useEffect(() => {
+    if (!focused) {
+      celebratedEntry.current = false;
+      setCelebration(0);
+    } else if (
+      !loading &&
+      !reduceMotion &&
+      completedTasks.length > 0 &&
+      !celebratedEntry.current
+    ) {
+      celebratedEntry.current = true;
+      setCelebration(value => value + 1);
+    }
+  }, [focused, loading, reduceMotion, completedTasks.length]);
+  const celebrate = React.useCallback(() => {
+    if (!completedTasks.length) return;
+    AccessibilityInfo.announceForAccessibility(
+      `Nice work. ${completedTasks.length} tasks completed.`,
+    );
+    setCelebration(value => value + 1);
+  }, [completedTasks.length]);
+  const openGoal = React.useCallback(
+    (name?: string) => {
+      navigation.navigate(
+        'Goals',
+        name
+          ? { openGoalRequest: { id: name, requestId: Date.now() } }
+          : undefined,
+      );
+    },
+    [navigation],
   );
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const visibleOpenTasks = React.useMemo(
@@ -200,7 +232,8 @@ export const StatisticsScreen = () => {
 
   const handleBackToHome = React.useCallback(() => {
     Keyboard.dismiss();
-    navigation.navigate('Calendar');
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.navigate('Calendar');
   }, [navigation]);
 
   const handleToggleTask = React.useCallback(
@@ -217,6 +250,7 @@ export const StatisticsScreen = () => {
 
       try {
         await updateTask(task.id, updates);
+        if (nextComplete) setCelebration(value => value + 1);
       } catch (error) {
         await refresh();
         Alert.alert('Update failed', (error as Error).message);
@@ -409,6 +443,7 @@ export const StatisticsScreen = () => {
       <StatusBar barStyle={theme.statusBarStyle} />
       <PlannerHeader
         title="Statistics"
+        backInHeader
         onBack={handleBackToHome}
         actions={[
           {
@@ -441,25 +476,20 @@ export const StatisticsScreen = () => {
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
+          <BrandedRefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={theme.colors.textSecondary}
           />
         }
       >
-        <View style={styles.summaryRow}>
-          {[
-            ['Open', openTasks.length],
-            ['Completed', totals.completed],
-            ['Overdue', overdueCount],
-          ].map(([label, value]) => (
-            <View key={label} style={styles.summaryCard}>
-              <Text style={styles.metricLabel}>{label}</Text>
-              <Text style={styles.summaryValue}>{value}</Text>
-            </View>
-          ))}
-        </View>
+        {!hasSearchQuery && !loading ? (
+          <StatisticsOverview
+            tasks={allTasks}
+            categories={categories}
+            onGoal={openGoal}
+            onCelebrate={celebrate}
+          />
+        ) : null}
         {hasSearchQuery ? (
           <Text style={styles.resultLabel}>{visibleTasks.length} results</Text>
         ) : (
@@ -474,18 +504,26 @@ export const StatisticsScreen = () => {
                   animateLayout();
                   setActiveTab(tab.key);
                 }}
-                style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+                style={styles.tab}
               >
-                <Text
+                <View
                   style={[
-                    styles.tabText,
-                    activeTab === tab.key && styles.tabTextActive,
+                    styles.tabSurface,
+                    activeTab === tab.key && styles.tabActive,
                   ]}
                 >
-                  {tab.label}
-                </Text>
+                  <Text
+                    style={[
+                      styles.tabText,
+                      activeTab === tab.key && styles.tabTextActive,
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                </View>
               </Pressable>
             ))}
+            <Text style={styles.listCount}>{visibleTasks.length}</Text>
           </View>
         )}
         {!loading && visibleTasks.length === 0 ? (
@@ -509,12 +547,26 @@ export const StatisticsScreen = () => {
                 : handleRestore
             }
             onPress={handleEditTask}
-            getSecondaryText={task => getTaskSearchContext(task)}
+            getSecondaryText={task =>
+              [
+                task.date === getToday()
+                  ? 'Today'
+                  : formatScheduledDate(task.date, 'Later'),
+                task.label?.trim(),
+              ]
+                .filter(Boolean)
+                .join(' · ')
+            }
             loading={loading && allTasks.length === 0}
           />
         )}
       </ScrollView>
 
+      <EmojiCelebration
+        trigger={celebration}
+        active={focused && !composerVisible}
+        reduceMotion={reduceMotion}
+      />
       <TaskComposerModal
         visible={composerVisible}
         onClose={handleCloseComposer}

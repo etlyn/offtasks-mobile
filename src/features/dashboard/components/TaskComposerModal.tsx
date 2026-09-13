@@ -3,7 +3,8 @@ import DateTimePicker, {
   type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import {
-  ActivityIndicator,
+  Animated,
+  Easing,
   Alert,
   Keyboard,
   Platform,
@@ -14,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import {
+  ArrowLeft,
   CalendarDays,
   Check,
   Flag,
@@ -58,8 +60,64 @@ const formatDate = (value: string) =>
 type Panel = 'date' | 'priority' | 'goal' | null;
 const priorityIcons = [Minus, SignalLow, SignalMedium, SignalHigh];
 
+// A quiet breathing mark indicates work without implying measured progress.
+function SavingPulse({
+  color,
+  reduceMotion,
+}: {
+  color: string;
+  reduceMotion: boolean;
+}) {
+  const opacity = React.useRef(new Animated.Value(0.45)).current;
+  React.useEffect(() => {
+    if (reduceMotion) {
+      opacity.setValue(1);
+      return;
+    }
+    const motion = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 650,
+          easing: Easing.inOut(Easing.cubic),
+          useNativeDriver: true,
+          isInteraction: false,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.45,
+          duration: 650,
+          easing: Easing.inOut(Easing.cubic),
+          useNativeDriver: true,
+          isInteraction: false,
+        }),
+      ]),
+    );
+    motion.start();
+    return () => motion.stop();
+  }, [opacity, reduceMotion]);
+  return (
+    <View
+      accessibilityLabel="Saving task"
+      accessibilityLiveRegion="polite"
+      testID="task-saving-pulse"
+      style={savingStyles.target}
+    >
+      <Animated.View
+        style={[savingStyles.line, { backgroundColor: color, opacity }]}
+      />
+    </View>
+  );
+}
+
+const savingStyles = StyleSheet.create({
+  target: { height: 20, width: 30, justifyContent: 'center' },
+  line: { height: 3, borderRadius: 2 },
+});
+
 interface TaskComposerModalProps {
   visible: boolean;
+  goalMode?: boolean;
+  allowGoalSelection?: boolean;
   onClose: () => void;
   onDismiss?: () => void;
   insetTop: number;
@@ -92,6 +150,8 @@ interface TaskComposerModalProps {
 
 export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
   visible,
+  goalMode = false,
+  allowGoalSelection = false,
   onClose,
   onDismiss,
   insetTop,
@@ -117,20 +177,43 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
   onChangeDate,
 }) => {
   const theme = useAppTheme();
-  const { reduceMotion, animateLayout } = useCalendarTransition();
+  const { reduceMotion } = useCalendarTransition();
   const styles = React.useMemo(() => createStyles(theme), [theme]);
   const brand = theme.isDark ? '#D8F3E5' : '#152D25';
   const inverse = theme.isDark ? '#101916' : '#FFFFFF';
   const inputRef = React.useRef<TextInput>(null);
+  const contentHeight = React.useRef(new Animated.Value(160)).current;
+  const measuredContentHeight = React.useRef<number | null>(null);
+  const [contentMeasured, setContentMeasured] = React.useState(false);
+  const resizeContent = (_width: number, height: number) => {
+    if (height === measuredContentHeight.current) return;
+    const firstMeasurement = measuredContentHeight.current === null;
+    measuredContentHeight.current = height;
+    contentHeight.stopAnimation();
+    if (firstMeasurement || reduceMotion) contentHeight.setValue(height);
+    else
+      Animated.timing(contentHeight, {
+        toValue: height,
+        duration: 320,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: false,
+        isInteraction: false,
+      }).start();
+    setContentMeasured(true);
+  };
+  React.useEffect(() => {
+    if (reduceMotion && measuredContentHeight.current !== null) {
+      contentHeight.stopAnimation();
+      contentHeight.setValue(measuredContentHeight.current);
+    }
+    return () => contentHeight.stopAnimation();
+  }, [contentHeight, reduceMotion]);
   const [panel, setPanel] = React.useState<Panel>(null);
   const [creatingGoal, setCreatingGoal] = React.useState(false);
-  const initialDraft = React.useRef('');
-  const draft = JSON.stringify([
-    newTaskContent,
-    selectedDate,
-    selectedPriority,
-    selectedCategory,
-  ]);
+  const [draftDate, setDraftDate] = React.useState(() =>
+    parseDateKey(getToday()),
+  );
+  const dateStep = panel === 'date' && Platform.OS === 'ios';
   const busy = submitting || creatingGoal;
   const disableSubmit = !newTaskContent.trim() || busy;
   const editing = mode === 'edit';
@@ -145,39 +228,30 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
 
   React.useEffect(() => {
     if (visible) {
-      initialDraft.current = draft;
       setPanel(null);
     }
-    // Snapshot the saved values once per opening, not transient goal-search text.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   const closePanel = () => {
-    animateLayout();
     setPanel(null);
     onCategoryQueryChange('');
   };
   const openPanel = (next: Panel) => {
     if (busy) return;
-    if (next === 'date') Keyboard.dismiss();
-    animateLayout();
+    if (next === 'date') {
+      setDraftDate(pickerDate);
+      Keyboard.dismiss();
+    }
     setPanel(current => (current === next ? null : next));
     onCategoryQueryChange('');
   };
   const returnToTask = () => {
     closePanel();
-    inputRef.current?.focus();
+    requestAnimationFrame(() => inputRef.current?.focus());
   };
   const closeComposer = () => {
     if (busy) return;
-    if (draft !== initialDraft.current) {
-      Alert.alert('Discard changes?', 'Your unsaved changes will be lost.', [
-        { text: 'Keep editing', style: 'cancel' },
-        { text: 'Discard', style: 'destructive', onPress: onClose },
-      ]);
-    } else {
-      onClose();
-    }
+    onClose();
   };
   const selectDate = (event: DateTimePickerEvent, value?: Date) => {
     if (busy) return;
@@ -272,264 +346,298 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Cancel task"
-          onPress={closeComposer}
+          accessibilityLabel={dateStep ? 'Back to task' : 'Cancel task'}
+          onPress={dateStep ? returnToTask : closeComposer}
           disabled={busy}
           style={styles.closeAction}
         >
           <View style={styles.closeSurface}>
-            <X size={18} strokeWidth={1.7} color={brand} />
+            {dateStep ? (
+              <ArrowLeft size={18} strokeWidth={1.7} color={brand} />
+            ) : (
+              <X size={18} strokeWidth={1.7} color={brand} />
+            )}
           </View>
         </Pressable>
+        {dateStep ? (
+          <Text accessibilityRole="header" style={styles.panelTitle}>
+            Date
+          </Text>
+        ) : null}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Save task"
-          disabled={disableSubmit}
+          accessibilityLabel={dateStep ? 'Set task date' : 'Save task'}
+          accessibilityState={{
+            busy,
+            disabled: dateStep ? busy : disableSubmit,
+          }}
+          disabled={dateStep ? busy : disableSubmit}
           onPress={() => {
-            if (!disableSubmit) onSubmit();
+            if (dateStep) {
+              onChangeDate?.(toDateKey(draftDate));
+              returnToTask();
+            } else if (!disableSubmit) onSubmit();
           }}
           style={styles.headerAction}
         >
           <View style={styles.submit}>
             {busy ? (
-              <ActivityIndicator size="small" color={inverse} />
+              <SavingPulse color={inverse} reduceMotion={reduceMotion} />
             ) : (
-              <Text style={styles.submitText}>{editing ? 'Save' : 'Add'}</Text>
+              <Text style={styles.submitText}>
+                {dateStep ? 'Done' : editing ? 'Save' : 'Add'}
+              </Text>
             )}
           </View>
         </Pressable>
       </View>
-      <ScrollView
-        style={styles.scroll}
+      <Animated.ScrollView
+        testID="task-composer-content"
+        style={[styles.scroll, contentMeasured && { height: contentHeight }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         showsVerticalScrollIndicator={false}
         automaticallyAdjustKeyboardInsets={false}
-        contentContainerStyle={styles.content}
       >
-        <GlassSurface style={styles.inputSurface}>
-          <TextInput
-            ref={inputRef}
-            accessibilityLabel="Task content"
-            placeholder="What needs to be done?"
-            placeholderTextColor={theme.colors.textMuted}
-            selectionColor={brand}
-            style={styles.input}
-            value={newTaskContent}
-            onChangeText={onChangeTaskContent}
-            editable={!busy}
-            multiline
-            textAlignVertical="top"
-            onFocus={() => {
-              if (panel) closePanel();
-            }}
-            keyboardAppearance={theme.keyboardAppearance}
-          />
-        </GlassSurface>
-        <View style={styles.tools}>
-          {chip(
-            'date',
-            CalendarDays,
-            selectedDate ? formatDate(selectedDate) : 'No date',
-            !!selectedDate,
-            panel === 'date' ? 'Hide date picker' : 'Choose task date',
-          )}
-          {chip(
-            'priority',
-            selectedPriority ? PriorityIcon : SignalHigh,
-            selectedPriority ? priorityLabel : 'Priority',
-            !!selectedPriority,
-            'Choose task priority',
-          )}
-          {chip(
-            'goal',
-            Flag,
-            selectedCategory ?? 'Goal',
-            !!selectedCategory,
-            'Choose task goal',
-          )}
-        </View>
-        {panel && (panel !== 'date' || Platform.OS === 'ios') ? (
-          <View style={styles.panel} testID="task-options-panel">
-            <View style={styles.panelHeader}>
-              <Text accessibilityRole="header" style={styles.panelTitle}>
-                {panel === 'date'
-                  ? 'Date'
-                  : panel === 'priority'
-                  ? 'Priority'
-                  : 'Goal'}
-              </Text>
-              {panel !== 'date' ? (
-                <Text style={styles.optional}>Optional</Text>
-              ) : null}
+        <View
+          testID="task-composer-measure"
+          // Measure intrinsic content, not the scroll viewport: the viewport
+          // grows to fill its animated height and would cause a resize loop.
+          style={styles.content}
+          onLayout={({ nativeEvent: { layout } }) =>
+            resizeContent(layout.width, layout.height)
+          }
+        >
+          {dateStep ? (
+            <View testID="task-date-step">
+              <DateTimePicker
+                testID="task-date-wheel"
+                value={draftDate}
+                mode="date"
+                display="spinner"
+                minimumDate={minimumDate}
+                onChange={(event, value) => {
+                  if (event.type === 'set' && value) setDraftDate(value);
+                }}
+                style={styles.dateWheel}
+                textColor={brand}
+                themeVariant={theme.isDark ? 'dark' : 'light'}
+              />
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Close task options"
-                style={styles.closePanel}
-                disabled={busy}
-                onPress={closePanel}
+                accessibilityLabel="No date"
+                style={styles.noDate}
+                onPress={() => {
+                  if (onChangeDate) onChangeDate(null);
+                  else onChangeGroup('upcoming');
+                  returnToTask();
+                }}
               >
-                <X
-                  size={16}
-                  strokeWidth={1.7}
-                  color={theme.colors.textSecondary}
-                />
+                <Minus size={16} color={brand} />
+                <Text style={styles.chipTextSelected}>No date</Text>
               </Pressable>
             </View>
-            {panel === 'date' ? (
-              <>
-                <DateTimePicker
-                  value={pickerDate}
-                  mode="date"
-                  display="inline"
-                  minimumDate={minimumDate}
-                  onChange={selectDate}
-                  accentColor={brand}
-                  themeVariant={theme.isDark ? 'dark' : 'light'}
-                />
-                <Pressable
-                  accessibilityRole="radio"
-                  accessibilityLabel="No date"
-                  accessibilityState={{ selected: !selectedDate }}
-                  disabled={busy}
-                  style={styles.option}
-                  onPress={() => {
-                    if (onChangeDate) onChangeDate(null);
-                    else onChangeGroup('upcoming');
-                    returnToTask();
+          ) : (
+            <>
+              <GlassSurface style={styles.inputSurface}>
+                <TextInput
+                  ref={inputRef}
+                  accessibilityLabel="Task content"
+                  placeholder="What needs to be done?"
+                  placeholderTextColor={theme.colors.textMuted}
+                  selectionColor={brand}
+                  style={styles.input}
+                  value={newTaskContent}
+                  onChangeText={onChangeTaskContent}
+                  editable={!busy}
+                  multiline
+                  textAlignVertical="top"
+                  onFocus={() => {
+                    if (panel) closePanel();
                   }}
-                >
-                  <Minus size={17} color={brand} strokeWidth={1.7} />
-                  <Text style={styles.optionText}>No date</Text>
-                  {!selectedDate ? <Check size={17} color={brand} /> : null}
-                </Pressable>
-              </>
-            ) : panel === 'priority' ? (
-              priorityOptions.map(option => {
-                const Icon = priorityIcons[option.value] ?? SignalHigh;
-                const selected = selectedPriority === option.value;
-                return (
-                  <Pressable
-                    key={option.value}
-                    accessibilityRole="radio"
-                    accessibilityLabel={`Priority: ${option.label}`}
-                    accessibilityState={{ selected }}
-                    disabled={busy}
-                    style={[styles.option, selected && styles.optionSelected]}
-                    onPress={() => {
-                      onSelectPriority(option.value);
-                      returnToTask();
-                    }}
-                  >
-                    <Icon size={18} strokeWidth={1.7} color={brand} />
-                    <Text style={styles.optionText}>
-                      {option.value ? option.label : 'No priority'}
+                  keyboardAppearance={theme.keyboardAppearance}
+                />
+              </GlassSurface>
+              <View style={styles.tools}>
+                {chip(
+                  'date',
+                  CalendarDays,
+                  selectedDate ? formatDate(selectedDate) : 'No date',
+                  !!selectedDate,
+                  panel === 'date' ? 'Hide date picker' : 'Choose task date',
+                )}
+                {goalMode &&
+                  chip(
+                    'priority',
+                    selectedPriority ? PriorityIcon : SignalHigh,
+                    selectedPriority ? priorityLabel : 'Priority',
+                    !!selectedPriority,
+                    'Choose task priority',
+                  )}
+                {goalMode &&
+                  allowGoalSelection &&
+                  chip(
+                    'goal',
+                    Flag,
+                    selectedCategory ?? 'Goal',
+                    !!selectedCategory,
+                    'Choose task goal',
+                  )}
+              </View>
+              {panel && panel !== 'date' ? (
+                <View style={styles.panel} testID="task-options-panel">
+                  <View style={styles.panelHeader}>
+                    <Text accessibilityRole="header" style={styles.panelTitle}>
+                      {panel === 'priority' ? 'Priority' : 'Goal'}
                     </Text>
-                    {selected ? (
-                      <Check size={17} strokeWidth={1.8} color={brand} />
-                    ) : null}
-                  </Pressable>
-                );
-              })
-            ) : (
-              <>
-                <View style={styles.goalSearch}>
-                  <Search
-                    size={16}
-                    strokeWidth={1.7}
-                    color={theme.colors.textSecondary}
-                  />
-                  <TextInput
-                    accessibilityLabel="Find a goal"
-                    placeholder="Find a goal"
-                    placeholderTextColor={theme.colors.textMuted}
-                    value={categoryQuery}
-                    onChangeText={onCategoryQueryChange}
-                    editable={!busy}
-                    style={styles.goalInput}
-                    selectionColor={brand}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    returnKeyType="done"
-                    onSubmitEditing={() => Keyboard.dismiss()}
-                    keyboardAppearance={theme.keyboardAppearance}
-                  />
-                  {categoryQuery ? (
+                    <Text style={styles.optional}>Optional</Text>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="Clear goal search"
-                      disabled={busy}
-                      onPress={() => onCategoryQueryChange('')}
+                      accessibilityLabel="Close task options"
                       style={styles.closePanel}
+                      disabled={busy}
+                      onPress={closePanel}
                     >
-                      <X size={15} color={brand} />
+                      <X
+                        size={16}
+                        strokeWidth={1.7}
+                        color={theme.colors.textSecondary}
+                      />
                     </Pressable>
-                  ) : null}
+                  </View>
+                  {panel === 'priority' ? (
+                    priorityOptions.map(option => {
+                      const Icon = priorityIcons[option.value] ?? SignalHigh;
+                      const selected = selectedPriority === option.value;
+                      return (
+                        <Pressable
+                          key={option.value}
+                          accessibilityRole="radio"
+                          accessibilityLabel={`Priority: ${option.label}`}
+                          accessibilityState={{ selected }}
+                          disabled={busy}
+                          style={[
+                            styles.option,
+                            selected && styles.optionSelected,
+                          ]}
+                          onPress={() => {
+                            onSelectPriority(option.value);
+                            returnToTask();
+                          }}
+                        >
+                          <Icon size={18} strokeWidth={1.7} color={brand} />
+                          <Text style={styles.optionText}>
+                            {option.value ? option.label : 'No priority'}
+                          </Text>
+                          {selected ? (
+                            <Check size={17} strokeWidth={1.8} color={brand} />
+                          ) : null}
+                        </Pressable>
+                      );
+                    })
+                  ) : (
+                    <>
+                      <View style={styles.goalSearch}>
+                        <Search
+                          size={16}
+                          strokeWidth={1.7}
+                          color={theme.colors.textSecondary}
+                        />
+                        <TextInput
+                          accessibilityLabel="Find a goal"
+                          placeholder="Find a goal"
+                          placeholderTextColor={theme.colors.textMuted}
+                          value={categoryQuery}
+                          onChangeText={onCategoryQueryChange}
+                          editable={!busy}
+                          style={styles.goalInput}
+                          selectionColor={brand}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          returnKeyType="done"
+                          onSubmitEditing={() => Keyboard.dismiss()}
+                          keyboardAppearance={theme.keyboardAppearance}
+                        />
+                        {categoryQuery ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Clear goal search"
+                            disabled={busy}
+                            onPress={() => onCategoryQueryChange('')}
+                            style={styles.closePanel}
+                          >
+                            <X size={15} color={brand} />
+                          </Pressable>
+                        ) : null}
+                      </View>
+                      <ScrollView
+                        nestedScrollEnabled
+                        keyboardShouldPersistTaps="handled"
+                        style={styles.goalList}
+                      >
+                        <Pressable
+                          accessibilityRole="radio"
+                          accessibilityLabel="No goal"
+                          accessibilityState={{ selected: !selectedCategory }}
+                          disabled={busy}
+                          style={[
+                            styles.option,
+                            !selectedCategory && styles.optionSelected,
+                          ]}
+                          onPress={() => selectGoal(null)}
+                        >
+                          <Minus size={17} color={brand} strokeWidth={1.7} />
+                          <Text style={styles.optionText}>No goal</Text>
+                          {!selectedCategory ? (
+                            <Check size={17} color={brand} />
+                          ) : null}
+                        </Pressable>
+                        {filteredCategories.map(goal => (
+                          <Pressable
+                            key={goal}
+                            accessibilityRole="radio"
+                            accessibilityLabel={`Goal: ${goal}`}
+                            accessibilityState={{
+                              selected: goal === selectedCategory,
+                            }}
+                            disabled={busy}
+                            style={[
+                              styles.option,
+                              goal === selectedCategory &&
+                                styles.optionSelected,
+                            ]}
+                            onPress={() => selectGoal(goal)}
+                          >
+                            <Flag size={17} strokeWidth={1.7} color={brand} />
+                            <Text style={styles.optionText}>{goal}</Text>
+                            {goal === selectedCategory ? (
+                              <Check size={17} color={brand} />
+                            ) : null}
+                          </Pressable>
+                        ))}
+                        {canCreateCategory ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Create goal: ${categoryQuery.trim()}`}
+                            disabled={busy}
+                            style={styles.option}
+                            onPress={createGoal}
+                          >
+                            <Plus size={17} color={brand} strokeWidth={1.8} />
+                            <Text style={styles.optionText}>
+                              Create “{categoryQuery.trim()}”
+                            </Text>
+                          </Pressable>
+                        ) : null}
+                      </ScrollView>
+                    </>
+                  )}
                 </View>
-                <ScrollView
-                  nestedScrollEnabled
-                  keyboardShouldPersistTaps="handled"
-                  style={styles.goalList}
-                >
-                  <Pressable
-                    accessibilityRole="radio"
-                    accessibilityLabel="No goal"
-                    accessibilityState={{ selected: !selectedCategory }}
-                    disabled={busy}
-                    style={[
-                      styles.option,
-                      !selectedCategory && styles.optionSelected,
-                    ]}
-                    onPress={() => selectGoal(null)}
-                  >
-                    <Minus size={17} color={brand} strokeWidth={1.7} />
-                    <Text style={styles.optionText}>No goal</Text>
-                    {!selectedCategory ? (
-                      <Check size={17} color={brand} />
-                    ) : null}
-                  </Pressable>
-                  {filteredCategories.map(goal => (
-                    <Pressable
-                      key={goal}
-                      accessibilityRole="radio"
-                      accessibilityLabel={`Goal: ${goal}`}
-                      accessibilityState={{
-                        selected: goal === selectedCategory,
-                      }}
-                      disabled={busy}
-                      style={[
-                        styles.option,
-                        goal === selectedCategory && styles.optionSelected,
-                      ]}
-                      onPress={() => selectGoal(goal)}
-                    >
-                      <Flag size={17} strokeWidth={1.7} color={brand} />
-                      <Text style={styles.optionText}>{goal}</Text>
-                      {goal === selectedCategory ? (
-                        <Check size={17} color={brand} />
-                      ) : null}
-                    </Pressable>
-                  ))}
-                  {canCreateCategory ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Create goal: ${categoryQuery.trim()}`}
-                      disabled={busy}
-                      style={styles.option}
-                      onPress={createGoal}
-                    >
-                      <Plus size={17} color={brand} strokeWidth={1.8} />
-                      <Text style={styles.optionText}>
-                        Create “{categoryQuery.trim()}”
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                </ScrollView>
-              </>
-            )}
-          </View>
-        ) : null}
-      </ScrollView>
+              ) : null}
+            </>
+          )}
+        </View>
+      </Animated.ScrollView>
       {panel === 'date' && Platform.OS !== 'ios' ? (
         <DateTimePicker
           value={pickerDate}
@@ -549,6 +657,14 @@ const createStyles = (theme: ReturnType<typeof useAppTheme>) => {
   const tint = theme.isDark ? 'rgba(216,243,229,0.09)' : 'rgba(21,45,37,0.055)';
   return StyleSheet.create({
     scroll: { flexGrow: 0, flexShrink: 1 },
+    dateWheel: { height: 180, width: '100%' },
+    noDate: {
+      minHeight: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
     grabberWrap: { alignItems: 'center', paddingTop: 8, height: 15 },
     grabber: {
       width: 28,

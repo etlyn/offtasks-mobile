@@ -3,13 +3,13 @@ import {
   Dimensions,
   Animated,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 
-import { palette, useAppTheme } from '@/theme/colors';
+import { useAppTheme } from '@/theme/colors';
+import { BrandedRefreshControl } from '@/components/BrandedRefreshControl';
 
 import { styles } from '../Dashboard.styles';
 
@@ -123,12 +123,9 @@ export const Layout = ({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
+          <BrandedRefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={palette.mint}
-            colors={[palette.mint]}
-            progressBackgroundColor={theme.colors.surface}
           />
         }
       >

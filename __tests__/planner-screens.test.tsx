@@ -298,7 +298,10 @@ test('global search requests open existing notes without modifying them', async 
   const view = render(<NotesScreen route={route} />);
   await screen.findByLabelText('Note title');
   expect(screen.getByLabelText('Note body').props.value).toBe(note.body);
-  fireEvent(screen.UNSAFE_getByType(Modal), 'show');
+  fireEvent(
+    screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
+    'show',
+  );
   fireEvent.press(screen.getByLabelText('Close note'));
   await waitFor(() => expect(screen.queryByLabelText('Note body')).toBeNull());
   view.rerender(<NotesScreen route={route} />);
@@ -319,8 +322,12 @@ test('global search requests open the matching goal detail', async () => {
 test('creates, searches, pins, edits and deletes a note through the screen', async () => {
   render(<NotesHarness />);
   await screen.findByText('No notes yet');
+  await waitFor(() => expect(screen.getByLabelText('Add note')).toBeEnabled());
   fireEvent.press(screen.getByLabelText('Add note'));
-  fireEvent(screen.UNSAFE_getByType(Modal), 'show');
+  fireEvent(
+    screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
+    'show',
+  );
   expect(screen.getByLabelText('Save note')).toBeDisabled();
   fireEvent.changeText(screen.getByLabelText('Note title'), 'App ideas');
   fireEvent.changeText(
@@ -348,7 +355,10 @@ test('creates, searches, pins, edits and deletes a note through the screen', asy
   expect(screen.getByRole('tab', { name: 'Pinned' })).toBeSelected();
   await waitFor(() => expect(screen.queryByLabelText('Note body')).toBeNull());
   fireEvent.press(screen.getByLabelText('Open note App ideas'));
-  fireEvent(screen.UNSAFE_getByType(Modal), 'show');
+  fireEvent(
+    screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
+    'show',
+  );
   fireEvent.changeText(screen.getByLabelText('Note body'), 'Updated note');
   fireEvent.press(screen.getByLabelText('Save note'));
   await waitFor(async () =>
@@ -357,7 +367,10 @@ test('creates, searches, pins, edits and deletes a note through the screen', asy
     ),
   );
   fireEvent.press(screen.getByLabelText('Open note App ideas'));
-  fireEvent(screen.UNSAFE_getByType(Modal), 'show');
+  fireEvent(
+    screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
+    'show',
+  );
   jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
     buttons?.find(button => button.text === 'Delete')?.onPress?.();
   });
@@ -374,8 +387,12 @@ test('Notes search stays behind its header icon and preserves the pinned list un
   await screen.findByText('No notes yet');
   expect(screen.queryByTestId('task-search-field')).toBeNull();
   expect(screen.queryByLabelText('Add task')).toBeNull();
+  await waitFor(() => expect(screen.getByLabelText('Add note')).toBeEnabled());
   fireEvent.press(screen.getByLabelText('Add note'));
-  fireEvent(screen.UNSAFE_getByType(Modal), 'show');
+  fireEvent(
+    screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
+    'show',
+  );
   fireEvent.changeText(screen.getByLabelText('Note title'), 'Unpinned idea');
   fireEvent.press(screen.getByLabelText('Save note'));
   await screen.findByLabelText('Open note Unpinned idea');
@@ -409,7 +426,10 @@ test('failed saves preserve the draft and corrupted storage disables creation', 
   const view = render(<NotesHarness />);
   await screen.findByText('No notes yet');
   fireEvent.press(screen.getByLabelText('Add note'));
-  fireEvent(screen.UNSAFE_getByType(Modal), 'show');
+  fireEvent(
+    screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
+    'show',
+  );
   fireEvent.changeText(screen.getByLabelText('Note title'), 'Keep this draft');
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   jest
@@ -441,14 +461,15 @@ test('Goals search is layered and empty-goal removal stays behind options', asyn
   await screen.findByLabelText('Open goal Travel, 0 of 0 completed');
   expect(screen.queryByText('No tasks yet')).toBeNull();
   expect(screen.queryByLabelText('Remove empty goal Travel')).toBeNull();
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   fireEvent.press(screen.getByLabelText('Options for Travel'));
-  expect(alert).toHaveBeenCalledWith(
-    'Travel',
-    undefined,
-    expect.arrayContaining([
-      expect.objectContaining({ text: 'Remove empty goal' }),
-    ]),
+  fireEvent(
+    screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
+    'show',
+  );
+  expect(screen.getByLabelText('Remove empty goal Travel')).toBeOnTheScreen();
+  fireEvent.press(screen.getByLabelText('Close goal appearance'));
+  await waitFor(() =>
+    expect(screen.queryByLabelText('Save goal appearance')).toBeNull(),
   );
   fireEvent.press(screen.getByRole('button', { name: 'Search goals' }));
   await waitFor(() =>
@@ -473,7 +494,10 @@ test('creates a goal and opens its task list', async () => {
     expect(screen.getByLabelText('Add goal')).not.toBeDisabled(),
   );
   fireEvent.press(screen.getByLabelText('Add goal'));
-  fireEvent(screen.UNSAFE_getByType(Modal), 'show');
+  fireEvent(
+    screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
+    'show',
+  );
   expect(screen.getByLabelText('Save goal')).toBeDisabled();
   fireEvent.changeText(screen.getByLabelText('Goal name'), 'Summer plans');
   fireEvent.press(screen.getByLabelText('Save goal'));
@@ -539,7 +563,10 @@ test('year picker jumps years, pages, cancels, and preserves the selected task d
   const onChange = jest.fn();
   render(<MonthCalendar day="2024-02-29" onChange={onChange} tasks={[]} />);
   fireEvent.press(screen.getByLabelText('Choose calendar year'));
-  fireEvent(screen.UNSAFE_getByType(Modal), 'show');
+  fireEvent(
+    screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
+    'show',
+  );
   expect(screen.getByRole('button', { name: 'Choose 2024' })).toBeSelected();
   fireEvent.press(screen.getByLabelText('Next 12 years'));
   expect(screen.getByLabelText('Choose 2028')).toBeTruthy();
@@ -555,7 +582,10 @@ test('year picker jumps years, pages, cancels, and preserves the selected task d
   ).toBeNull();
   expect(onChange).not.toHaveBeenCalled();
   fireEvent.press(screen.getByLabelText('Choose calendar year'));
-  fireEvent(screen.UNSAFE_getByType(Modal), 'show');
+  fireEvent(
+    screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
+    'show',
+  );
   fireEvent.press(screen.getByLabelText('Next 12 years'));
   fireEvent.press(screen.getByLabelText('Close year picker'));
   expect(screen.getByText('February 2025')).toBeTruthy();
@@ -566,4 +596,38 @@ test('year picker jumps years, pages, cancels, and preserves the selected task d
       screen.getByRole('button', { name: /February 29, 2024/ }),
     ).toBeSelected(),
   );
+});
+
+test('note color saves without changing content, pinning, or list order', async () => {
+  jest
+    .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
+    .mockResolvedValue(true);
+  const note = {
+    id: 'color-note',
+    title: 'Paper thoughts',
+    body: 'Keep this text',
+    pinned: true,
+    updatedAt: '2026-09-12T00:00:00Z',
+  };
+  await writePlanner('screen-test-user', 'note', [note]);
+  render(<NotesHarness />);
+  await screen.findByLabelText('Appearance for Paper thoughts');
+  fireEvent.press(screen.getByLabelText('Appearance for Paper thoughts'));
+  fireEvent(
+    screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
+    'show',
+  );
+  fireEvent.press(screen.getByLabelText('Rose paper'));
+  fireEvent.press(screen.getByLabelText('Save note appearance'));
+  await waitFor(async () =>
+    expect(await readPlanner('screen-test-user', 'note')).toEqual([
+      { ...note, tone: 'rose' },
+    ]),
+  );
+  await waitFor(() =>
+    expect(screen.queryByLabelText('Save note appearance')).toBeNull(),
+  );
+  expect(await readPlanner('screen-test-user', 'note')).toEqual([
+    { ...note, tone: 'rose' },
+  ]);
 });

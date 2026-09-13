@@ -8,7 +8,7 @@ export type GoalCreationAction = NoteCreationAction & {
 export const TaskCreationContext = createContext<{
   calendarDay: string;
   setCalendarDay: (day: string) => void;
-  openTask: (day?: string, category?: string) => void;
+  openTask: (day?: string | null, category?: string) => void;
   noteAction?: NoteCreationAction | null;
   setNoteAction?: (action: NoteCreationAction | null) => void;
   goalAction?: GoalCreationAction | null;

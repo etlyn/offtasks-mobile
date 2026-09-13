@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import {
   Animated,
   Easing,
+  PanResponder,
   Pressable,
   StyleSheet,
   Text,
   View,
+  type GestureResponderEvent,
 } from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useAppTheme } from '@/theme/colors';
@@ -13,6 +15,10 @@ import { getToday } from '@/hooks/useDate';
 import { getScheduledDateForTask } from '@/utils/taskScheduling';
 import type { Task } from '@/types/task';
 import { CalendarYearPicker } from './CalendarYearPicker';
+import {
+  calendarSwipeDirection,
+  isCalendarMonthSwipe,
+} from './calendarMonthSwipe';
 import {
   CALENDAR_TRANSITION_MS,
   useCalendarTransition,
@@ -54,13 +60,12 @@ export const MonthCalendar = ({
   });
   // Derive new selections immediately so reset doesn't produce a second,
   // unanimated render of the previous month/week before the new dates appear.
-  const visibleDay =
-    !expanded || viewport.selectedDay !== day ? day : viewport.visibleDay;
+  const visibleDay = viewport.selectedDay !== day ? day : viewport.visibleDay;
   const setVisibleDay = (nextDay: string) =>
     setViewport({ selectedDay: day, visibleDay: nextDay });
   const { reduceMotion, animateLayout } = useCalendarTransition();
   const opacity = React.useRef(new Animated.Value(1)).current;
-  const lastContent = React.useRef(`${day}:${expanded}`);
+  const lastContent = React.useRef(`${visibleDay}:${expanded}`);
   const [yearPickerOpen, setYearPickerOpen] = useState(false);
   useEffect(() => {
     setViewport(current =>
@@ -76,7 +81,7 @@ export const MonthCalendar = ({
     }
   }, [expanded, day]);
   useEffect(() => {
-    const content = `${day}:${expanded}`;
+    const content = `${visibleDay}:${expanded}`;
     const changed = lastContent.current !== content;
     lastContent.current = content;
     if (!changed && !reduceMotion) return;
@@ -95,7 +100,7 @@ export const MonthCalendar = ({
     });
     animation.start();
     return () => animation.stop();
-  }, [day, expanded, opacity, reduceMotion]);
+  }, [visibleDay, expanded, opacity, reduceMotion]);
 
   const date = dateFor(visibleDay);
   const first = expanded
@@ -115,14 +120,120 @@ export const MonthCalendar = ({
   const today = getToday();
 
   const navigate = (direction: number) => {
-    setVisibleDay(
-      keyFor(new Date(date.getFullYear(), date.getMonth() + direction, 1, 12)),
+    animateLayout();
+    setViewport(current => {
+      const base = dateFor(
+        current.selectedDay === day ? current.visibleDay : day,
+      );
+      const next = new Date(
+        base.getFullYear(),
+        base.getMonth() + direction,
+        1,
+        12,
+      );
+      // In compact mode, browse the corresponding week of the next MONTH,
+      // retaining the selected day-of-month where possible (including leap years).
+      if (!expanded)
+        next.setDate(
+          Math.min(
+            dateFor(day).getDate(),
+            new Date(next.getFullYear(), next.getMonth() + 1, 0, 12).getDate(),
+          ),
+        );
+      return { selectedDay: day, visibleDay: keyFor(next) };
+    });
+  };
+  const navigateRef = React.useRef(navigate);
+  navigateRef.current = navigate;
+  const yearPickerOpenRef = React.useRef(yearPickerOpen);
+  yearPickerOpenRef.current = yearPickerOpen;
+  const interruptedSwipe = React.useRef(false);
+  const touchStart = React.useRef<{
+    x: number;
+    y: number;
+    time: number;
+  } | null>(null);
+  const claimedSwipe = React.useRef(false);
+  const movedTouch = (event?: GestureResponderEvent) => {
+    const startTouch = touchStart.current;
+    return !!(
+      event &&
+      startTouch &&
+      (Math.abs(event.nativeEvent.pageX - startTouch.x) > 12 ||
+        Math.abs(event.nativeEvent.pageY - startTouch.y) > 12)
     );
   };
+  const swipe = React.useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponderCapture: (_event, gesture) =>
+          !yearPickerOpenRef.current && isCalendarMonthSwipe(gesture),
+        onPanResponderGrant: () => {
+          interruptedSwipe.current = false;
+          claimedSwipe.current = true;
+        },
+        onPanResponderMove: (_event, gesture) => {
+          if (gesture.numberActiveTouches > 1) interruptedSwipe.current = true;
+        },
+        onPanResponderRelease: (_event, gesture) => {
+          const direction = calendarSwipeDirection(gesture);
+          if (
+            direction &&
+            !yearPickerOpenRef.current &&
+            !interruptedSwipe.current
+          )
+            navigateRef.current(direction);
+        },
+        onPanResponderTerminate: () => {
+          interruptedSwipe.current = true;
+        },
+        onPanResponderTerminationRequest: () => true,
+      }),
+    [],
+  );
 
   return (
     <View testID="calendar-block" style={s.calendarBlock}>
       <Animated.View
+        {...swipe.panHandlers}
+        onTouchStart={({ nativeEvent }) => {
+          if (nativeEvent.touches.length > 1) {
+            interruptedSwipe.current = true;
+            return;
+          }
+          touchStart.current = {
+            x: nativeEvent.pageX,
+            y: nativeEvent.pageY,
+            time: nativeEvent.timestamp,
+          };
+          claimedSwipe.current = false;
+          interruptedSwipe.current = false;
+        }}
+        onTouchCancel={() => {
+          interruptedSwipe.current = true;
+        }}
+        onTouchEnd={({ nativeEvent }) => {
+          // Very fast drags can arrive as start/end with coalesced move events.
+          // The responder handles regular swipes; this fallback handles only
+          // gestures it never claimed, without firing a second month change.
+          const startTouch = touchStart.current;
+          if (
+            !startTouch ||
+            claimedSwipe.current ||
+            interruptedSwipe.current ||
+            yearPickerOpen
+          )
+            return;
+          const dx = nativeEvent.pageX - startTouch.x;
+          const dy = nativeEvent.pageY - startTouch.y;
+          const direction = calendarSwipeDirection({
+            dx,
+            dy,
+            vx: dx / Math.max(1, nativeEvent.timestamp - startTouch.time),
+            numberActiveTouches: nativeEvent.touches.length,
+          });
+          if (direction) navigate(direction);
+        }}
         testID={expanded ? 'calendar-month' : 'calendar-week'}
         style={[
           s.card,
@@ -136,7 +247,9 @@ export const MonthCalendar = ({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Previous month"
-              onPress={() => navigate(-1)}
+              onPress={event => {
+                if (!movedTouch(event)) navigate(-1);
+              }}
               style={({ pressed }) => [s.arrow, pressed && s.pressed]}
             >
               <ChevronLeft size={18} color={foreground} />
@@ -145,7 +258,9 @@ export const MonthCalendar = ({
               accessibilityRole="button"
               accessibilityLabel="Choose calendar year"
               accessibilityHint="Opens the year picker"
-              onPress={() => setYearPickerOpen(true)}
+              onPress={event => {
+                if (!movedTouch(event)) setYearPickerOpen(true);
+              }}
               style={({ pressed }) => [s.monthControl, pressed && s.pressed]}
             >
               <Text style={[s.month, { color: foreground }]}>
@@ -158,7 +273,9 @@ export const MonthCalendar = ({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Next month"
-              onPress={() => navigate(1)}
+              onPress={event => {
+                if (!movedTouch(event)) navigate(1);
+              }}
               style={({ pressed }) => [s.arrow, pressed && s.pressed]}
             >
               <ChevronRight size={18} color={foreground} />
@@ -211,7 +328,9 @@ export const MonthCalendar = ({
                     hasTask ? ', has tasks' : ''
                   }`}
                   accessibilityState={{ selected }}
-                  onPress={() => onChange(dateKey)}
+                  onPress={event => {
+                    if (!movedTouch(event)) onChange(dateKey);
+                  }}
                   style={({ pressed }) => [s.day, pressed && s.pressed]}
                 >
                   <View
@@ -271,6 +390,14 @@ export const MonthCalendar = ({
         accessibilityRole="button"
         accessibilityLabel={expanded ? 'Collapse calendar' : 'Expand calendar'}
         accessibilityState={{ expanded }}
+        accessibilityActions={[
+          { name: 'previousMonth', label: 'Previous month' },
+          { name: 'nextMonth', label: 'Next month' },
+        ]}
+        onAccessibilityAction={({ nativeEvent }) => {
+          if (nativeEvent.actionName === 'previousMonth') navigate(-1);
+          if (nativeEvent.actionName === 'nextMonth') navigate(1);
+        }}
         accessibilityHint={
           expanded
             ? 'Show only the selected week'

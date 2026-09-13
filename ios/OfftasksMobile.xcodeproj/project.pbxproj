@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		D01200000111111111111111 /* OfftasksBlur.m in Sources */ = {isa = PBXBuildFile; fileRef = D01200000211111111111111 /* OfftasksBlur.m */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		4B38CC577BDACA8EA7D7DAEF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
@@ -17,6 +16,7 @@
 		A10000000311111111111111 /* OfftasksWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000311111111111111 /* OfftasksWidget.swift */; };
 		A10000000411111111111111 /* WidgetSharedStore.m in Sources */ = {isa = PBXBuildFile; fileRef = A20000000611111111111111 /* WidgetSharedStore.m */; };
 		BF2373BE95CEBDB96C6D43E4 /* Pods_OfftasksMobile.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6D6CE933FC861953B90BF1D2 /* Pods_OfftasksMobile.framework */; };
+		D01200000111111111111111 /* OfftasksBlur.m in Sources */ = {isa = PBXBuildFile; fileRef = D01200000211111111111111 /* OfftasksBlur.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,7 +43,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		D01200000211111111111111 /* OfftasksBlur.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = OfftasksBlur.m; path = OfftasksMobile/OfftasksBlur.m; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* OfftasksMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OfftasksMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = OfftasksMobile/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = OfftasksMobile/Info.plist; sourceTree = "<group>"; };
@@ -60,6 +59,7 @@
 		A20000000511111111111111 /* OfftasksWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OfftasksWidget.entitlements; sourceTree = "<group>"; };
 		A20000000611111111111111 /* WidgetSharedStore.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = WidgetSharedStore.m; path = OfftasksMobile/WidgetSharedStore.m; sourceTree = "<group>"; };
 		A20000000711111111111111 /* OfftasksMobile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = OfftasksMobile.entitlements; path = OfftasksMobile/OfftasksMobile.entitlements; sourceTree = "<group>"; };
+		D01200000211111111111111 /* OfftasksBlur.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = OfftasksBlur.m; path = OfftasksMobile/OfftasksBlur.m; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 

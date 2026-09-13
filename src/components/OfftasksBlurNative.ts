@@ -9,5 +9,7 @@ import {
 // can re-evaluate those modules, but a native view name must register only once.
 export const OfftasksBlurNative =
   Platform.OS === 'ios' && UIManager.getViewManagerConfig('OfftasksBlur')
-    ? requireNativeComponent<ViewProps & { dark: boolean }>('OfftasksBlur')
+    ? requireNativeComponent<ViewProps & { dark: boolean; intensity?: number }>(
+        'OfftasksBlur',
+      )
     : null;

@@ -298,6 +298,8 @@ export const DashboardTabBar: React.FC<
               creation.openTask(
                 state.routes[state.index]?.name === 'Calendar'
                   ? creation.calendarDay
+                  : state.routes[state.index]?.name === 'Later'
+                  ? null
                   : undefined,
               );
             }}

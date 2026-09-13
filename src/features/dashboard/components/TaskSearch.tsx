@@ -128,7 +128,19 @@ function SearchHeaderContent({
             {
               width: fieldProgress.interpolate({
                 inputRange: [0, 1],
-                outputRange: [44, fieldWidth],
+                outputRange: [36, fieldWidth],
+              }),
+              height: fieldProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [36, 44],
+              }),
+              marginRight: fieldProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [4, 0],
+              }),
+              shadowOpacity: fieldProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 0.06],
               }),
             },
           ]}
@@ -137,7 +149,18 @@ function SearchHeaderContent({
             testID="task-search-field"
             style={[s.field, theme.isDark ? s.fieldDark : s.fieldLight]}
           >
-            <View style={[s.fieldContent, { width: fieldWidth }]}>
+            <Animated.View
+              style={[
+                s.fieldContent,
+                {
+                  width: fieldWidth,
+                  paddingLeft: fieldProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [8, 14],
+                  }),
+                },
+              ]}
+            >
               <Search size={18} strokeWidth={1.8} color={brand} />
               <Animated.View
                 style={[
@@ -203,7 +226,7 @@ function SearchHeaderContent({
                   </Pressable>
                 ) : null}
               </Animated.View>
-            </View>
+            </Animated.View>
           </GlassSurface>
         </Animated.View>
       </View>
@@ -327,14 +350,15 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
   },
   field: {
-    minHeight: 44,
+    flex: 1,
     borderRadius: 22,
   },
-  fieldTrack: { width: '100%', minHeight: 44 },
+  fieldTrack: { width: '100%', height: 44, justifyContent: 'center' },
   inputContent: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   fieldContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    height: '100%',
     paddingLeft: 14,
     gap: 9,
   },

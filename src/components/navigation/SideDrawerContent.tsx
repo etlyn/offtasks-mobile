@@ -1,14 +1,22 @@
+import { AnalyticsPreferences } from '@/analytics/AnalyticsPreferences';
 import React from 'react';
-import { Alert, Keyboard, Switch, Text, View } from 'react-native';
 import {
-  ArrowRight,
+  Alert,
+  Animated,
+  Easing,
+  Keyboard,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
+import {
+  LogIn,
   ChartNoAxesColumnIncreasing,
   ChevronRight,
-  EyeOff,
+  Sun,
   LogOut,
   Moon,
   RefreshCw,
-  SlidersHorizontal,
   Trash2,
   X,
   type LucideIcon,
@@ -30,7 +38,83 @@ import { usePreferences } from '@/providers/PreferencesProvider';
 import { useTasks } from '@/providers/TasksProvider';
 import { useAppTheme } from '@/theme/colors';
 
+import { useCalendarTransition } from '@/features/dashboard/components/useCalendarTransition';
+
 import { createStyles } from './SideDrawerContent.styles';
+
+const compactSwitchStyle = {
+  width: 51,
+  height: 31,
+  transform: [{ scale: 0.78 }],
+};
+
+function DrawerThemeControl({
+  dark,
+  toggleTheme,
+}: {
+  dark: boolean;
+  toggleTheme: () => void;
+}) {
+  const theme = useAppTheme();
+  const styles = React.useMemo(() => createStyles(theme), [theme]);
+  const { reduceMotion } = useCalendarTransition();
+  const position = React.useRef(new Animated.Value(dark ? 44 : 0)).current;
+  React.useEffect(() => {
+    position.stopAnimation();
+    if (reduceMotion) {
+      position.setValue(dark ? 44 : 0);
+      return;
+    }
+    const motion = Animated.timing(position, {
+      toValue: dark ? 44 : 0,
+      duration: 240,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+      isInteraction: false,
+    });
+    motion.start();
+    return () => motion.stop();
+  }, [dark, position, reduceMotion]);
+  return (
+    <View style={styles.appearanceControl}>
+      <GlassSurface
+        pointerEvents="none"
+        testID="drawer-theme-track"
+        style={styles.appearanceSurface}
+      />
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.themeSelected,
+          { transform: [{ translateX: position }] },
+        ]}
+      />
+      {[
+        { Icon: Sun, value: false, label: 'Light mode' },
+        { Icon: Moon, value: true, label: 'Dark mode' },
+      ].map(({ Icon, value, label }) => (
+        <Pressable
+          key={label}
+          accessibilityRole="radio"
+          accessibilityLabel={label}
+          accessibilityState={{ checked: dark === value }}
+          onPress={() => {
+            if (dark !== value) toggleTheme();
+          }}
+          style={styles.themeTarget}
+        >
+          <Icon
+            size={15}
+            strokeWidth={dark === value ? 1.9 : 1.6}
+            color={
+              dark === value ? theme.colors.textPrimary : theme.colors.textMuted
+            }
+          />
+        </Pressable>
+      ))}
+    </View>
+  );
+}
 
 type ToggleControlProps = {
   value: boolean;
@@ -48,6 +132,8 @@ const ToggleControl = ({
   const theme = useAppTheme();
   return (
     <Switch
+      style={compactSwitchStyle}
+      hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}
       value={value}
       onValueChange={onPress}
       accessibilityLabel={accessibilityLabel}
@@ -87,7 +173,7 @@ function PreferenceRow({
         accessibilityElementsHidden
       >
         <Icon
-          size={18}
+          size={16}
           strokeWidth={1.7}
           color={theme.isDark ? '#D8F3E5' : '#152D25'}
         />
@@ -115,13 +201,9 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
   const { session } = useAuth();
   const { totals } = useTasks();
   const {
-    hideCompleted,
-    advancedMode,
     themeMode,
-    setHideCompleted,
-    setAdvancedMode,
-    autoArrange,
-    setAutoArrange,
+    movePastTasksToLater,
+    setMovePastTasksToLater,
     toggleTheme,
   } = usePreferences();
   const insets = useSafeAreaInsets();
@@ -209,18 +291,8 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
     );
   }, [isDeletingAccount, performDeleteAccount]);
 
-  const email = session?.user?.email ?? 'Stored on this device';
-  const fullName = session?.user?.user_metadata?.full_name as
-    | string
-    | undefined;
-  const userLabel = session ? fullName?.trim() || email.split('@')[0] : 'Guest';
-  const initials =
-    userLabel
-      .split(/[\s._-]+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map(part => part[0]?.toUpperCase() ?? '')
-      .join('') || 'U';
+  const accountDetail =
+    session?.user?.user_metadata?.full_name?.trim() || session?.user?.email;
   const brand = theme.isDark ? '#D8F3E5' : '#152D25';
   const danger = theme.isDark ? '#F4A5A5' : '#A83E3E';
 
@@ -230,18 +302,15 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
         <CalendarBackdrop />
       </View>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={styles.wordmark}>
-          offtasks<Text style={styles.brandDot}>.</Text>
-        </Text>
+        <DrawerThemeControl dark={isDarkMode} toggleTheme={toggleTheme} />
+
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close menu"
           onPress={() => navigation.closeDrawer()}
           style={styles.closeTarget}
         >
-          <GlassSurface navigation style={styles.closeSurface}>
-            <X size={18} strokeWidth={1.8} color={brand} />
-          </GlassSurface>
+          <X size={15} strokeWidth={1.7} color={brand} />
         </Pressable>
       </View>
       <DrawerContentScrollView
@@ -257,146 +326,131 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
           },
         ]}
       >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={session ? 'Account and sync' : 'Sign in for sync'}
-          accessibilityHint={
-            session
-              ? 'Open your account and sync settings'
-              : 'Your guest items stay on this device'
-          }
-          onPress={() => handleNavigate('Account')}
-          style={styles.profile}
-        >
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
-          <View style={styles.profileMeta}>
-            <Text style={styles.profileName} numberOfLines={1}>
-              {userLabel}
-            </Text>
-            <Text style={styles.profileDetail} numberOfLines={1}>
-              {email}
-            </Text>
-          </View>
-          <ChevronRight
-            size={16}
-            strokeWidth={1.7}
-            color={theme.colors.textMuted}
-          />
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Statistics"
-          accessibilityHint={
-            totals.all > 0
-              ? `${totals.completed} of ${totals.all} tasks completed`
-              : undefined
-          }
-          onPress={() => handleNavigate('Statistics')}
-          style={styles.statisticsTarget}
-        >
-          <GlassSurface navigation style={styles.statisticsSurface}>
-            <ChartNoAxesColumnIncreasing
-              size={19}
-              strokeWidth={1.7}
-              color={brand}
-            />
-            <Text style={[styles.rowLabel, styles.statisticsLabel]}>
-              Statistics
-            </Text>
-            {totals.all > 0 ? (
-              <Text style={styles.progress}>
-                {totals.completed}/{totals.all}
+        <View style={styles.controlsSurface}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Statistics"
+            accessibilityHint={
+              totals.all > 0
+                ? `${totals.completed} of ${totals.all} tasks completed`
+                : undefined
+            }
+            onPress={() => handleNavigate('Statistics')}
+            style={styles.statisticsTarget}
+          >
+            <View style={styles.statisticsSurface}>
+              <View style={styles.rowIcon}>
+                <ChartNoAxesColumnIncreasing
+                  size={16}
+                  strokeWidth={1.7}
+                  color={brand}
+                />
+              </View>
+              <Text style={[styles.rowLabel, styles.statisticsLabel]}>
+                Statistics
               </Text>
-            ) : null}
-            <ChevronRight
-              size={16}
-              strokeWidth={1.7}
-              color={theme.colors.textMuted}
-            />
-          </GlassSurface>
-        </Pressable>
-
-        <Text accessibilityRole="header" style={styles.sectionLabel}>
-          Preferences
-        </Text>
-        <PreferenceRow
-          icon={Moon}
-          title="Dark mode"
-          value={isDarkMode}
-          onChange={toggleTheme}
-          label="Toggle dark mode"
-          styles={styles}
-        />
-        <PreferenceRow
-          icon={EyeOff}
-          title="Hide completed"
-          value={hideCompleted}
-          onChange={setHideCompleted}
-          label="Toggle hide completed tasks"
-          styles={styles}
-        />
-        <PreferenceRow
-          icon={SlidersHorizontal}
-          title="Advanced mode"
-          detail="Labels & priority filters"
-          value={advancedMode}
-          onChange={setAdvancedMode}
-          label="Toggle advanced mode"
-          styles={styles}
-        />
-        <PreferenceRow
-          icon={RefreshCw}
-          title="Auto-move due tasks"
-          detail="Move overdue tasks to Today"
-          value={autoArrange}
-          onChange={setAutoArrange}
-          label="Toggle auto move due tasks"
-          styles={styles}
-        />
-
-        <View style={styles.footer}>
-          {!session ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Sign in"
-              onPress={() => handleNavigate('Account')}
-              style={styles.signIn}
-            >
-              <Text style={styles.signInLabel}>Sign in</Text>
-              <ArrowRight
-                size={17}
-                strokeWidth={1.8}
-                color={theme.isDark ? '#101916' : '#FFFFFF'}
-              />
-            </Pressable>
-          ) : (
-            <View style={styles.accountActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Log out"
-                onPress={handleSignOut}
-                style={styles.accountAction}
-              >
-                <LogOut size={17} strokeWidth={1.7} color={brand} />
-                <Text style={styles.rowLabel}>Log out</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Delete account"
-                disabled={isDeletingAccount}
-                onPress={handleDeleteAccount}
-                style={styles.accountAction}
-              >
-                <Trash2 size={16} strokeWidth={1.7} color={danger} />
-                <Text style={[styles.deleteLabel, { color: danger }]}>
-                  {isDeletingAccount ? 'Deleting account…' : 'Delete account'}
+              {totals.all > 0 ? (
+                <Text style={styles.progress}>
+                  {totals.completed}/{totals.all}
                 </Text>
-              </Pressable>
+              ) : null}
+              <ChevronRight
+                size={16}
+                strokeWidth={1.7}
+                color={theme.colors.textMuted}
+              />
             </View>
-          )}
+          </Pressable>
+
+          <View style={styles.sectionDivider} />
+          <PreferenceRow
+            icon={RefreshCw}
+            title="Return to Later"
+            detail="Unfinished past tasks"
+            value={movePastTasksToLater}
+            onChange={enabled => {
+              if (!enabled) {
+                setMovePastTasksToLater(false);
+                return;
+              }
+              Alert.alert(
+                'Return unfinished tasks to Later?',
+                'Unfinished tasks on past dates will lose their assigned date and return to Later. This runs when the app is open or reopened.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Enable',
+                    onPress: () => setMovePastTasksToLater(true),
+                  },
+                ],
+              );
+            }}
+            label="Automatically return past tasks to Later"
+            styles={styles}
+          />
+        </View>
+        <View style={styles.footer}>
+          <View style={styles.accountSection}>
+            {!session ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Sign in for sync"
+                accessibilityHint="Your guest items stay on this device"
+                onPress={() => handleNavigate('Account')}
+                style={styles.accountAction}
+              >
+                <LogIn size={16} strokeWidth={1.7} color={brand} />
+                <Text style={styles.rowLabel}>Sign in for sync</Text>
+                <ChevronRight
+                  size={14}
+                  color={theme.colors.textMuted}
+                  style={styles.accountChevron}
+                />
+              </Pressable>
+            ) : (
+              <View style={styles.accountActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Account and sync"
+                  onPress={() => handleNavigate('Account')}
+                  style={styles.accountAction}
+                >
+                  <RefreshCw size={16} strokeWidth={1.7} color={brand} />
+                  <View style={styles.rowText}>
+                    <Text style={styles.rowLabel}>Account and sync</Text>
+                    {accountDetail ? (
+                      <Text numberOfLines={1} style={styles.rowDetail}>
+                        {accountDetail}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <ChevronRight size={14} color={theme.colors.textMuted} />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Log out"
+                  onPress={handleSignOut}
+                  style={styles.accountAction}
+                >
+                  <LogOut size={16} strokeWidth={1.7} color={brand} />
+                  <Text style={styles.rowLabel}>Log out</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete account"
+                  disabled={isDeletingAccount}
+                  onPress={handleDeleteAccount}
+                  style={styles.accountAction}
+                >
+                  <Trash2 size={16} strokeWidth={1.7} color={danger} />
+                  <Text style={[styles.deleteLabel, { color: danger }]}>
+                    {isDeletingAccount ? 'Deleting account…' : 'Delete account'}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+          <AnalyticsPreferences />
           <Text style={styles.version}>Version {appVersion}</Text>
         </View>
       </DrawerContentScrollView>

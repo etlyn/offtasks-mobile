@@ -18,13 +18,17 @@ type HeaderAction = {
 
 export const PlannerHeader = ({
   title,
+  titleInHeader = false,
   onBack,
   backInHeader = false,
+  backLabel = 'Back',
   actions = [],
 }: {
   title: string;
+  titleInHeader?: boolean;
   onBack?: () => void;
   backInHeader?: boolean;
+  backLabel?: string;
   actions?: HeaderAction[];
 }) => {
   const theme = useAppTheme();
@@ -36,12 +40,14 @@ export const PlannerHeader = ({
     return (
       <>
         <HeaderSlot
+          title={titleInHeader ? title : undefined}
           onBack={backInHeader ? onBack : undefined}
+          backLabel={backLabel}
           onSearch={searchAction?.onPress}
           searchLabel={searchAction?.label}
         />
         <View style={{ height: insets.top + 58 }} />
-        {onBack ? (
+        {onBack && !titleInHeader ? (
           <View style={styles.contextRow}>
             {!backInHeader ? (
               <Pressable

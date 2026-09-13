@@ -18,7 +18,7 @@ const task = (
   priority: 0,
 });
 
-test('calendar includes the selected date and carries unfinished earlier tasks into today', () => {
+test('calendar keeps unfinished tasks on their exact assigned date', () => {
   const tasks = [
     task('overdue', '2026-08-20'),
     task('done', '2026-08-20', true),
@@ -28,7 +28,7 @@ test('calendar includes the selected date and carries unfinished earlier tasks i
   ];
   expect(
     tasksForDay(tasks, '2026-08-22', '2026-08-22').map(item => item.id),
-  ).toEqual(['overdue', 'today']);
+  ).toEqual(['today']);
   expect(
     tasksForDay(tasks, '2026-08-20', '2026-08-22').map(item => item.id),
   ).toEqual(['overdue', 'done']);

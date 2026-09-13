@@ -25,12 +25,14 @@ import type { SearchResult } from '@/utils/globalSearch';
 import { SideDrawerContent } from '@/components/navigation/SideDrawerContent';
 import { palette, useAppTheme } from '@/theme/colors';
 import { DashboardScreen } from '@/features/dashboard/Dashboard.screen';
+import { useTasks } from '@/providers/TasksProvider';
 
 const Drawer = createDrawerNavigator();
 
 const iconSize = 20;
 
 const DashboardTabs = () => {
+  const { refreshing } = useTasks();
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const openMenu = React.useCallback(
     () => navigation.dispatch(DrawerActions.openDrawer()),
@@ -86,13 +88,18 @@ const DashboardTabs = () => {
     setSearchVisible(false);
   }, []);
   const [calendarDay, setCalendarDay] = React.useState(getToday());
-  const [creationDate, setCreationDate] = React.useState<string | null>(null);
-  const openTask = React.useCallback((day?: string, category?: string) => {
-    const today = getToday();
-    setCreationCategory(category);
-    setCreationDate(day && day >= today ? day : today);
-  }, []);
-  const closeTask = React.useCallback(() => setCreationDate(null), []);
+  const [creationDate, setCreationDate] = React.useState<
+    string | null | undefined
+  >(undefined);
+  const openTask = React.useCallback(
+    (day?: string | null, category?: string) => {
+      const today = getToday();
+      setCreationCategory(category);
+      setCreationDate(day === undefined ? today : day);
+    },
+    [],
+  );
+  const closeTask = React.useCallback(() => setCreationDate(undefined), []);
   const creation = React.useMemo(
     () => ({
       calendarDay,
@@ -121,10 +128,12 @@ const DashboardTabs = () => {
               <MainTabNavigator />
             </View>
             <SharedHeaderHost
+              refreshing={refreshing}
               onMenu={openMenu}
               onSearch={openSearch}
               globalSearch
               covered={search.mounted}
+              searchProgress={search.progress}
             />
             {search.mounted ? (
               <GlobalSearchOverlay
@@ -134,7 +143,7 @@ const DashboardTabs = () => {
               />
             ) : null}
             <SharedDockHost onNavigate={closeSearch} />
-            {creationDate ? (
+            {creationDate !== undefined ? (
               <DashboardScreen
                 composerOnly
                 initialDate={creationDate}

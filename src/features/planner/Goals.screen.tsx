@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   BackHandler,
   Animated,
   StyleSheet,
@@ -13,6 +12,8 @@ import {
   View,
 } from 'react-native';
 import { DetachedSheet } from '@/components/DetachedSheet';
+import { OfftasksLoader } from '@/components/OfftasksLoader';
+import { BrandedRefreshControl } from '@/components/BrandedRefreshControl';
 import { SheetHeader } from '@/components/SheetHeader';
 import { Flag } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -34,6 +35,9 @@ import { goalSummaries } from '@/utils/planner';
 import { useAppTheme } from '@/theme/colors';
 import { DashboardScreen } from '@/features/dashboard/Dashboard.screen';
 import { GoalRow } from './GoalRow';
+import { GoalAvatar } from './GoalAvatar';
+import { GoalAppearanceSheet } from './GoalAppearanceSheet';
+import { useGoalAppearance } from '@/hooks/useGoalAppearance';
 import { HeaderLayer } from '@/navigation/SharedHeader';
 import { useTaskCreation } from '@/navigation/TaskCreationContext';
 import { TaskSearchHeader } from '@/features/dashboard/components/TaskSearch';
@@ -52,6 +56,8 @@ export const GoalsScreen = ({
   const { tasks, refreshing, refresh } = useTasks();
   const { categories, addCategory, removeCategory, loading, error, reload } =
     useTaskCategories();
+  const appearance = useGoalAppearance();
+  const [customizing, setCustomizing] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
@@ -93,7 +99,7 @@ export const GoalsScreen = ({
   React.useEffect(() => {
     setGoalAction?.({
       label: detail.mounted ? 'Add task' : 'Add goal',
-      disabled: loading || !!error || saving || creating,
+      disabled: loading || !!error || saving || creating || !!customizing,
       onPress: () => {
         Keyboard.dismiss();
         if (detail.mounted && selected) {
@@ -112,6 +118,7 @@ export const GoalsScreen = ({
     error,
     saving,
     creating,
+    customizing,
     detail.mounted,
     selected,
   ]);
@@ -141,19 +148,7 @@ export const GoalsScreen = ({
   );
 
   const closeCreate = () => {
-    if (busy.current) return;
-    if (!name.trim()) {
-      setCreating(false);
-      return;
-    }
-    Alert.alert('Discard changes?', 'Your unsaved goal will be lost.', [
-      { text: 'Keep editing', style: 'cancel' },
-      {
-        text: 'Discard',
-        style: 'destructive',
-        onPress: () => setCreating(false),
-      },
-    ]);
+    if (!busy.current) setCreating(false);
   };
 
   const create = async () => {
@@ -195,6 +190,7 @@ export const GoalsScreen = ({
           setSaving(true);
           try {
             await removeCategory(goal);
+            setCustomizing(null);
           } catch {
             Alert.alert('Could not remove goal', 'Please try again.');
           } finally {
@@ -233,8 +229,12 @@ export const GoalsScreen = ({
         keyboardDismissMode="interactive"
         automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
-        refreshing={refreshing}
-        onRefresh={() => refresh({ showRefreshSpinner: true })}
+        refreshControl={
+          <BrandedRefreshControl
+            refreshing={refreshing}
+            onRefresh={() => refresh({ showRefreshSpinner: true })}
+          />
+        }
         contentContainerStyle={[
           { paddingHorizontal: 24, paddingTop: 4 },
           { paddingBottom: insets.bottom + 110 },
@@ -243,16 +243,69 @@ export const GoalsScreen = ({
           !error ? (
             <View style={styles.empty}>
               {loading ? (
-                <ActivityIndicator color={brand} />
+                <OfftasksLoader />
+              ) : searchPage && query ? (
+                <QuietEmpty icon={Flag} label="No matching goals" />
               ) : (
-                <>
-                  <QuietEmpty
-                    icon={Flag}
-                    label={
-                      searchPage && query ? 'No matching goals' : 'No goals yet'
-                    }
-                  />
-                </>
+                <View style={{ alignItems: 'center', gap: 14, paddingTop: 48 }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 10,
+                    }}
+                    accessibilityElementsHidden
+                  >
+                    <GoalAvatar
+                      name="Explore"
+                      appearance={{ color: 5, emoji: '🌎' }}
+                      size={40}
+                    />
+                    <GoalAvatar
+                      name="Grow"
+                      appearance={{ color: 0, emoji: '🌱' }}
+                      size={56}
+                    />
+                    <GoalAvatar
+                      name="Create"
+                      appearance={{ color: 1, emoji: '🎨' }}
+                      size={40}
+                    />
+                  </View>
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      fontWeight: '600',
+                      color: theme.colors.textPrimary,
+                    }}
+                  >
+                    Something worth working toward
+                  </Text>
+                  <Text
+                    style={{ fontSize: 13, color: theme.colors.textSecondary }}
+                  >
+                    Give your first goal a little personality.
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Create your first goal"
+                    onPress={() => {
+                      setName('');
+                      setCreating(true);
+                    }}
+                    style={{
+                      minHeight: 44,
+                      justifyContent: 'center',
+                      paddingHorizontal: 18,
+                    }}
+                  >
+                    <Text
+                      style={{ fontSize: 13, fontWeight: '600', color: brand }}
+                    >
+                      Create a goal
+                    </Text>
+                  </Pressable>
+                </View>
               )}
             </View>
           ) : null
@@ -260,19 +313,19 @@ export const GoalsScreen = ({
         renderItem={({ item }) => (
           <GoalRow
             goal={item}
+            appearance={appearance.get(item.name)}
             disabled={saving || loading}
             onOpen={() => openGoal(item.name)}
-            onOptions={() =>
-              Alert.alert(item.name, undefined, [
-                { text: 'Open goal', onPress: () => openGoal(item.name) },
-                {
-                  text: 'Remove empty goal',
-                  style: 'destructive',
-                  onPress: () => remove(item.name),
-                },
-                { text: 'Cancel', style: 'cancel' },
-              ])
-            }
+            onOptions={() => {
+              if (!appearance.ready || appearance.error) {
+                Alert.alert(
+                  'Appearance unavailable',
+                  appearance.error ?? 'Please try again in a moment.',
+                );
+                return;
+              }
+              setCustomizing(item.name);
+            }}
           />
         )}
       />
@@ -389,6 +442,18 @@ export const GoalsScreen = ({
           </HeaderLayer.Provider>
         </Animated.View>
       ) : null}
+      <GoalAppearanceSheet
+        name={customizing}
+        total={goals.find(goal => goal.name === customizing)?.total ?? 0}
+        initial={appearance.get(customizing ?? '')}
+        onClose={() => setCustomizing(null)}
+        onSave={async value => {
+          if (customizing) await appearance.save(customizing, value);
+        }}
+        onRemove={() => {
+          if (customizing) remove(customizing);
+        }}
+      />
       <DetachedSheet
         visible={creating}
         reduceMotion={reduceMotion}

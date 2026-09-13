@@ -4,289 +4,137 @@ import React, {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import { publishWidgetTheme } from '@/lib/widgetBridge';
 import { fetchUserPreferences, upsertUserPreferences } from '@/lib/supabase';
 import { GUEST_ID } from '@/lib/localTasks';
 import { useAuth } from './AuthProvider';
 
 type ThemeMode = 'Light' | 'Dark';
-
-interface PreferencesContextValue {
-  hideCompleted: boolean;
-  advancedMode: boolean;
+type Preferences = {
   themeMode: ThemeMode;
-  autoArrange: boolean;
-  redTasks: boolean;
-  setHideCompleted: (value: boolean) => void;
-  setAdvancedMode: (value: boolean) => void;
-  setAutoArrange: (value: boolean) => void;
-  setRedTasks: (value: boolean) => void;
+  movePastTasksToLater: boolean;
+  setMovePastTasksToLater: (enabled: boolean) => void;
   toggleTheme: () => void;
-}
-
-const HIDE_COMPLETED_KEY = 'offtasks:hide-completed';
-const ADVANCED_MODE_KEY = 'offtasks:advanced-mode';
-const THEME_MODE_KEY = 'offtasks:theme-mode';
-const AUTO_ARRANGE_KEY = 'offtasks:auto-arrange';
-const RED_TASKS_KEY = 'offtasks:red-tasks';
-
-const PreferencesContext = createContext<PreferencesContextValue>({
-  hideCompleted: false,
-  advancedMode: false,
+};
+const PreferencesContext = createContext<Preferences>({
   themeMode: 'Light',
-  autoArrange: false,
-  redTasks: false,
-  setHideCompleted: () => undefined,
-  setAdvancedMode: () => undefined,
-  setAutoArrange: () => undefined,
-  setRedTasks: () => undefined,
+  movePastTasksToLater: false,
+  setMovePastTasksToLater: () => undefined,
   toggleTheme: () => undefined,
 });
-
-export const PreferencesProvider = ({
+const THEME_KEY = 'offtasks:theme-mode';
+// Deliberately separate from retired auto-arrange: old consent must not opt in.
+const LATER_KEY = 'offtasks:move-past-tasks-to-later';
+export function PreferencesProvider({
   children,
 }: {
   children: React.ReactNode;
-}) => {
+}) {
   const { session } = useAuth();
   const owner = session?.user.id || GUEST_ID;
-  const [hideCompleted, setHideCompleted] = useState(false);
-  const [advancedMode, setAdvancedMode] = useState(false);
-  const [themeMode, setThemeMode] = useState<ThemeMode>('Light');
-  const [autoArrange, setAutoArrange] = useState(false);
-  const [redTasks, setRedTasks] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-  const hydratedRef = useRef(false);
-  const [remoteReady, setRemoteReady] = useState(false);
-  const initialRemote = useRef<string | null>(null);
-
+  const [settings, setSettings] = useState<{
+    owner: string;
+    themeMode: ThemeMode;
+    movePastTasksToLater: boolean;
+  } | null>(null);
+  const [remoteReady, setRemoteReady] = useState<string | null>(null);
+  const ready = settings?.owner === owner;
+  const themeMode = ready ? settings.themeMode : 'Light';
+  const movePastTasksToLater = ready ? settings.movePastTasksToLater : false;
   useEffect(() => {
-    let isMounted = true;
-    setHydrated(false);
-    hydratedRef.current = false;
-
-    const hydrate = async () => {
+    let active = true;
+    setRemoteReady(null);
+    (async () => {
+      let theme: ThemeMode = 'Light';
+      let later = false;
       try {
-        const [hideEntry, advancedEntry, themeEntry, autoEntry, redEntry] =
-          await AsyncStorage.multiGet(
-            [
-              HIDE_COMPLETED_KEY,
-              ADVANCED_MODE_KEY,
-              THEME_MODE_KEY,
-              AUTO_ARRANGE_KEY,
-              RED_TASKS_KEY,
-            ].map(key => `${key}:${owner}`),
-          );
-
-        if (!isMounted) {
-          return;
-        }
-
-        const hideValue = hideEntry?.[1];
-        const advancedValue = advancedEntry?.[1];
-        const themeValue = themeEntry?.[1];
-        const autoValue = autoEntry?.[1];
-        const redValue = redEntry?.[1];
-
-        setHideCompleted(hideValue === 'true');
-        setAdvancedMode(advancedValue === 'true');
-        setAutoArrange(autoValue === 'true');
-        setRedTasks(redValue === 'true');
-        if (themeValue === 'Light' || themeValue === 'Dark') {
-          setThemeMode(themeValue);
-        }
+        const values = await AsyncStorage.multiGet([
+          `${THEME_KEY}:${owner}`,
+          `${LATER_KEY}:${owner}`,
+        ]);
+        theme = values[0]?.[1] === 'Dark' ? 'Dark' : 'Light';
+        later = values[1]?.[1] === 'true';
       } catch (error) {
         console.warn('Failed to hydrate preferences', error);
-      } finally {
-        hydratedRef.current = true;
-        if (isMounted) {
-          setHydrated(true);
+      }
+      if (!active) return;
+      setSettings({ owner, themeMode: theme, movePastTasksToLater: later });
+      if (owner !== GUEST_ID) {
+        try {
+          const remote = await fetchUserPreferences(owner);
+          if (!active) return;
+          if (remote?.theme_mode === 'Dark' || remote?.theme_mode === 'Light')
+            setSettings(value =>
+              value?.owner === owner
+                ? { ...value, themeMode: remote.theme_mode as ThemeMode }
+                : value,
+            );
+        } catch (error) {
+          console.warn('Preferences sync unavailable', error);
         }
       }
-    };
-
-    hydrate();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [owner]);
-
-  useEffect(() => {
-    setRemoteReady(false);
-    initialRemote.current = null;
-    if (!hydrated || !session?.user?.id) {
-      return;
-    }
-
-    let active = true;
-
-    const hydrateRemote = async () => {
-      const prefs = await fetchUserPreferences(session.user.id);
-      if (!active) {
-        return;
-      }
-      if (prefs) {
-        initialRemote.current = JSON.stringify([
-          !!prefs.hide_completed,
-          !!prefs.advanced_mode,
-          !!prefs.auto_arrange,
-          prefs.theme_mode,
-        ]);
-        setHideCompleted(!!prefs.hide_completed);
-        setAdvancedMode(!!prefs.advanced_mode);
-        setAutoArrange(!!prefs.auto_arrange);
-        if (prefs.theme_mode === 'Light' || prefs.theme_mode === 'Dark') {
-          setThemeMode(prefs.theme_mode);
-        }
-      }
-      setRemoteReady(true);
-    };
-
-    hydrateRemote().catch(error =>
-      console.warn('Preferences sync unavailable', error),
-    );
-
+      if (active) setRemoteReady(owner);
+    })();
     return () => {
       active = false;
     };
-  }, [session?.user?.id, hydrated]);
-
+  }, [owner]);
   useEffect(() => {
-    if (!hydrated) {
-      return;
-    }
-
-    AsyncStorage.setItem(
-      `${HIDE_COMPLETED_KEY}:${owner}`,
-      hideCompleted ? 'true' : 'false',
-    ).catch(() => undefined);
-  }, [hideCompleted, hydrated, owner]);
-
+    if (!ready) return;
+    AsyncStorage.multiSet([
+      [`${THEME_KEY}:${owner}`, themeMode],
+      [`${LATER_KEY}:${owner}`, String(movePastTasksToLater)],
+    ]).catch(error => console.warn('Could not save preferences', error));
+  }, [ready, owner, themeMode, movePastTasksToLater]);
   useEffect(() => {
-    if (!hydrated) {
-      return;
-    }
-
-    AsyncStorage.setItem(
-      `${ADVANCED_MODE_KEY}:${owner}`,
-      advancedMode ? 'true' : 'false',
-    ).catch(() => undefined);
-  }, [advancedMode, hydrated, owner]);
-
+    if (ready) publishWidgetTheme(themeMode).catch(() => undefined);
+  }, [ready, themeMode]);
   useEffect(() => {
-    if (!hydrated) {
-      return;
-    }
-
-    AsyncStorage.setItem(`${THEME_MODE_KEY}:${owner}`, themeMode).catch(
-      () => undefined,
-    );
-  }, [hydrated, themeMode, owner]);
-
-  useEffect(() => {
-    if (!hydrated) {
-      return;
-    }
-
-    AsyncStorage.setItem(
-      `${AUTO_ARRANGE_KEY}:${owner}`,
-      autoArrange ? 'true' : 'false',
-    ).catch(() => undefined);
-  }, [autoArrange, hydrated, owner]);
-
-  useEffect(() => {
-    if (!hydrated) {
-      return;
-    }
-
-    AsyncStorage.setItem(
-      `${RED_TASKS_KEY}:${owner}`,
-      redTasks ? 'true' : 'false',
-    ).catch(() => undefined);
-  }, [hydrated, redTasks, owner]);
-
-  useEffect(() => {
-    if (!hydrated) {
-      return;
-    }
-
-    publishWidgetTheme(themeMode).catch(error => {
-      console.warn('Failed to sync widget theme', error);
-    });
-  }, [hydrated, themeMode]);
-
-  useEffect(() => {
-    if (!hydratedRef.current || !remoteReady || !session?.user?.id) {
-      return;
-    }
-    const snapshot = JSON.stringify([
-      hideCompleted,
-      advancedMode,
-      autoArrange,
-      themeMode,
-    ]);
-    if (initialRemote.current === snapshot) return;
-
+    if (!ready || remoteReady !== owner || owner === GUEST_ID) return;
     upsertUserPreferences({
-      user_id: session.user.id,
-      hide_completed: hideCompleted,
-      advanced_mode: advancedMode,
+      user_id: owner,
       theme_mode: themeMode,
-      auto_arrange: autoArrange,
-    })
-      .then(() => {
-        initialRemote.current = snapshot;
-      })
-      .catch(error => {
-        console.warn('Failed to sync preferences', error);
-      });
-  }, [
-    advancedMode,
-    autoArrange,
-    hideCompleted,
-    session?.user?.id,
-    themeMode,
-    remoteReady,
-  ]);
-
+      hide_completed: false,
+      advanced_mode: false,
+      auto_arrange: false,
+    }).catch(error => console.warn('Failed to sync preferences', error));
+  }, [ready, remoteReady, owner, themeMode]);
   const toggleTheme = useCallback(() => {
-    setThemeMode(prev => (prev === 'Light' ? 'Dark' : 'Light'));
-  }, []);
-
+    setSettings(value =>
+      value?.owner === owner
+        ? {
+            ...value,
+            themeMode: value.themeMode === 'Light' ? 'Dark' : 'Light',
+          }
+        : value,
+    );
+  }, [owner]);
+  const setMovePastTasksToLater = useCallback(
+    (enabled: boolean) => {
+      setSettings(value =>
+        value?.owner === owner
+          ? { ...value, movePastTasksToLater: enabled }
+          : value,
+      );
+    },
+    [owner],
+  );
   const value = useMemo(
     () => ({
-      hideCompleted,
-      advancedMode,
       themeMode,
-      autoArrange,
-      redTasks,
-      setHideCompleted,
-      setAdvancedMode,
-      setAutoArrange,
-      setRedTasks,
+      movePastTasksToLater,
       toggleTheme,
+      setMovePastTasksToLater,
     }),
-    [
-      advancedMode,
-      autoArrange,
-      hideCompleted,
-      redTasks,
-      themeMode,
-      toggleTheme,
-    ],
+    [themeMode, movePastTasksToLater, toggleTheme, setMovePastTasksToLater],
   );
-
   return (
     <PreferencesContext.Provider value={value}>
       {children}
     </PreferencesContext.Provider>
   );
-};
-
+}
 export const usePreferences = () => useContext(PreferencesContext);

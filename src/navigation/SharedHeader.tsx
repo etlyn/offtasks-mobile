@@ -15,11 +15,14 @@ import { GlassSurface } from '@/components/GlassSurface';
 import { CalendarBackdrop } from '@/components/PageBackdrop';
 import { useCalendarTransition } from '@/features/dashboard/components/useCalendarTransition';
 import { useAppTheme } from '@/theme/colors';
+import { OfftasksLoader } from '@/components/OfftasksLoader';
 
 type HeaderEntry = {
   priority: number;
+  title?: string;
   onMenu?: () => void;
   onBack?: () => void;
+  backLabel?: string;
   onSearch?: () => void;
   searchLabel?: string;
   searching?: boolean;
@@ -71,8 +74,10 @@ export function SharedHeaderProvider({
 
 /** Screens publish behavior; only the persistent host renders the header. */
 export function HeaderSlot({
+  title,
   onMenu,
   onBack,
+  backLabel,
   onSearch,
   searchLabel,
   searching,
@@ -84,15 +89,28 @@ export function HeaderSlot({
   const focused = React.useRef(false);
   entry.current = {
     priority: layer + (searching ? 1 : 0),
+    title,
     onMenu,
     onBack,
+    backLabel,
     onSearch,
     searchLabel,
     searching,
   };
   React.useLayoutEffect(() => {
     if (focused.current) registry?.set(id, entry.current);
-  }, [registry, id, layer, onMenu, onBack, onSearch, searchLabel, searching]);
+  }, [
+    registry,
+    id,
+    layer,
+    title,
+    onMenu,
+    onBack,
+    backLabel,
+    onSearch,
+    searchLabel,
+    searching,
+  ]);
   useFocusEffect(
     React.useCallback(() => {
       focused.current = true;
@@ -195,16 +213,105 @@ function NavigationIcon({ back }: { back: boolean }) {
   );
 }
 
+function HeaderTitle({
+  title,
+  refreshing,
+}: {
+  title?: string;
+  refreshing: boolean;
+}) {
+  const theme = useAppTheme();
+  const { reduceMotion } = useCalendarTransition();
+  const [displayed, setDisplayed] = React.useState(title);
+  const [refreshPresentation, setRefreshPresentation] =
+    React.useState(refreshing);
+  React.useEffect(() => {
+    if (refreshing) setRefreshPresentation(true);
+  }, [refreshing]);
+  const finishRefresh = React.useCallback(
+    () => setRefreshPresentation(false),
+    [],
+  );
+  const opacity = React.useRef(new Animated.Value(1)).current;
+  React.useEffect(() => {
+    opacity.stopAnimation();
+    if (reduceMotion) {
+      setDisplayed(title);
+      opacity.setValue(1);
+      return;
+    }
+    let cancelled = false;
+    Animated.timing(opacity, {
+      toValue: 0,
+      duration: 90,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+      isInteraction: false,
+    }).start(({ finished }) => {
+      if (!finished || cancelled) return;
+      setDisplayed(title);
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 160,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: true,
+        isInteraction: false,
+      }).start();
+    });
+    return () => {
+      cancelled = true;
+      opacity.stopAnimation();
+    };
+  }, [title, reduceMotion, opacity, refreshPresentation]);
+  if (!displayed || refreshPresentation) {
+    return (
+      <OfftasksLoader
+        active={refreshing}
+        compact
+        onSettled={finishRefresh}
+        style={{ flex: 1, marginHorizontal: 12 }}
+      />
+    );
+  }
+  return (
+    <Animated.Text
+      accessibilityRole={displayed ? 'header' : undefined}
+      numberOfLines={1}
+      style={[
+        s.wordmark,
+        {
+          color: theme.colors.textPrimary,
+          opacity,
+          flex: 1,
+          textAlign: 'center',
+          marginHorizontal: 12,
+        },
+        displayed && { fontSize: 17, letterSpacing: -0.2 },
+      ]}
+    >
+      {displayed ?? (
+        <>
+          offtasks<Text style={s.dot}>.</Text>
+        </>
+      )}
+    </Animated.Text>
+  );
+}
+
 export function SharedHeaderHost({
   onMenu,
   onSearch,
   globalSearch = false,
   covered = false,
+  searchProgress,
+  refreshing = false,
 }: {
   onMenu: () => void;
   onSearch: () => void;
   globalSearch?: boolean;
   covered?: boolean;
+  searchProgress?: Animated.Value;
+  refreshing?: boolean;
 }) {
   const registry = useSharedHeader()!;
   const entry = React.useSyncExternalStore(
@@ -222,14 +329,24 @@ export function SharedHeaderHost({
       pointerEvents="box-none"
       style={s.host}
     >
-      <View
+      <Animated.View
         testID="persistent-main-header"
         pointerEvents={overlay ? 'none' : 'auto'}
         accessibilityElementsHidden={!!overlay}
         importantForAccessibility={overlay ? 'no-hide-descendants' : 'auto'}
         style={[
           s.header,
-          { paddingTop: insets.top + 4, opacity: overlay ? 0 : 1 },
+          {
+            paddingTop: insets.top + 4,
+            opacity: searchProgress
+              ? searchProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 0],
+                })
+              : overlay
+              ? 0
+              : 1,
+          },
         ]}
       >
         <View
@@ -247,14 +364,14 @@ export function SharedHeaderHost({
           </View>
         </View>
         <HeaderButton
-          label={entry?.onBack ? 'Back to goals' : 'Open navigation menu'}
+          label={
+            entry?.onBack ? entry.backLabel ?? 'Back' : 'Open navigation menu'
+          }
           onPress={entry?.onBack ?? entry?.onMenu ?? onMenu}
         >
           <NavigationIcon back={!!entry?.onBack} />
         </HeaderButton>
-        <Text style={[s.wordmark, { color: theme.colors.textPrimary }]}>
-          offtasks<Text style={s.dot}>.</Text>
-        </Text>
+        <HeaderTitle title={entry?.title} refreshing={refreshing} />
         <HeaderButton
           label={globalSearch ? 'Search' : entry?.searchLabel ?? 'Search tasks'}
           onPress={globalSearch ? onSearch : entry?.onSearch ?? onSearch}
@@ -265,7 +382,7 @@ export function SharedHeaderHost({
             color={theme.isDark ? '#D8F3E5' : '#152D25'}
           />
         </HeaderButton>
-      </View>
+      </Animated.View>
     </View>
   );
 }

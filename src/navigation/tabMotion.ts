@@ -8,13 +8,18 @@ export function tabMotion(
   reduceMotion: boolean,
 ): BottomTabNavigationOptions {
   if (reduceMotion) return { animation: 'none' };
+  const config = {
+    duration: TAB_SLIDE_MS,
+    easing: Easing.inOut(Easing.cubic),
+    isInteraction: false,
+  };
   return {
     // The built-in shift preset also fades and moves only 50 points. Override
     // its scene style for an opaque, full-width slide in tab-index order.
     animation: 'shift',
     transitionSpec: {
       animation: 'timing',
-      config: { duration: TAB_SLIDE_MS, easing: Easing.inOut(Easing.cubic) },
+      config,
     },
     sceneStyleInterpolator: ({ current }) => ({
       sceneStyle: {

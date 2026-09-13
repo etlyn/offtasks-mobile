@@ -17,3 +17,6 @@ jest.mock('react-native-device-info', () => ({
     getBuildNumber: jest.fn(() => '2'),
   },
 }));
+
+// Product telemetry is isolated from UI and repository tests.
+jest.mock('@/analytics', () => ({analytics: null, trackTaskCreated: jest.fn()}));

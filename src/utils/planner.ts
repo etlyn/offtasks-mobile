@@ -1,18 +1,14 @@
-import { getToday } from '@/hooks/useDate';
 import { getScheduledDateForTask } from '@/utils/taskScheduling';
 import type { Task } from '@/types/task';
 
 export function tasksForDay<T extends Task>(
   tasks: T[],
   day: string,
-  today = getToday(),
+  _today?: string,
 ): T[] {
   return tasks.filter(task => {
     const date = getScheduledDateForTask(task);
-    return (
-      date === day ||
-      (day === today && !!date && date < today && !task.isComplete)
-    );
+    return date === day;
   });
 }
 

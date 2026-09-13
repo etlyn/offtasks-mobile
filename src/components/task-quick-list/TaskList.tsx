@@ -5,12 +5,11 @@ import Feather from 'react-native-vector-icons/Feather';
 import { Swipeable } from 'react-native-gesture-handler';
 
 import type { Task, TaskWithOverdueFlag } from '@/types/task';
-import { getToday } from '@/hooks/useDate';
-import { usePreferences } from '@/providers/PreferencesProvider';
 import { palette, useAppTheme } from '@/theme/colors';
 import { getCategoryBadgeColors } from '@/utils/categoryColors';
 
 import { createStyles } from './TaskQuickList.styles';
+import { OfftasksLoader } from '@/components/OfftasksLoader';
 
 type TaskType = Task | TaskWithOverdueFlag;
 
@@ -51,10 +50,6 @@ const PriorityChevronIcon = ({
   );
 };
 
-const hasOverdueFlag = (task: TaskType): task is TaskWithOverdueFlag => {
-  return 'isOverdue' in task;
-};
-
 export interface TaskListProps {
   tasks: TaskType[];
   onToggle: (task: TaskType) => Promise<void>;
@@ -64,6 +59,7 @@ export interface TaskListProps {
   getSecondaryText?: (task: TaskType) => string | undefined;
   loading?: boolean;
   calendar?: boolean;
+  showBadges?: boolean;
   emptyIcon?: string;
   emptyTitle?: string;
   emptyDescription?: string;
@@ -78,11 +74,11 @@ export const TaskList = ({
   getSecondaryText,
   loading,
   calendar = false,
+  showBadges = false,
   emptyIcon,
   emptyTitle,
   emptyDescription,
 }: TaskListProps) => {
-  const { advancedMode } = usePreferences();
   const theme = useAppTheme();
   const styles = React.useMemo(
     () => createStyles(theme, calendar),
@@ -97,7 +93,7 @@ export const TaskList = ({
   if (loading) {
     return (
       <View style={styles.centeredCard}>
-        <ActivityIndicator size="small" color={palette.mint} />
+        <OfftasksLoader />
       </View>
     );
   }
@@ -138,7 +134,7 @@ export const TaskList = ({
           onLongPress={onLongPress}
           onDelete={onDelete}
           getSecondaryText={getSecondaryText}
-          showBadges={advancedMode}
+          showBadges={showBadges}
         />
       ))}
     </View>
@@ -179,14 +175,6 @@ const TaskListRow = ({
     : null;
   const priorityMeta = PRIORITY_META[task.priority ?? 0] ?? PRIORITY_META[0];
   const secondaryText = getSecondaryText?.(task);
-
-  const today = getToday();
-  const isOverdue = hasOverdueFlag(task)
-    ? task.isOverdue
-    : !task.isComplete &&
-      !!task.date &&
-      task.date < today &&
-      task.target_group === 'today';
 
   const closeSwipeable = React.useCallback(() => {
     swipeableRef.current?.close();
@@ -260,13 +248,7 @@ const TaskListRow = ({
       rightThreshold={24}
       overshootRight={false}
     >
-      <View
-        style={[
-          styles.row,
-          isOverdue && styles.rowPriority,
-          isLast && styles.lastRow,
-        ]}
-      >
+      <View style={[styles.row, isLast && styles.lastRow]}>
         <Pressable
           accessibilityRole="checkbox"
           accessibilityState={{ checked: task.isComplete }}
@@ -282,11 +264,7 @@ const TaskListRow = ({
         >
           <View
             testID={`task-checkbox-${task.id}`}
-            style={[
-              styles.checkbox,
-              isOverdue && styles.checkboxPriority,
-              task.isComplete && styles.checkboxDone,
-            ]}
+            style={[styles.checkbox, task.isComplete && styles.checkboxDone]}
           >
             {pending ? (
               <ActivityIndicator
@@ -296,8 +274,6 @@ const TaskListRow = ({
                     ? theme.isDark
                       ? '#101916'
                       : '#FFFFFF'
-                    : isOverdue
-                    ? palette.danger
                     : theme.isDark
                     ? '#D8F3E5'
                     : '#152D25'
@@ -325,11 +301,7 @@ const TaskListRow = ({
           ]}
         >
           <Text
-            style={[
-              styles.rowLabel,
-              isOverdue && styles.rowLabelPriority,
-              task.isComplete && styles.rowLabelDone,
-            ]}
+            style={[styles.rowLabel, task.isComplete && styles.rowLabelDone]}
           >
             {task.content}
           </Text>

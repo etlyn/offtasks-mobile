@@ -1,5 +1,5 @@
 import React from 'react';
-import { Animated, Text } from 'react-native';
+import { AccessibilityInfo, Animated, Text } from 'react-native';
 import { TaskSearchHeader } from '../src/features/dashboard/components/TaskSearch';
 import { PlannerHeader } from '../src/components/navigation/PlannerHeader';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
@@ -10,6 +10,39 @@ import {
   SharedHeaderHost,
   SharedHeaderProvider,
 } from '../src/navigation/SharedHeader';
+import { OfftasksLoader } from '../src/components/OfftasksLoader';
+
+test('pull refresh activates the existing compact header wordmark without changing header bounds', async () => {
+  const motion = jest
+    .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
+    .mockResolvedValue(true);
+  const renderHeader = (refreshing: boolean) => (
+    <SharedHeaderProvider>
+      <SharedHeaderHost
+        onMenu={jest.fn()}
+        onSearch={jest.fn()}
+        refreshing={refreshing}
+      />
+    </SharedHeaderProvider>
+  );
+  const view = render(renderHeader(false));
+  await act(async () => {});
+  const header = screen.getByTestId('persistent-main-header');
+  view.rerender(renderHeader(true));
+  expect(screen.UNSAFE_getByType(OfftasksLoader).props).toMatchObject({
+    active: true,
+    compact: true,
+  });
+  expect(screen.getByLabelText('Loading').props.accessibilityState.busy).toBe(
+    true,
+  );
+  view.rerender(renderHeader(false));
+  expect(screen.getByLabelText('offtasks.').props.accessibilityState.busy).toBe(
+    false,
+  );
+  expect(screen.getByTestId('persistent-main-header')).toBe(header);
+  motion.mockRestore();
+});
 
 jest.mock('../src/providers/PreferencesProvider', () => ({
   usePreferences: () => ({ themeMode: 'Light' }),
@@ -52,6 +85,64 @@ test('header registry restores the focused page after a higher-priority overlay 
   expect(listener).toHaveBeenCalledTimes(7);
 });
 
+test('closing search lands on the 36-point header circle without a size or position handoff', () => {
+  const progress = new Animated.Value(1);
+  render(
+    <TaskSearchHeader
+      registerHeader={false}
+      topInset={48}
+      value=""
+      onChange={jest.fn()}
+      onClose={jest.fn()}
+      progress={progress}
+      fieldProgress={progress}
+      ready={false}
+      resultCount={0}
+    />,
+  );
+  expect(screen.getByTestId('task-search-expanding-field')).toHaveStyle({
+    height: 44,
+    marginRight: 0,
+  });
+  act(() => progress.setValue(0));
+  expect(screen.getByTestId('task-search-expanding-field')).toHaveStyle({
+    width: 36,
+    height: 36,
+    marginRight: 4,
+    shadowOpacity: 0,
+  });
+  expect(screen.getByTestId('task-search-full-width')).toHaveStyle({
+    height: 44,
+    justifyContent: 'center',
+  });
+});
+
+test('persistent header fades back before the search layer is removed', () => {
+  const progress = new Animated.Value(1);
+  render(
+    <SharedHeaderProvider>
+      <SharedHeaderHost
+        onMenu={jest.fn()}
+        onSearch={jest.fn()}
+        covered
+        searchProgress={progress}
+      />
+    </SharedHeaderProvider>,
+  );
+  const header = () =>
+    screen.getByTestId('persistent-main-header', {
+      includeHiddenElements: true,
+    });
+  expect(header()).toHaveStyle({
+    opacity: 0,
+  });
+  act(() => progress.setValue(0));
+  expect(header()).toHaveStyle({
+    opacity: 1,
+  });
+  expect(header().props.pointerEvents).toBe('none');
+});
+
 test('page changes update actions without replacing or animating the shared header', () => {
   const onMenu = jest.fn();
   const onCalendarSearch = jest.fn();
@@ -77,7 +168,7 @@ test('page changes update actions without replacing or animating the shared head
   expect(screen.getByTestId('persistent-header-host')).toBe(host);
   expect(screen.getByTestId('persistent-main-header')).toBe(header);
   expect(header).toHaveStyle({ opacity: 1, paddingTop: 52 });
-  expect(screen.getAllByText('offtasks.')).toHaveLength(1);
+  expect(screen.getAllByLabelText('offtasks.')).toHaveLength(1);
   fireEvent.press(screen.getByRole('button', { name: 'Search notes' }));
   fireEvent.press(screen.getByRole('button', { name: 'Open navigation menu' }));
   expect(onNotesSearch).toHaveBeenCalledTimes(1);
@@ -187,7 +278,13 @@ test('goal detail swaps menu for back in the same header button and restores it 
         <HeaderSlot />
         {detail ? (
           <HeaderLayer.Provider value={10}>
-            <PlannerHeader title="Health" onBack={onBack} backInHeader />
+            <PlannerHeader
+              title="Health"
+              titleInHeader
+              onBack={onBack}
+              backInHeader
+              backLabel="Back to goals"
+            />
           </HeaderLayer.Provider>
         ) : null}
         <SharedHeaderHost
@@ -212,6 +309,8 @@ test('goal detail swaps menu for back in the same header button and restores it 
   ).toBeNull();
   expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
   expect(screen.getByRole('header', { name: 'Health' })).toBeOnTheScreen();
+  expect(screen.getAllByText('Health')).toHaveLength(1);
+  expect(screen.queryByLabelText('offtasks.')).toBeNull();
   fireEvent.press(screen.getByRole('button', { name: 'Search' }));
   expect(onSearch).toHaveBeenCalledTimes(1);
   view.rerender(<Layout detail covered />);
@@ -226,4 +325,18 @@ test('goal detail swaps menu for back in the same header button and restores it 
   );
   fireEvent.press(menu);
   expect(onMenu).toHaveBeenCalledTimes(1);
+});
+
+test('statistics back replaces the menu in the shared header without an extra back row', () => {
+  const onBack = jest.fn();
+  render(
+    <SharedHeaderProvider>
+      <PlannerHeader title="Statistics" onBack={onBack} backInHeader />
+      <SharedHeaderHost onMenu={jest.fn()} onSearch={jest.fn()} globalSearch />
+    </SharedHeaderProvider>,
+  );
+  expect(screen.queryByLabelText('Open navigation menu')).toBeNull();
+  expect(screen.getAllByLabelText('Back')).toHaveLength(1);
+  fireEvent.press(screen.getByLabelText('Back'));
+  expect(onBack).toHaveBeenCalledTimes(1);
 });

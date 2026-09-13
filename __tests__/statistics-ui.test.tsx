@@ -10,6 +10,8 @@ import type { Task } from '../src/types/task';
 
 const mockUpdate = jest.fn().mockResolvedValue(undefined);
 const mockNavigate = jest.fn();
+const mockGoBack = jest.fn();
+const mockCanGoBack = jest.fn(() => false);
 const mockTasks: Task[] = [
   {
     id: 'a',
@@ -56,7 +58,12 @@ jest.mock('../src/hooks/useTaskCategories', () => ({
 }));
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
-  useNavigation: () => ({ navigate: mockNavigate }),
+  useIsFocused: () => true,
+  useNavigation: () => ({
+    navigate: mockNavigate,
+    goBack: mockGoBack,
+    canGoBack: mockCanGoBack,
+  }),
 }));
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 48, bottom: 34, left: 0, right: 0 }),
@@ -93,4 +100,37 @@ test('statistics filters history and searches across both task states', async ()
   expect(screen.getByRole('tab', { name: 'Completed' })).toBeSelected();
   fireEvent.press(screen.getByLabelText('Back'));
   expect(mockNavigate).toHaveBeenCalledWith('Calendar');
+});
+
+test('statistics back returns to the previous page when history is available', () => {
+  mockCanGoBack.mockReturnValue(true);
+  render(<StatisticsScreen />);
+  fireEvent.press(screen.getByLabelText('Back'));
+  expect(mockGoBack).toHaveBeenCalledTimes(1);
+  mockCanGoBack.mockReturnValue(false);
+});
+
+test('overview shows honest completion progress and compact task-state controls', () => {
+  render(<StatisticsScreen />);
+  expect(
+    screen.getByLabelText('1 of 2 tasks completed, 50 percent'),
+  ).toBeOnTheScreen();
+  expect(screen.getByText('All-time progress')).toBeOnTheScreen();
+  expect(screen.queryByText('Overdue')).toBeNull();
+  expect(screen.getByText('No tasks in goals yet')).toBeOnTheScreen();
+  fireEvent.press(screen.getByLabelText('View all goals'));
+  expect(mockNavigate).toHaveBeenLastCalledWith('Goals', undefined);
+  expect(screen.getByRole('tab', { name: 'Completed' })).toHaveStyle({
+    minHeight: 44,
+  });
+});
+
+test('statistics shows an assigned future date instead of a misleading Later label', () => {
+  mockTasks[0].date = '2027-09-17';
+  try {
+    render(<StatisticsScreen />);
+    expect(screen.getByText('Sep 17')).toBeOnTheScreen();
+  } finally {
+    mockTasks[0].date = null;
+  }
 });

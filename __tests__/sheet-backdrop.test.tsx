@@ -36,7 +36,7 @@ test('shared backdrop uses native blur and removes it when Reduce Transparency c
     </DetachedSheet>,
   );
   await act(async () => {});
-  expect(screen.getByTestId('sheet-backdrop-blur')).toBeTruthy();
+  expect(screen.getByTestId('sheet-backdrop-blur').props.intensity).toBe(0.015);
   expect(screen.getByLabelText('Dismiss note editor')).toBeTruthy();
   act(() => change(true));
   expect(screen.queryByTestId('sheet-backdrop-blur')).toBeNull();

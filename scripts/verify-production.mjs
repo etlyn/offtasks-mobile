@@ -1,3 +1,4 @@
+import { verifyAnalytics } from './verify-analytics.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -88,6 +89,7 @@ if (
 ) {
   const root = fileURLToPath(new URL('../', import.meta.url));
   Promise.resolve()
+    .then(() => verifyAnalytics(root))
     .then(() => verifyProduction(readProductionEnv(root)))
     .then(
       () => console.log('Production Supabase authentication is reachable.'),

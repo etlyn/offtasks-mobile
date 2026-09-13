@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { noteTones, type NoteTone } from './noteAppearance';
 
 export interface Note {
   id: string;
@@ -6,6 +7,7 @@ export interface Note {
   body: string;
   pinned: boolean;
   updatedAt: string;
+  tone?: NoteTone;
 }
 
 export const notesStorageKey = (userId: string) => {
@@ -25,6 +27,8 @@ export function parseNotes(raw: string | null): Note[] {
         typeof note.title === 'string' &&
         typeof note.body === 'string' &&
         typeof note.pinned === 'boolean' &&
+        (note.tone === undefined ||
+          noteTones.some(tone => tone.id === note.tone)) &&
         typeof note.updatedAt === 'string' &&
         Number.isFinite(Date.parse(note.updatedAt)),
     ) ||
@@ -77,6 +81,7 @@ export function saveNote(
     body,
     updatedAt: now,
     pinned: previous?.pinned ?? false,
+    ...(previous?.tone ? { tone: previous.tone } : {}),
   };
   return previous
     ? notes.map(item => (item.id === id ? note : item))

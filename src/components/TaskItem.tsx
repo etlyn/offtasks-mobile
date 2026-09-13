@@ -11,12 +11,11 @@ import Feather from 'react-native-vector-icons/Feather';
 
 import { deleteTask, updateTask } from '@/lib/supabase';
 import { getToday } from '@/hooks/useDate';
-import { usePreferences } from '@/providers/PreferencesProvider';
 import { useTasks } from '@/providers/TasksProvider';
 import type { Task, TaskWithOverdueFlag } from '@/types/task';
 import { palette } from '@/theme/colors';
 import { getCategoryBadgeColors } from '@/utils/categoryColors';
-import { describeTaskSchedule, isTaskOverdue } from '@/utils/taskScheduling';
+import { describeTaskSchedule } from '@/utils/taskScheduling';
 
 interface TaskItemProps {
   task: Task | TaskWithOverdueFlag;
@@ -25,15 +24,9 @@ interface TaskItemProps {
 /**
  * Helper to check if task has the isOverdue flag (TaskWithOverdueFlag type)
  */
-const hasOverdueFlag = (
-  task: Task | TaskWithOverdueFlag,
-): task is TaskWithOverdueFlag => {
-  return 'isOverdue' in task;
-};
-
 export const TaskItem = ({ task }: TaskItemProps) => {
   const { refresh, applyTaskUpdate } = useTasks();
-  const { advancedMode, redTasks } = usePreferences();
+  const advancedMode = !!task.label;
   const [submitting, setSubmitting] = useState(false);
   const priorityLabel =
     ['None', 'Low', 'Medium', 'High'][task.priority ?? 0] ?? 'None';
@@ -54,7 +47,6 @@ export const TaskItem = ({ task }: TaskItemProps) => {
 
   // Use the isOverdue flag if available, otherwise compute it
   // A task is overdue if it's not complete, date is before today, and still in Today
-  const isOverdue = hasOverdueFlag(task) ? task.isOverdue : isTaskOverdue(task);
 
   const handleToggle = async () => {
     if (submitting) {
@@ -111,7 +103,7 @@ export const TaskItem = ({ task }: TaskItemProps) => {
   };
 
   // Whether to apply red/urgent styling (overdue OR redTasks toggle)
-  const showRed = !task.isComplete && (isOverdue || redTasks);
+  const showRed = false;
 
   return (
     <View

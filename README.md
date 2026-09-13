@@ -159,3 +159,27 @@ records in Supabase does not establish web feature parity.
 - Supabase helpers (`src/lib/supabase.ts`) mirror the contracts in `etlyn/offtasks.com`.
 - UI colours live in `src/theme/colors.ts` and follow the dark palette used on the web.
 - New backend columns/endpoints should be updated in both projects so the experiences stay aligned.
+
+### Product analytics
+
+The shared `@etlyn/analytics/react-native` adapter is vendored at
+`0.5.0-alpha.0`. Production iOS and Android builds use separate public collection
+keys in `src/analytics/production.json`, owned by Etlyn in Platform. These keys
+are application identifiers, not secrets or account credentials. Debug builds
+send no production analytics.
+
+The pilot tracks allowlisted screen names (Calendar, Notes, Goals, Later and
+Statistics) and `task_created` after a successful local/cloud repository write.
+It sends no route parameters, task content, notes, goal names, emails or user IDs.
+The menu's Product analytics switch is available to guests and signed-in users.
+Its disclosure explains persisted random installation IDs, the seven-day offline
+queue, 400-day server retention and the effect of opting out.
+
+Platform: select Etlyn, then `offtasks-ios-production` or
+`offtasks-android-production`. New events include screen names and app versions
+in the timeline and complete CSV export. Mobile applications are owned by the
+existing Etlyn company; they do not create CMS tenants or change Supabase auth.
+
+After dependency installation, run `pod install` in `ios` to link secure UUID
+support. Validate on both platforms before a store release; deployment of the
+backend or committing these changes does not publish a mobile store update.

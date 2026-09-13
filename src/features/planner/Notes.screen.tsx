@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   BackHandler,
@@ -13,13 +12,14 @@ import {
   View,
 } from 'react-native';
 import { DetachedSheet } from '@/components/DetachedSheet';
+import { OfftasksLoader } from '@/components/OfftasksLoader';
 import { SheetHeader } from '@/components/SheetHeader';
 import Feather from 'react-native-vector-icons/Feather';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTaskCreation } from '@/navigation/TaskCreationContext';
 import { TaskSearchHeader } from '@/features/dashboard/components/TaskSearch';
 import { useSearchTransition } from '@/features/dashboard/components/useSearchTransition';
-import { Bookmark, FileText } from 'lucide-react-native';
+import { FileText } from 'lucide-react-native';
 import {
   GentlePressable as Pressable,
   PageBackdrop,
@@ -40,6 +40,8 @@ import {
 import { filterNotes, saveNote, type Note } from '@/lib/notes';
 import { palette, useAppTheme } from '@/theme/colors';
 import { NotesFilter } from './NotesFilter';
+import { NoteCard } from './NoteCard';
+import { NoteAppearanceSheet } from './NoteAppearanceSheet';
 import { plannerStyles } from './Planner.styles';
 
 export const NotesScreen = ({
@@ -48,11 +50,14 @@ export const NotesScreen = ({
   route?: { params?: { openNoteRequest?: { id: string; requestId: number } } };
 }) => {
   const userId = useAuth().session?.user.id || GUEST_ID;
+  const currentOwner = useRef(userId);
+  currentOwner.current = userId;
   const theme = useAppTheme();
   const { reduceMotion, animateLayout } = useCalendarTransition();
   const brand = theme.isDark ? '#D8F3E5' : '#152D25';
   const styles = plannerStyles(theme);
   const insets = useSafeAreaInsets();
+  const [appearanceNote, setAppearanceNote] = useState<Note | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -94,14 +99,14 @@ export const NotesScreen = ({
   const setNoteAction = useTaskCreation()?.setNoteAction;
   useEffect(() => {
     setNoteAction?.({
-      disabled: loading || loadError || saving || !!editor,
+      disabled: loading || loadError || saving || !!editor || !!appearanceNote,
       onPress: () => {
         Keyboard.dismiss();
         setEditor({ title: '', body: '' });
       },
     });
     return () => setNoteAction?.(null);
-  }, [setNoteAction, loading, loadError, saving, editor]);
+  }, [setNoteAction, loading, loadError, saving, editor, appearanceNote]);
   useFocusEffect(
     React.useCallback(() => {
       const back = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -122,6 +127,9 @@ export const NotesScreen = ({
     setLoadError(false);
     setNotes([]);
     setEditor(null);
+    setEditorClosing(false);
+    setSaving(false);
+    setAppearanceNote(null);
     readPlanner(userId, 'note')
       .then(value => {
         if (active) setNotes(value);
@@ -139,15 +147,19 @@ export const NotesScreen = ({
   }, [userId, reload]);
 
   useEffect(() => {
+    let active = true;
     const unsubscribe = subscribePlanner(() => {
       readPlanner(userId, 'note')
         .then(value => {
-          if (alive.current) setNotes(value);
+          if (active && currentOwner.current === userId) setNotes(value);
         })
         .catch(() => undefined);
     });
     void syncPlanner(userId, 'note');
-    return unsubscribe;
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [userId, reload]);
 
   const persist = async (next: Note[]) => {
@@ -157,14 +169,14 @@ export const NotesScreen = ({
     try {
       await writePlanner(userId, 'note', next, notes);
       const saved = await readPlanner(userId, 'note');
-      if (alive.current) {
+      if (alive.current && currentOwner.current === userId) {
         animateLayout();
         setNotes(saved);
       }
       void syncPlanner(userId, 'note');
-      return true;
+      return alive.current && currentOwner.current === userId;
     } catch {
-      if (alive.current)
+      if (alive.current && currentOwner.current === userId)
         Alert.alert(
           'Could not save notes',
           'Your changes were not saved. Please try again.',
@@ -172,22 +184,12 @@ export const NotesScreen = ({
       return false;
     } finally {
       busy.current = false;
-      if (alive.current) setSaving(false);
+      if (alive.current && currentOwner.current === userId) setSaving(false);
     }
   };
 
   const closeEditor = () => {
-    if (busy.current) return;
-    const original = notes.find(note => note.id === editor?.id);
-    const changed =
-      editor &&
-      (editor.title !== (original?.title || '') ||
-        editor.body !== (original?.body || ''));
-    if (!changed) return dismissEditor();
-    Alert.alert('Discard changes?', 'Your unsaved changes will be lost.', [
-      { text: 'Keep editing', style: 'cancel' },
-      { text: 'Discard', style: 'destructive', onPress: dismissEditor },
-    ]);
+    if (!busy.current) dismissEditor();
   };
 
   const submit = async () => {
@@ -245,21 +247,58 @@ export const NotesScreen = ({
       ListEmptyComponent={
         <View style={styles.empty}>
           {loading ? (
-            <ActivityIndicator color={brand} />
+            <OfftasksLoader />
           ) : (
             <>
-              <QuietEmpty
-                icon={FileText}
-                label={
-                  loadError
-                    ? 'Notes could not be loaded'
-                    : searchPage && query
-                    ? 'No matching notes'
-                    : !searchPage && pinnedOnly
-                    ? 'No pinned notes'
-                    : 'No notes yet'
-                }
-              />
+              {!loadError && !searchPage && !pinnedOnly ? (
+                <View style={{ alignItems: 'center', gap: 12, paddingTop: 28 }}>
+                  <View
+                    style={{
+                      width: 50,
+                      height: 56,
+                      borderRadius: 14,
+                      backgroundColor: theme.isDark ? '#24342B' : '#EAF2EC',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transform: [{ rotate: '-5deg' }],
+                    }}
+                    accessibilityElementsHidden
+                  >
+                    <FileText
+                      size={23}
+                      strokeWidth={1.3}
+                      color={theme.isDark ? '#B2CABB' : '#718E7C'}
+                    />
+                  </View>
+                  <Text
+                    style={{
+                      color: theme.colors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: '500',
+                    }}
+                  >
+                    No notes yet
+                  </Text>
+                  <Text
+                    style={{ color: theme.colors.textSecondary, fontSize: 13 }}
+                  >
+                    A little space for your thoughts.
+                  </Text>
+                </View>
+              ) : (
+                <QuietEmpty
+                  icon={FileText}
+                  label={
+                    loadError
+                      ? 'Notes could not be loaded'
+                      : searchPage && query
+                      ? 'No matching notes'
+                      : !searchPage && pinnedOnly
+                      ? 'No pinned notes'
+                      : 'No notes yet'
+                  }
+                />
+              )}
               {loadError ? (
                 <Pressable
                   accessibilityRole="button"
@@ -274,58 +313,24 @@ export const NotesScreen = ({
         </View>
       }
       renderItem={({ item }) => (
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Open note ${item.title}`}
-              style={styles.grow}
-              onPress={() =>
-                setEditor({ id: item.id, title: item.title, body: item.body })
-              }
-            >
-              <Text style={styles.title} numberOfLines={2}>
-                {item.title}
-              </Text>
-              {item.body ? (
-                <Text style={styles.body} numberOfLines={2}>
-                  {item.body}
-                </Text>
-              ) : null}
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${item.pinned ? 'Unpin' : 'Pin'} ${
-                item.title
-              }`}
-              accessibilityState={{ selected: item.pinned, disabled: saving }}
-              disabled={saving}
-              style={styles.iconButton}
-              onPress={() =>
-                persist(
-                  notes.map(note =>
-                    note.id === item.id
-                      ? { ...note, pinned: !note.pinned }
-                      : note,
-                  ),
-                )
-              }
-            >
-              <Bookmark
-                size={18}
-                strokeWidth={1.6}
-                color={item.pinned ? brand : theme.colors.textSecondary}
-                fill={item.pinned ? brand : 'none'}
-              />
-            </Pressable>
-          </View>
-          <Text style={styles.date}>
-            {new Date(item.updatedAt).toLocaleString(undefined, {
-              month: 'short',
-              day: 'numeric',
-            })}
-          </Text>
-        </View>
+        <NoteCard
+          note={item}
+          disabled={saving || loading || loadError}
+          onOpen={() =>
+            setEditor({ id: item.id, title: item.title, body: item.body })
+          }
+          onOptions={() => {
+            Keyboard.dismiss();
+            setAppearanceNote(item);
+          }}
+          onPin={() =>
+            persist(
+              notes.map(note =>
+                note.id === item.id ? { ...note, pinned: !note.pinned } : note,
+              ),
+            )
+          }
+        />
       )}
     />
   );
@@ -419,6 +424,24 @@ export const NotesScreen = ({
           </Animated.View>
         </View>
       ) : null}
+      <NoteAppearanceSheet
+        note={appearanceNote}
+        onClose={() => setAppearanceNote(null)}
+        onSave={async tone => {
+          if (
+            !appearanceNote ||
+            !notes.some(note => note.id === appearanceNote.id)
+          ) {
+            Alert.alert('Note unavailable', 'This note may have been removed.');
+            return false;
+          }
+          return persist(
+            notes.map(note =>
+              note.id === appearanceNote.id ? { ...note, tone } : note,
+            ),
+          );
+        }}
+      />
       <DetachedSheet
         visible={!!editor && !editorClosing}
         reduceMotion={reduceMotion}

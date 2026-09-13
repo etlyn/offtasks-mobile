@@ -14,7 +14,7 @@ import type { Task, TaskGroup, TaskWithOverdueFlag } from '@/types/task';
 import { categorizeTasks, addOverdueFlag } from '@/utils/taskUtils';
 import { getToday } from '@/hooks/useDate';
 import { publishWidgetSnapshot } from '@/lib/widgetBridge';
-import { shouldAutoMoveTaskToToday } from '@/utils/taskScheduling';
+import { shouldMovePastTaskToLater } from '@/utils/taskScheduling';
 
 import { usePreferences } from './PreferencesProvider';
 
@@ -99,7 +99,9 @@ const TasksContext = createContext<TasksContextValue>({
 
 export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
   const repository = useTaskRepository();
-  const { autoArrange, themeMode } = usePreferences();
+  const { movePastTasksToLater, themeMode } = usePreferences();
+  const currentPolicy = useRef({ repository, movePastTasksToLater });
+  currentPolicy.current = { repository, movePastTasksToLater };
   const [tasks, setTasks] = useState<TasksByGroup>(emptyState);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -274,18 +276,28 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
           TASK_REFRESH_TIMEOUT_MS,
           'Task refresh',
         );
+        // A stale fetch must never move dates after opting out or changing account.
+        if (
+          refreshId !== latestRefreshIdRef.current ||
+          !mountedRef.current ||
+          currentPolicy.current.repository !== repository
+        )
+          return;
         let needsRefresh = false;
 
-        if (autoArrange) {
+        if (
+          movePastTasksToLater &&
+          currentPolicy.current.movePastTasksToLater
+        ) {
           const updates: Promise<void>[] = [];
 
           for (const task of allTasks) {
-            if (shouldAutoMoveTaskToToday(task)) {
+            if (shouldMovePastTaskToLater(task)) {
               needsRefresh = true;
               updates.push(
                 repository.update(task.id, {
-                  target_group: 'today',
-                  date: getToday(),
+                  target_group: 'upcoming',
+                  date: null,
                 }),
               );
             }
@@ -295,7 +307,7 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
             await withTimeout(
               Promise.all(updates),
               TASK_REFRESH_TIMEOUT_MS,
-              'Task auto-arrange',
+              'Move past tasks to Later',
             );
           }
         }
@@ -330,7 +342,7 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
       }
     },
     [
-      autoArrange,
+      movePastTasksToLater,
       beginRefresh,
       buildTasksState,
       commitTasksState,

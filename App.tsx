@@ -1,5 +1,6 @@
 import React from 'react';
-import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
+import { analyticsNavigation } from '@/analytics/navigation';
+import { StatusBar, StyleSheet, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -9,7 +10,8 @@ import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { PreferencesProvider } from '@/providers/PreferencesProvider';
 import { TasksProvider } from '@/providers/TasksProvider';
 import { SplashScreen } from '@/components/SplashScreen';
-import { palette, useAppTheme } from '@/theme/colors';
+import { useAppTheme } from '@/theme/colors';
+import { OfftasksLoader } from '@/components/OfftasksLoader';
 import { GUEST_ID } from '@/lib/localTasks';
 import { AppNavigator } from '@/navigation/AppNavigator';
 
@@ -17,7 +19,7 @@ enableScreens();
 
 const LoadingScreen = ({ backgroundColor }: { backgroundColor: string }) => (
   <View style={[styles.loadingScreen, { backgroundColor }]}>
-    <ActivityIndicator size="large" color={palette.mint} />
+    <OfftasksLoader />
   </View>
 );
 
@@ -35,7 +37,7 @@ const RootNavigator = () => {
   }
 
   return (
-    <NavigationContainer theme={theme.navigationTheme}>
+    <NavigationContainer {...analyticsNavigation} theme={theme.navigationTheme}>
       <StatusBar
         barStyle={theme.statusBarStyle}
         backgroundColor="transparent"

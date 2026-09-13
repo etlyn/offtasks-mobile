@@ -12,7 +12,7 @@ export interface DashboardScreenRouteParams {
 
 export interface DashboardScreenProps {
   composerOnly?: boolean;
-  initialDate?: string;
+  initialDate?: string | null;
   initialCategory?: string;
   onComposerClose?: () => void;
   onBack?: () => void;

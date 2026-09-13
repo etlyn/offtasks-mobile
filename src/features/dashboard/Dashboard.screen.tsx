@@ -15,8 +15,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDrawerStatus } from '@react-navigation/drawer';
 
 import { PlannerHeader } from '@/components/navigation/PlannerHeader';
-import { QuietEmpty } from '@/components/ProductUI';
-import { Bookmark, Flag } from 'lucide-react-native';
+import { QuietEmpty, GentlePressable } from '@/components/ProductUI';
+import {
+  Bookmark,
+  Flag,
+  ArrowDownWideNarrow,
+  ArrowUpWideNarrow,
+  ArrowUpDown,
+} from 'lucide-react-native';
 import { tasksForDay, tasksForGoal } from '@/utils/planner';
 import { TaskList } from '@/components/task-quick-list';
 import {
@@ -25,7 +31,6 @@ import {
 } from '@/hooks/useTaskCategories';
 import { useTaskRepository } from '@/lib/taskRepository';
 import { getToday } from '@/hooks/useDate';
-import { usePreferences } from '@/providers/PreferencesProvider';
 import { useTasks } from '@/providers/TasksProvider';
 import type { Task, TaskWithOverdueFlag } from '@/types/task';
 import { palette, useAppTheme } from '@/theme/colors';
@@ -43,7 +48,7 @@ import type {
   GroupSegment,
   PriorityOption,
 } from './Dashboard.types';
-import { FilterBar } from './components/FilterBar';
+import { GoalProgress } from '@/features/planner/GoalProgress';
 import { Layout } from './components/Layout';
 import { TaskComposerModal } from './components/TaskComposerModal';
 import { useTaskCreation } from '@/navigation/TaskCreationContext';
@@ -120,7 +125,7 @@ export const DashboardScreen = ({
     update: updateTask,
     remove: deleteTask,
   } = useTaskRepository();
-  const { hideCompleted, advancedMode } = usePreferences();
+
   const { categories, addCategory, removeCategory } = useTaskCategories();
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -210,6 +215,8 @@ export const DashboardScreen = ({
         ? tasksForGoal(allTasks, goal)
         : isCalendar
         ? tasksForDay(allTasks, calendarDay)
+        : activeGroup === 'upcoming'
+        ? allTasks.filter(task => !task.date)
         : tasks[activeGroup] ?? [],
     [activeGroup, tasks, goal, isCalendar, calendarDay, allTasks],
   );
@@ -220,57 +227,12 @@ export const DashboardScreen = ({
     reduceSearchMotion,
     () => setSearchQuery(''),
   );
-  const [selectedLabels, setSelectedLabels] = React.useState<string[]>([]);
   const [prioritySortDirection, setPrioritySortDirection] = React.useState<
     'asc' | 'desc' | null
   >(null);
 
-  const effectiveShowCompleted = !hideCompleted;
-  const applyFilters = advancedMode || hideCompleted;
-
-  const availableLabels = React.useMemo(() => {
-    const labels = baseTasks
-      .map(task => task.label?.trim())
-      .filter((label): label is string => Boolean(label));
-    return Array.from(new Set(labels)).sort((a, b) => a.localeCompare(b));
-  }, [baseTasks]);
-
-  React.useEffect(() => {
-    if (selectedLabels.length === 0) {
-      return;
-    }
-    setSelectedLabels(prev =>
-      prev.filter(label => availableLabels.includes(label)),
-    );
-  }, [availableLabels, selectedLabels.length]);
-
-  const filteredTasks = React.useMemo(() => {
-    if (!applyFilters) {
-      return baseTasks;
-    }
-
-    return baseTasks.filter(task => {
-      if (advancedMode) {
-        if (selectedLabels.length > 0) {
-          if (!task.label || !selectedLabels.includes(task.label)) {
-            return false;
-          }
-        }
-      }
-
-      if (!effectiveShowCompleted && task.isComplete) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [
-    advancedMode,
-    applyFilters,
-    baseTasks,
-    effectiveShowCompleted,
-    selectedLabels,
-  ]);
+  const advancedMode = !!goal;
+  const filteredTasks = baseTasks;
 
   const sortedTasks = React.useMemo(() => {
     if (!advancedMode || !prioritySortDirection) {
@@ -294,8 +256,7 @@ export const DashboardScreen = ({
   );
   const hasSearchQuery = searchQuery.trim().length > 0;
 
-  const activeFilterCount =
-    selectedLabels.length + (prioritySortDirection ? 1 : 0);
+  const activeFilterCount = 0;
   const totalCount = baseTasks.length;
   const completedCount = baseTasks.filter(task => task.isComplete).length;
 
@@ -309,7 +270,9 @@ export const DashboardScreen = ({
   const [newTaskContent, setNewTaskContent] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
   const [selectedDate, setSelectedDate] = React.useState<string | null>(
-    initialDate ?? getDefaultDateForGroup(activeGroup),
+    initialDate === undefined
+      ? getDefaultDateForGroup(activeGroup)
+      : initialDate,
   );
   const [selectedPriority, setSelectedPriority] = React.useState<number>(0);
   const [categoryQuery, setCategoryQuery] = React.useState('');
@@ -668,31 +631,20 @@ export const DashboardScreen = ({
     }
   }, [drawerStatus, handleCloseSearch, searchDockVisible]);
 
-  const toggleLabel = React.useCallback((label: string) => {
-    setSelectedLabels(prev =>
-      prev.includes(label)
-        ? prev.filter(item => item !== label)
-        : [...prev, label],
-    );
-  }, []);
-
   const togglePrioritySort = React.useCallback(() => {
+    animateCalendarLayout();
     setPrioritySortDirection(prev => {
       if (prev === null) return 'desc';
       if (prev === 'desc') return 'asc';
       return null;
     });
-  }, []);
-
-  const clearAllFilters = React.useCallback(() => {
-    setSearchQuery('');
-    setSelectedLabels([]);
-    setPrioritySortDirection(null);
-  }, []);
+  }, [animateCalendarLayout]);
 
   const composer = (
     <TaskComposerModal
       visible={composerVisible}
+      goalMode={!!goal || !!initialCategory}
+      allowGoalSelection={false}
       onClose={closeComposer}
       onDismiss={finishClosingComposer}
       insetTop={insets.top}
@@ -741,6 +693,8 @@ export const DashboardScreen = ({
           />
         ) : !searchPage ? (
           <PlannerHeader
+            backLabel="Back to goals"
+            titleInHeader={!!goal}
             title={
               goal ||
               (isCalendar
@@ -787,21 +741,6 @@ export const DashboardScreen = ({
               ? () => changeCalendarExpanded(false)
               : undefined
           }
-          filterBar={
-            !searchPage && advancedMode ? (
-              <FilterBar
-                availableLabels={availableLabels}
-                selectedLabels={selectedLabels}
-                activeFilterCount={activeFilterCount}
-                prioritySortDirection={prioritySortDirection}
-                theme={theme}
-                themeStyles={themeStyles}
-                onTogglePrioritySort={togglePrioritySort}
-                onToggleLabel={toggleLabel}
-                onClearAllFilters={clearAllFilters}
-              />
-            ) : null
-          }
         >
           {error ? (
             <Pressable
@@ -841,6 +780,7 @@ export const DashboardScreen = ({
                 gap: 8,
                 marginBottom: 8,
                 paddingHorizontal: 4,
+                minHeight: 44,
               }}
             >
               <Text
@@ -863,6 +803,70 @@ export const DashboardScreen = ({
                   {completedCount}/{totalCount}
                 </Text>
               ) : null}
+              {goal ? (
+                <GentlePressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Sort by priority"
+                  accessibilityValue={{
+                    text:
+                      prioritySortDirection === 'desc'
+                        ? 'Highest first'
+                        : prioritySortDirection === 'asc'
+                        ? 'Lowest first'
+                        : 'Default order',
+                  }}
+                  accessibilityHint="Cycles highest first, lowest first, and default order"
+                  accessibilityState={{ selected: !!prioritySortDirection }}
+                  onPress={togglePrioritySort}
+                  style={{
+                    marginLeft: 'auto',
+                    width: 44,
+                    height: 44,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: 15,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: prioritySortDirection
+                        ? theme.isDark
+                          ? '#2B4237'
+                          : '#E2EBE5'
+                        : 'transparent',
+                    }}
+                  >
+                    {prioritySortDirection === 'desc' ? (
+                      <ArrowDownWideNarrow
+                        size={18}
+                        color={theme.colors.textPrimary}
+                        strokeWidth={1.7}
+                      />
+                    ) : prioritySortDirection === 'asc' ? (
+                      <ArrowUpWideNarrow
+                        size={18}
+                        color={theme.colors.textPrimary}
+                        strokeWidth={1.7}
+                      />
+                    ) : (
+                      <ArrowUpDown
+                        size={18}
+                        color={theme.colors.textSecondary}
+                        strokeWidth={1.7}
+                      />
+                    )}
+                  </View>
+                </GentlePressable>
+              ) : null}
+            </View>
+          ) : null}
+          {goal && !searchPage && totalCount > 0 ? (
+            <View style={{ marginHorizontal: 4, marginBottom: 14 }}>
+              <GoalProgress completed={completedCount} total={totalCount} />
             </View>
           ) : null}
           {searchPage && !loading && displayTasks.length === 0 ? (
@@ -888,6 +892,7 @@ export const DashboardScreen = ({
           ) : (
             <TaskList
               calendar
+              showBadges={!!goal}
               tasks={displayTasks}
               onToggle={handleToggleTask}
               onPress={handleEditTask}

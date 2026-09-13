@@ -1,5 +1,6 @@
 import React from 'react';
-import { Alert, Modal } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { ActivityIndicator, Alert, Animated, Modal } from 'react-native';
 import { fireEvent, render, screen, act } from '@testing-library/react-native';
 import { TaskComposerModal } from '../src/features/dashboard/components/TaskComposerModal';
 import { GentlePressable } from '../src/components/ProductUI';
@@ -7,15 +8,18 @@ import { GentlePressable } from '../src/components/ProductUI';
 jest.mock('../src/providers/PreferencesProvider', () => ({
   usePreferences: () => ({ themeMode: 'Light' }),
 }));
+let mockReduceMotion = true;
 jest.mock('../src/features/dashboard/components/useCalendarTransition', () => ({
   useCalendarTransition: () => ({
-    reduceMotion: true,
+    reduceMotion: mockReduceMotion,
     animateLayout: jest.fn(),
   }),
 }));
 
 const fixture = (): React.ComponentProps<typeof TaskComposerModal> => ({
   visible: true,
+  goalMode: true,
+  allowGoalSelection: true,
   onClose: jest.fn(),
   insetTop: 48,
   insetBottom: 34,
@@ -50,7 +54,48 @@ const fixture = (): React.ComponentProps<typeof TaskComposerModal> => ({
   onChangeDate: jest.fn(),
 });
 
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => {
+  jest.restoreAllMocks();
+  mockReduceMotion = true;
+});
+
+test('composer eases measured content height instead of jumping between editor and date', () => {
+  mockReduceMotion = false;
+  const timing = jest.spyOn(Animated, 'timing').mockImplementation(() => ({
+    start: jest.fn(),
+    stop: jest.fn(),
+    reset: jest.fn(),
+  }));
+  const view = render(<TaskComposerModal {...fixture()} />);
+  const content = screen.getByTestId('task-composer-measure');
+  const measure = (height: number) =>
+    fireEvent(content, 'layout', {
+      nativeEvent: { layout: { width: 320, height } },
+    });
+  measure(160);
+  fireEvent.press(screen.getByLabelText('Choose task date'));
+  measure(234);
+  expect(timing).toHaveBeenLastCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      toValue: 234,
+      duration: 320,
+      useNativeDriver: false,
+      isInteraction: false,
+    }),
+  );
+  fireEvent.press(screen.getByLabelText('Back to task'));
+  measure(160);
+  expect(timing).toHaveBeenLastCalledWith(
+    expect.anything(),
+    expect.objectContaining({ toValue: 160, duration: 320 }),
+  );
+  mockReduceMotion = true;
+  view.rerender(<TaskComposerModal {...fixture()} />);
+  expect(screen.getByTestId('task-composer-content')).toHaveStyle({
+    height: 160,
+  });
+});
 
 test('native composer keeps the current date while opening its picker', () => {
   const props = fixture();
@@ -62,16 +107,18 @@ test('native composer keeps the current date while opening its picker', () => {
   fireEvent.press(screen.getByLabelText('Choose task date'));
   expect(props.onChangeDate).not.toHaveBeenCalled();
   expect(props.onChangeGroup).not.toHaveBeenCalled();
-  fireEvent.press(screen.getByLabelText('Hide date picker'));
+  fireEvent.press(screen.getByLabelText('Back to task'));
   expect(props.onChangeDate).not.toHaveBeenCalled();
   fireEvent.press(screen.getByLabelText('Choose task priority'));
   fireEvent.press(screen.getByLabelText('Priority: High'));
   expect(props.onSelectPriority).toHaveBeenCalledWith(3);
 });
 
-test('regular task entry needs no priority or goal and has no scheduling shortcuts', () => {
-  const props = fixture();
+test('regular task entry hides priority and goals and has no scheduling shortcuts', () => {
+  const props = { ...fixture(), goalMode: false, allowGoalSelection: false };
   render(<TaskComposerModal {...props} />);
+  expect(screen.queryByLabelText('Choose task priority')).toBeNull();
+  expect(screen.queryByLabelText('Choose task goal')).toBeNull();
   expect(screen.queryByLabelText('Schedule today')).toBeNull();
   expect(screen.queryByLabelText('Schedule tomorrow')).toBeNull();
   expect(screen.queryByLabelText('Priority: None')).toBeNull();
@@ -155,21 +202,66 @@ test('submitting prevents double saves, dismissal, and option changes', () => {
   expect(props.onSubmit).not.toHaveBeenCalled();
 });
 
-test('date-only edits require confirmation before dismissing', () => {
+test('changed drafts close directly without a discard confirmation', () => {
   const props = fixture();
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   const view = render(<TaskComposerModal {...props} />);
-  view.rerender(<TaskComposerModal {...props} selectedDate="2027-03-19" />);
-  fireEvent.press(screen.getByLabelText('Cancel task'));
-  expect(props.onClose).not.toHaveBeenCalled();
-  expect(alert).toHaveBeenCalledWith(
-    'Discard changes?',
-    expect.any(String),
-    expect.any(Array),
+  view.rerender(
+    <TaskComposerModal
+      {...props}
+      selectedDate="2027-03-19"
+      newTaskContent="Updated draft"
+    />,
   );
-  const buttons = alert.mock.calls[0][2];
-  act(() => buttons?.find(button => button.text === 'Discard')?.onPress?.());
+  fireEvent.press(screen.getByLabelText('Cancel task'));
+  expect(alert).not.toHaveBeenCalled();
   expect(props.onClose).toHaveBeenCalledTimes(1);
+});
+
+test('date selection replaces the editor and stages wheel changes until Done', () => {
+  const props = fixture();
+  const view = render(<TaskComposerModal {...props} />);
+  fireEvent.press(screen.getByLabelText('Choose task date'));
+  expect(screen.queryByLabelText('Task content')).toBeNull();
+  expect(view.UNSAFE_getAllByType(Modal)).toHaveLength(1);
+  const wheel = view.UNSAFE_getByType(DateTimePicker);
+  expect(wheel.props.display).toBe('spinner');
+  const chosen = new Date(2027, 3, 22);
+  fireEvent(wheel, 'change', { type: 'set' }, chosen);
+  expect(props.onChangeDate).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByLabelText('Set task date'));
+  expect(props.onChangeDate).toHaveBeenCalledWith('2027-04-22');
+  expect(screen.getByLabelText('Task content').props.value).toBe('Plan trip');
+  expect(screen.queryByTestId('task-date-step')).toBeNull();
+});
+
+test('leaving the date step without Done preserves the assigned date', () => {
+  const props = fixture();
+  const view = render(<TaskComposerModal {...props} />);
+  fireEvent.press(screen.getByLabelText('Choose task date'));
+  fireEvent(
+    view.UNSAFE_getByType(DateTimePicker),
+    'change',
+    { type: 'set' },
+    new Date(2027, 3, 22),
+  );
+  fireEvent.press(screen.getByLabelText('Back to task'));
+  expect(props.onChangeDate).not.toHaveBeenCalled();
+  expect(props.onClose).not.toHaveBeenCalled();
+  expect(screen.getByLabelText('Task content').props.value).toBe('Plan trip');
+  fireEvent.press(screen.getByLabelText('Choose task date'));
+  expect(view.UNSAFE_getByType(DateTimePicker).props.value).toEqual(
+    new Date(2027, 2, 18),
+  );
+});
+
+test('pending saves use a quiet mark, never a rotating spinner', () => {
+  const view = render(<TaskComposerModal {...fixture()} submitting />);
+  expect(screen.getByTestId('task-saving-pulse')).toBeOnTheScreen();
+  expect(view.UNSAFE_queryByType(ActivityIndicator)).toBeNull();
+  expect(screen.getByLabelText('Save task').props.accessibilityState.busy).toBe(
+    true,
+  );
 });
 
 test('untouched drafts close immediately and blank drafts cannot save', () => {
@@ -193,4 +285,32 @@ test('animated controls retain layout styles and disabled appearance', () => {
     borderRadius: 22,
     opacity: 0.4,
   });
+});
+
+test('goal task creation exposes priority, with its goal supplied by the page', () => {
+  const props = {
+    ...fixture(),
+    selectedCategory: 'Work',
+    allowGoalSelection: false,
+  };
+  render(<TaskComposerModal {...props} />);
+  expect(screen.getByLabelText('Choose task priority')).toBeTruthy();
+  expect(screen.queryByLabelText('Choose task goal')).toBeNull();
+  fireEvent.press(screen.getByLabelText('Save task'));
+  expect(props.onClearCategory).not.toHaveBeenCalled();
+});
+test('editing a goal task from a regular page never clears its hidden metadata', () => {
+  const props = {
+    ...fixture(),
+    goalMode: false,
+    selectedCategory: 'Work',
+    selectedPriority: 3,
+    mode: 'edit' as const,
+  };
+  render(<TaskComposerModal {...props} />);
+  expect(screen.queryByLabelText('Choose task priority')).toBeNull();
+  expect(screen.queryByLabelText('Choose task goal')).toBeNull();
+  fireEvent.press(screen.getByLabelText('Save task'));
+  expect(props.onClearCategory).not.toHaveBeenCalled();
+  expect(props.onSelectPriority).not.toHaveBeenCalled();
 });
