@@ -1,0 +1,1709 @@
+{
+  "$schema": "https://e2e.etlyn.com/schema/manifest.schema.json",
+  "schemaVersion": 1,
+  "app": {
+    "id": "offtasks-mobile",
+    "name": "Offtasks Mobile",
+    "platform": "mobile"
+  },
+  "suites": [
+    {
+      "id": "authentication-validation",
+      "title": "Mobile authentication validation and errors",
+      "description": "The mobile auth screen should block incomplete input and show clear alerts for auth failures.",
+      "cases": [
+        {
+          "id": "authentication-validation-block-sign-in-with-missing-details",
+          "title": "Block sign in with missing details",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@authentication",
+            "@validation"
+          ],
+          "preconditions": [
+            "Given the tester is using a simulator or device connected to the configured Supabase project"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester is on the authentication screen in sign in mode"
+            },
+            {
+              "action": "When the tester submits the form without email or password"
+            },
+            {
+              "action": "Then the app should show the Missing details alert"
+            },
+            {
+              "action": "And the tester should remain on the authentication screen"
+            }
+          ]
+        },
+        {
+          "id": "authentication-validation-show-authentication-error-for-invalid-sign-in",
+          "title": "Show authentication error for invalid sign in",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@authentication",
+            "@validation"
+          ],
+          "preconditions": [
+            "Given the tester is using a simulator or device connected to the configured Supabase project"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester is on the authentication screen in sign in mode"
+            },
+            {
+              "action": "When the tester enters an email address with an invalid password"
+            },
+            {
+              "action": "And the tester submits the form"
+            },
+            {
+              "action": "Then the app should show an Authentication error alert"
+            },
+            {
+              "action": "And the authenticated workspace should not open"
+            }
+          ]
+        },
+        {
+          "id": "authentication-validation-block-signup-when-passwords-do-not-match",
+          "title": "Block signup when passwords do not match",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@authentication",
+            "@validation"
+          ],
+          "preconditions": [
+            "Given the tester is using a simulator or device connected to the configured Supabase project"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester switches to sign up mode"
+            },
+            {
+              "action": "When the tester enters different password and confirmation values"
+            },
+            {
+              "action": "And the tester submits the form"
+            },
+            {
+              "action": "Then the app should show the Passwords do not match alert"
+            },
+            {
+              "action": "And the form should stay in sign up mode"
+            }
+          ]
+        },
+        {
+          "id": "authentication-validation-require-an-email-before-password-reset",
+          "title": "Require an email before password reset",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@authentication",
+            "@validation"
+          ],
+          "preconditions": [
+            "Given the tester is using a simulator or device connected to the configured Supabase project"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester is on the authentication screen in sign in mode"
+            },
+            {
+              "action": "When the tester triggers forgot password without entering an email"
+            },
+            {
+              "action": "Then the app should show the Email required alert"
+            },
+            {
+              "action": "And no reset request should be sent"
+            }
+          ]
+        },
+        {
+          "id": "authentication-validation-prevent-duplicate-auth-submissions-while-loading",
+          "title": "Prevent duplicate auth submissions while loading",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@authentication",
+            "@validation"
+          ],
+          "preconditions": [
+            "Given the tester is using a simulator or device connected to the configured Supabase project"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester has entered valid auth details"
+            },
+            {
+              "action": "When the tester submits the form"
+            },
+            {
+              "action": "Then the primary action should show a loading state"
+            },
+            {
+              "action": "And repeated taps should not create duplicate signup or reset requests"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "authentication",
+      "title": "Mobile authentication",
+      "description": "The mobile client should support sign in, sign up, and password reset from a single auth screen.",
+      "cases": [
+        {
+          "id": "authentication-sign-in-with-a-valid-account",
+          "title": "Sign in with a valid account",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@authentication"
+          ],
+          "preconditions": [
+            "Given the tester is using a simulator connected to an isolated Supabase test project",
+            "And any accounts used are disposable fixtures"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester is on the authentication screen in sign in mode"
+            },
+            {
+              "action": "When the tester enters a valid email address and password"
+            },
+            {
+              "action": "And the tester submits the form"
+            },
+            {
+              "action": "Then the app should open the authenticated workspace without showing an auth error alert"
+            }
+          ]
+        },
+        {
+          "id": "authentication-create-an-account-in-sign-up-mode",
+          "title": "Create an account in sign up mode",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@authentication"
+          ],
+          "preconditions": [
+            "Given the tester is using a simulator connected to an isolated Supabase test project",
+            "And any accounts used are disposable fixtures"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester is on the authentication screen"
+            },
+            {
+              "action": "When the tester switches to sign up mode"
+            },
+            {
+              "action": "And the tester enters a new email address and matching passwords"
+            },
+            {
+              "action": "And the tester submits the form"
+            },
+            {
+              "action": "Then the app should honor the test project's email confirmation policy"
+            },
+            {
+              "action": "And after confirmation and sign in the account should be able to create synced tasks"
+            }
+          ]
+        },
+        {
+          "id": "authentication-send-a-password-reset-email",
+          "title": "Send a password reset email",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@authentication"
+          ],
+          "preconditions": [
+            "Given the tester is using a simulator connected to an isolated Supabase test project",
+            "And any accounts used are disposable fixtures"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester is on the authentication screen in sign in mode"
+            },
+            {
+              "action": "When the tester enters an existing account email address"
+            },
+            {
+              "action": "And the tester triggers the forgot password action"
+            },
+            {
+              "action": "Then the app should confirm that a reset link was sent"
+            },
+            {
+              "action": "And no unexpected auth error alert should remain visible"
+            }
+          ]
+        },
+        {
+          "id": "authentication-delete-a-disposable-account-from-the-drawer",
+          "title": "Delete a disposable account from the drawer",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@authentication"
+          ],
+          "preconditions": [
+            "Given the tester is using a simulator connected to an isolated Supabase test project",
+            "And any accounts used are disposable fixtures"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester signs up with a disposable mobile test account"
+            },
+            {
+              "action": "And the authenticated account has at least one synced task and saved preferences"
+            },
+            {
+              "action": "When the tester opens the drawer and taps Delete Account"
+            },
+            {
+              "action": "And the tester confirms the destructive account deletion alert"
+            },
+            {
+              "action": "Then the app should return to the device workspace without an account session"
+            },
+            {
+              "action": "And signing in again with the deleted account should fail"
+            },
+            {
+              "action": "And the Supabase project should no longer contain that user's tasks, preferences or planner items"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "drawer-preferences",
+      "title": "Mobile drawer preferences and navigation",
+      "description": "The drawer should work as both the main navigation hub and the place for persistent task preferences.",
+      "cases": [
+        {
+          "id": "drawer-preferences-review-drawer-profile-summary-and-main-destinations",
+          "title": "Review drawer profile summary and main destinations",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@drawer",
+            "@preferences"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the navigation drawer can be opened from the overview top bar"
+          ],
+          "steps": [
+            {
+              "action": "When the tester opens the navigation drawer"
+            },
+            {
+              "action": "Then the drawer should show the signed-in user summary and completion count"
+            },
+            {
+              "action": "And the drawer should expose the Statistics destination and home reset action"
+            }
+          ]
+        },
+        {
+          "id": "drawer-preferences-toggle-appearance-and-task-preferences-from-the-drawer",
+          "title": "Toggle appearance and task preferences from the drawer",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@drawer",
+            "@preferences"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the navigation drawer can be opened from the overview top bar"
+          ],
+          "steps": [
+            {
+              "action": "Given the navigation drawer is open"
+            },
+            {
+              "action": "When the tester toggles appearance, Hide Completed Tasks, Advanced Mode, or Auto-move due tasks"
+            },
+            {
+              "action": "Then the drawer control should reflect the new state immediately"
+            },
+            {
+              "action": "And the related overview behavior should update after the drawer is closed"
+            }
+          ]
+        },
+        {
+          "id": "drawer-preferences-reset-navigation-back-to-the-today-overview",
+          "title": "Reset navigation back to the Today overview",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@drawer",
+            "@preferences"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the navigation drawer can be opened from the overview top bar"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester has navigated away from the Today overview tab"
+            },
+            {
+              "action": "When the tester uses the drawer hero card or navigation to return home"
+            },
+            {
+              "action": "Then the app should land on the Overview section"
+            },
+            {
+              "action": "And the Today tab should be the active destination"
+            }
+          ]
+        },
+        {
+          "id": "drawer-preferences-review-app-version-and-sign-out-from-the-drawer",
+          "title": "Review app version and sign out from the drawer",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@drawer",
+            "@preferences"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the navigation drawer can be opened from the overview top bar"
+          ],
+          "steps": [
+            {
+              "action": "Given the navigation drawer is open"
+            },
+            {
+              "action": "When the tester reviews the account controls"
+            },
+            {
+              "action": "Then the drawer should show the app version"
+            },
+            {
+              "action": "When the tester logs out from the drawer"
+            },
+            {
+              "action": "Then the app should return to the authentication screen"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "guest-onboarding",
+      "title": "Device-first workspace and optional account sync",
+      "description": "Users can work locally without creating an account.",
+      "cases": [
+        {
+          "id": "guest-onboarding-first-launch-opens-the-device-workspace",
+          "title": "First launch opens the device workspace",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@guest",
+            "@onboarding"
+          ],
+          "preconditions": [],
+          "steps": [
+            {
+              "action": "Given a fresh simulator installation without a Supabase session"
+            },
+            {
+              "action": "When the splash completes"
+            },
+            {
+              "action": "Then Calendar, Notes, Goals and Later are available"
+            },
+            {
+              "action": "And no authentication form blocks the workspace"
+            }
+          ]
+        },
+        {
+          "id": "guest-onboarding-guest-task-lifecycle-survives-restart",
+          "title": "Guest task lifecycle survives restart",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@guest",
+            "@onboarding"
+          ],
+          "preconditions": [],
+          "steps": [
+            {
+              "action": "Given the tester is using the device workspace"
+            },
+            {
+              "action": "When the tester creates, edits, completes and reopens a task"
+            },
+            {
+              "action": "And restarts the app"
+            },
+            {
+              "action": "Then the task content, date, category and completion state persist"
+            },
+            {
+              "action": "When the tester confirms task deletion"
+            },
+            {
+              "action": "Then the task remains absent after another restart"
+            }
+          ]
+        },
+        {
+          "id": "guest-onboarding-guest-notes-and-goals-remain-local",
+          "title": "Guest notes and goals remain local",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@guest",
+            "@onboarding"
+          ],
+          "preconditions": [],
+          "steps": [
+            {
+              "action": "Given the tester is not signed in"
+            },
+            {
+              "action": "When the tester creates, searches, pins, edits and deletes notes"
+            },
+            {
+              "action": "And creates a goal, adds a task to it and removes an empty goal"
+            },
+            {
+              "action": "Then the changes persist on the device without authenticated API calls"
+            }
+          ]
+        },
+        {
+          "id": "guest-onboarding-authentication-is-optional-and-dismissible",
+          "title": "Authentication is optional and dismissible",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@guest",
+            "@onboarding"
+          ],
+          "preconditions": [],
+          "steps": [
+            {
+              "action": "Given the guest workspace contains items"
+            },
+            {
+              "action": "When the tester opens Sign in for sync from the drawer"
+            },
+            {
+              "action": "And cancels sign in"
+            },
+            {
+              "action": "Then the guest workspace and all its items remain available"
+            }
+          ]
+        },
+        {
+          "id": "guest-onboarding-account-import-requires-confirmation-and-is-retry-safe",
+          "title": "Account import requires confirmation and is retry safe",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@guest",
+            "@onboarding"
+          ],
+          "preconditions": [],
+          "steps": [
+            {
+              "action": "Given a disposable account on an isolated Supabase backend"
+            },
+            {
+              "action": "And the device workspace contains tasks, notes and goals"
+            },
+            {
+              "action": "When the tester signs in and cancels Import device items"
+            },
+            {
+              "action": "Then no guest items are uploaded"
+            },
+            {
+              "action": "When the tester confirms Import device items twice"
+            },
+            {
+              "action": "Then each item appears once in the account"
+            },
+            {
+              "action": "And the guest copy remains unchanged"
+            }
+          ]
+        },
+        {
+          "id": "guest-onboarding-account-and-guest-data-remain-isolated",
+          "title": "Account and guest data remain isolated",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@guest",
+            "@onboarding"
+          ],
+          "preconditions": [],
+          "steps": [
+            {
+              "action": "Given a signed-in disposable account has synced items"
+            },
+            {
+              "action": "When the tester signs out"
+            },
+            {
+              "action": "Then the guest workspace returns without account-only items"
+            },
+            {
+              "action": "When another account signs in"
+            },
+            {
+              "action": "Then it cannot read or change the first account's items"
+            }
+          ]
+        },
+        {
+          "id": "guest-onboarding-sync-failure-preserves-local-planner-changes",
+          "title": "Sync failure preserves local planner changes",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@guest",
+            "@onboarding"
+          ],
+          "preconditions": [],
+          "steps": [
+            {
+              "action": "Given the tester is signed in to an isolated test backend"
+            },
+            {
+              "action": "When the backend becomes unreachable"
+            },
+            {
+              "action": "And the tester edits a note or goal"
+            },
+            {
+              "action": "Then the change is saved locally with a visible sync failure"
+            },
+            {
+              "action": "When connectivity returns and the tester selects Sync now"
+            },
+            {
+              "action": "Then another client receives the change including deletions"
+            }
+          ]
+        },
+        {
+          "id": "guest-onboarding-account-deletion-returns-to-the-device-workspace",
+          "title": "Account deletion returns to the device workspace",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@guest",
+            "@onboarding"
+          ],
+          "preconditions": [],
+          "steps": [
+            {
+              "action": "Given a disposable account owns tasks, notes and goals"
+            },
+            {
+              "action": "When the tester confirms Delete Account"
+            },
+            {
+              "action": "Then its remote items and local account cache are removed"
+            },
+            {
+              "action": "And the separate guest workspace remains available"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "overview-tabs",
+      "title": "Mobile overview tabs",
+      "description": "Calendar, Notes, Goals, and Later should expose the device-first workspace.",
+      "cases": [
+        {
+          "id": "overview-tabs-open-the-default-calendar-tab",
+          "title": "Open the default Calendar tab",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@overview"
+          ],
+          "preconditions": [
+            "Given the tester has opened the mobile app with or without an account",
+            "And the drawer navigator is available"
+          ],
+          "steps": [
+            {
+              "action": "When the workspace loads"
+            },
+            {
+              "action": "Then Calendar should open on today's date by default"
+            },
+            {
+              "action": "And the top bar should provide access to the navigation drawer and search"
+            }
+          ]
+        },
+        {
+          "id": "overview-tabs-switch-between-calendar-notes-goals-and-later-tabs",
+          "title": "Switch between Calendar, Notes, Goals, and Later tabs",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@overview"
+          ],
+          "preconditions": [
+            "Given the tester has opened the mobile app with or without an account",
+            "And the drawer navigator is available"
+          ],
+          "steps": [
+            {
+              "action": "Given the overview is visible"
+            },
+            {
+              "action": "When the tester switches between Calendar, Notes, Goals, and Later"
+            },
+            {
+              "action": "Then the matching planner workspace should appear without an authentication gate"
+            }
+          ]
+        },
+        {
+          "id": "overview-tabs-refresh-a-tab-manually",
+          "title": "Refresh a tab manually",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@overview"
+          ],
+          "preconditions": [
+            "Given the tester has opened the mobile app with or without an account",
+            "And the drawer navigator is available"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester is viewing Calendar or Later"
+            },
+            {
+              "action": "When the tester performs a pull to refresh gesture"
+            },
+            {
+              "action": "Then the task list should refresh without crashing or clearing the screen layout"
+            }
+          ]
+        },
+        {
+          "id": "overview-tabs-show-the-empty-state-action-in-an-empty-tab",
+          "title": "Show the empty-state action in an empty tab",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@overview"
+          ],
+          "preconditions": [
+            "Given the tester has opened the mobile app with or without an account",
+            "And the drawer navigator is available"
+          ],
+          "steps": [
+            {
+              "action": "Given the active overview tab has no visible tasks"
+            },
+            {
+              "action": "When the tab finishes loading"
+            },
+            {
+              "action": "Then the list should show the no-tasks empty state"
+            },
+            {
+              "action": "And the header add action should remain available on today's Calendar or Later"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "resilience-and-empty-states",
+      "title": "Mobile resilience, loading, and empty states",
+      "description": "The mobile app should stay stable through loading, refresh, errors, and empty task lists.",
+      "cases": [
+        {
+          "id": "resilience-and-empty-states-show-splash-and-loading-states-before-the-authenticated-shell",
+          "title": "Show splash and loading states before the authenticated shell",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@resilience",
+            "@empty-states"
+          ],
+          "preconditions": [
+            "Given the tester is using a simulator or device connected to the configured Supabase project"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester launches the mobile app"
+            },
+            {
+              "action": "When the splash animation finishes and auth state is still loading"
+            },
+            {
+              "action": "Then the app should show a loading indicator on the themed background"
+            },
+            {
+              "action": "And the authenticated shell should appear only after session hydration completes"
+            }
+          ]
+        },
+        {
+          "id": "resilience-and-empty-states-keep-an-empty-overview-tab-actionable",
+          "title": "Keep an empty overview tab actionable",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@resilience",
+            "@empty-states"
+          ],
+          "preconditions": [
+            "Given the tester is using a simulator or device connected to the configured Supabase project"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester is signed in and the active tab has no tasks"
+            },
+            {
+              "action": "When the task list finishes loading"
+            },
+            {
+              "action": "Then the empty state should describe that there are no tasks yet"
+            },
+            {
+              "action": "And the floating add action should open the composer"
+            }
+          ]
+        },
+        {
+          "id": "resilience-and-empty-states-recover-from-a-failed-task-update",
+          "title": "Recover from a failed task update",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@resilience",
+            "@empty-states"
+          ],
+          "preconditions": [
+            "Given the tester is using a simulator or device connected to the configured Supabase project"
+          ],
+          "steps": [
+            {
+              "action": "Given an open task is visible in the active list"
+            },
+            {
+              "action": "When a complete, reopen, edit, or delete request fails"
+            },
+            {
+              "action": "Then the app should refresh task data from Supabase"
+            },
+            {
+              "action": "And an error alert should explain the failed action"
+            }
+          ]
+        },
+        {
+          "id": "resilience-and-empty-states-keep-pull-to-refresh-spinner-bounded",
+          "title": "Keep pull-to-refresh spinner bounded",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@resilience",
+            "@empty-states"
+          ],
+          "preconditions": [
+            "Given the tester is using a simulator or device connected to the configured Supabase project"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester is viewing any task list"
+            },
+            {
+              "action": "When the tester performs pull to refresh and the task request stalls"
+            },
+            {
+              "action": "Then the visible refresh spinner should stop after the guarded refresh window"
+            },
+            {
+              "action": "And the existing list content should remain usable"
+            }
+          ]
+        },
+        {
+          "id": "resilience-and-empty-states-keep-search-and-filter-empty-states-clear",
+          "title": "Keep search and filter empty states clear",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@resilience",
+            "@empty-states"
+          ],
+          "preconditions": [
+            "Given the tester is using a simulator or device connected to the configured Supabase project"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester opens search or applies filters with no matching tasks"
+            },
+            {
+              "action": "When the app shows an empty results state"
+            },
+            {
+              "action": "Then the empty title should distinguish between no query, no matches, and no tasks yet"
+            },
+            {
+              "action": "And clearing search or filters should restore the normal list state"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scheduling-and-categories",
+      "title": "Mobile scheduling and category lifecycle",
+      "description": "The mobile composer should keep date placement, priority, and reusable categories consistent across tabs and statistics.",
+      "cases": [
+        {
+          "id": "scheduling-and-categories-schedule-tasks-through-today-tomorrow-and-later-controls",
+          "title": "Schedule tasks through Today, Tomorrow, and Later controls",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@scheduling",
+            "@categories"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the overview contains tasks that can be safely edited or removed"
+          ],
+          "steps": [
+            {
+              "action": "When the tester opens the task composer"
+            },
+            {
+              "action": "And the tester creates separate tasks for Today, Tomorrow, and Later"
+            },
+            {
+              "action": "Then each task should appear in the matching overview tab"
+            },
+            {
+              "action": "And the Later task should keep either the selected future date or backlog state"
+            }
+          ]
+        },
+        {
+          "id": "scheduling-and-categories-pick-a-custom-later-date",
+          "title": "Pick a custom Later date",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@scheduling",
+            "@categories"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the overview contains tasks that can be safely edited or removed"
+          ],
+          "steps": [
+            {
+              "action": "Given the task composer is open"
+            },
+            {
+              "action": "When the tester opens the Later date picker"
+            },
+            {
+              "action": "And the tester selects a future date"
+            },
+            {
+              "action": "Then the Later segment should show the selected date label"
+            },
+            {
+              "action": "And the saved task should remain in Later with that date"
+            }
+          ]
+        },
+        {
+          "id": "scheduling-and-categories-normalize-a-past-date-when-editing",
+          "title": "Normalize a past date when editing",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@scheduling",
+            "@categories"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the overview contains tasks that can be safely edited or removed"
+          ],
+          "steps": [
+            {
+              "action": "Given a task can be edited from the active list"
+            },
+            {
+              "action": "When the tester attempts to set a scheduled date before today"
+            },
+            {
+              "action": "And the tester saves the task"
+            },
+            {
+              "action": "Then the app should normalize the date to today or later"
+            },
+            {
+              "action": "And the task should not appear under the wrong tab"
+            }
+          ]
+        },
+        {
+          "id": "scheduling-and-categories-create-and-select-a-custom-category-from-the-composer",
+          "title": "Create and select a custom category from the composer",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@scheduling",
+            "@categories"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the overview contains tasks that can be safely edited or removed"
+          ],
+          "steps": [
+            {
+              "action": "When the tester types a category name that is not in the suggestions"
+            },
+            {
+              "action": "And the tester taps the Add category suggestion"
+            },
+            {
+              "action": "Then the category should become selected on the composer"
+            },
+            {
+              "action": "And the saved task should show the category label"
+            }
+          ]
+        },
+        {
+          "id": "scheduling-and-categories-delete-a-reusable-category-without-mutating-existing-labels",
+          "title": "Delete a reusable category without mutating existing labels",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@scheduling",
+            "@categories"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the overview contains tasks that can be safely edited or removed"
+          ],
+          "steps": [
+            {
+              "action": "Given the category suggestion list includes a reusable category"
+            },
+            {
+              "action": "When the tester deletes that category and confirms removal"
+            },
+            {
+              "action": "Then the category should disappear from future suggestions"
+            },
+            {
+              "action": "And existing task labels using that category should stay on those tasks"
+            }
+          ]
+        },
+        {
+          "id": "scheduling-and-categories-reuse-categories-while-editing-from-statistics",
+          "title": "Reuse categories while editing from statistics",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@scheduling",
+            "@categories"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the overview contains tasks that can be safely edited or removed"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester opens the Statistics screen"
+            },
+            {
+              "action": "When the tester edits a task from the closed or search results list"
+            },
+            {
+              "action": "And the tester selects a reusable category and priority"
+            },
+            {
+              "action": "Then the updated task should keep those values after refresh"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "search-and-filters",
+      "title": "Mobile search and advanced filters",
+      "description": "Mobile filtering should help the tester find tasks across the current group or across all tasks when search is open.",
+      "cases": [
+        {
+          "id": "search-and-filters-search-across-tasks-from-the-overview-top-bar",
+          "title": "Search across tasks from the overview top bar",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@search",
+            "@filters"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the task set contains multiple labels, priorities, and completed items"
+          ],
+          "steps": [
+            {
+              "action": "When the tester opens the overview search control"
+            },
+            {
+              "action": "And the tester searches for a known task keyword"
+            },
+            {
+              "action": "Then matching results should appear without leaving the overview workspace"
+            },
+            {
+              "action": "And closing search should clear the search state"
+            }
+          ]
+        },
+        {
+          "id": "search-and-filters-filter-the-active-group-with-advanced-mode-enabled",
+          "title": "Filter the active group with advanced mode enabled",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@search",
+            "@filters"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the task set contains multiple labels, priorities, and completed items"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester has enabled Advanced Mode from the drawer"
+            },
+            {
+              "action": "When the tester selects one or more labels in the overview filter controls"
+            },
+            {
+              "action": "And the tester applies a priority sort"
+            },
+            {
+              "action": "Then only matching tasks should remain visible in the current group"
+            },
+            {
+              "action": "And the ordering should reflect the selected priority sort direction"
+            }
+          ]
+        },
+        {
+          "id": "search-and-filters-hide-completed-tasks-from-the-overview-list",
+          "title": "Hide completed tasks from the overview list",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@search",
+            "@filters"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the task set contains multiple labels, priorities, and completed items"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester has visible completed tasks in the current group"
+            },
+            {
+              "action": "When the tester enables Hide Completed Tasks from the drawer"
+            },
+            {
+              "action": "Then completed tasks should be removed from the active overview list"
+            },
+            {
+              "action": "And disabling the preference should reveal them again"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "title": "Mobile account controls",
+      "description": "The authenticated drawer should expose account identity, app metadata, and session controls.",
+      "cases": [
+        {
+          "id": "settings-review-account-information-from-the-drawer",
+          "title": "Review account information from the drawer",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@account"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app"
+          ],
+          "steps": [
+            {
+              "action": "When the tester opens the navigation drawer"
+            },
+            {
+              "action": "Then the drawer should show the signed-in email address or profile label"
+            },
+            {
+              "action": "And the drawer should show the current completion count"
+            }
+          ]
+        },
+        {
+          "id": "settings-review-app-metadata-from-the-drawer",
+          "title": "Review app metadata from the drawer",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@account"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app"
+          ],
+          "steps": [
+            {
+              "action": "When the tester opens the navigation drawer"
+            },
+            {
+              "action": "Then the drawer should display the current app version"
+            },
+            {
+              "action": "And the version should match the build under test"
+            }
+          ]
+        },
+        {
+          "id": "settings-sign-out-from-account-controls",
+          "title": "Sign out from account controls",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@account"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app"
+          ],
+          "steps": [
+            {
+              "action": "Given the navigation drawer is open"
+            },
+            {
+              "action": "When the tester presses Log Out"
+            },
+            {
+              "action": "Then the current session should be cleared"
+            },
+            {
+              "action": "And the app should return to the authentication screen"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "statistics",
+      "title": "Mobile statistics screen",
+      "description": "The statistics screen should separate open and closed work while keeping search and restore actions available.",
+      "cases": [
+        {
+          "id": "statistics-open-statistics-from-the-drawer",
+          "title": "Open statistics from the drawer",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@statistics"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the drawer contains a Statistics destination"
+          ],
+          "steps": [
+            {
+              "action": "When the tester opens the navigation drawer"
+            },
+            {
+              "action": "And the tester navigates to Statistics"
+            },
+            {
+              "action": "Then the statistics screen should load without leaving the authenticated shell"
+            },
+            {
+              "action": "And the screen should expose tabs for Open issues and Closed issues"
+            }
+          ]
+        },
+        {
+          "id": "statistics-switch-between-open-and-closed-issue-tabs",
+          "title": "Switch between open and closed issue tabs",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@statistics"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the drawer contains a Statistics destination"
+          ],
+          "steps": [
+            {
+              "action": "Given the statistics screen is visible"
+            },
+            {
+              "action": "When the tester switches between Open issues and Closed issues"
+            },
+            {
+              "action": "Then the list content should update to match the selected tab"
+            },
+            {
+              "action": "And task counts or empty states should remain coherent with the chosen tab"
+            }
+          ]
+        },
+        {
+          "id": "statistics-search-and-restore-work-from-statistics",
+          "title": "Search and restore work from statistics",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@statistics"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the drawer contains a Statistics destination"
+          ],
+          "steps": [
+            {
+              "action": "Given the statistics screen is visible"
+            },
+            {
+              "action": "When the tester opens search and looks for a known task"
+            },
+            {
+              "action": "Then matching tasks should appear in the statistics list context"
+            },
+            {
+              "action": "When the tester restores a completed task from the closed view"
+            },
+            {
+              "action": "Then the task should move back into an open workflow state"
+            }
+          ]
+        },
+        {
+          "id": "statistics-review-statistics-metrics-and-celebration-feedback",
+          "title": "Review statistics metrics and celebration feedback",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@statistics"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the drawer contains a Statistics destination"
+          ],
+          "steps": [
+            {
+              "action": "Given the statistics screen is visible"
+            },
+            {
+              "action": "When the tester reviews the summary area"
+            },
+            {
+              "action": "Then open, closed, and overdue counts should match the current task set"
+            },
+            {
+              "action": "And the completion celebration should not block tab, search, or refresh controls"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sync-widget-and-persistence",
+      "title": "Mobile sync, persistence, and widget updates",
+      "description": "Mobile task data and preferences should persist locally, sync with Supabase, and publish iOS widget snapshots when available.",
+      "cases": [
+        {
+          "id": "sync-widget-and-persistence-persist-drawer-preferences-after-app-restart",
+          "title": "Persist drawer preferences after app restart",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@sync",
+            "@widget",
+            "@persistence"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app with a reusable test account"
+          ],
+          "steps": [
+            {
+              "action": "When the tester toggles Appearance, Hide Completed Tasks, Advanced Mode, and Auto-move due tasks"
+            },
+            {
+              "action": "And the tester fully restarts the app"
+            },
+            {
+              "action": "Then the drawer should restore the same preference values"
+            },
+            {
+              "action": "And the overview should reflect the restored preferences"
+            }
+          ]
+        },
+        {
+          "id": "sync-widget-and-persistence-sync-preferences-back-from-supabase",
+          "title": "Sync preferences back from Supabase",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@sync",
+            "@widget",
+            "@persistence"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app with a reusable test account"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester changes web preferences with the same account"
+            },
+            {
+              "action": "When the tester launches the mobile app and waits for preference hydration"
+            },
+            {
+              "action": "Then mobile should match the synced theme, advanced mode, hide completed, and auto-move settings"
+            }
+          ]
+        },
+        {
+          "id": "sync-widget-and-persistence-refresh-tasks-when-returning-from-the-background",
+          "title": "Refresh tasks when returning from the background",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@sync",
+            "@widget",
+            "@persistence"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app with a reusable test account"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester sends the mobile app to the background"
+            },
+            {
+              "action": "And a task is changed from another client using the same account"
+            },
+            {
+              "action": "When the tester returns the app to the foreground"
+            },
+            {
+              "action": "Then the task lists should refresh and show the remote change"
+            }
+          ]
+        },
+        {
+          "id": "sync-widget-and-persistence-auto-move-due-tomorrow-tasks-after-refresh",
+          "title": "Auto-move due Tomorrow tasks after refresh",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@sync",
+            "@widget",
+            "@persistence"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app with a reusable test account"
+          ],
+          "steps": [
+            {
+              "action": "Given Auto-move due tasks is enabled"
+            },
+            {
+              "action": "And a Tomorrow task has a scheduled date of today or earlier"
+            },
+            {
+              "action": "When the tester refreshes or reopens the app"
+            },
+            {
+              "action": "Then the task should move into Today"
+            },
+            {
+              "action": "And the update should sync through Supabase"
+            }
+          ]
+        },
+        {
+          "id": "sync-widget-and-persistence-publish-an-ios-widget-task-snapshot",
+          "title": "Publish an iOS widget task snapshot",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@sync",
+            "@widget",
+            "@persistence"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app with a reusable test account"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester is running an iOS build with the widget bridge available"
+            },
+            {
+              "action": "When tasks or theme mode change in the authenticated app"
+            },
+            {
+              "action": "Then the widget snapshot should include generated time, theme, today totals, and pending Today, Tomorrow, and Later tasks"
+            },
+            {
+              "action": "And completed tasks should not be listed as pending widget items"
+            }
+          ]
+        },
+        {
+          "id": "sync-widget-and-persistence-clear-or-refresh-widget-state-after-sign-out",
+          "title": "Clear or refresh widget state after sign out",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@sync",
+            "@widget",
+            "@persistence"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app with a reusable test account"
+          ],
+          "steps": [
+            {
+              "action": "Given the tester is signed in on an iOS build with the widget bridge available"
+            },
+            {
+              "action": "When the tester signs out"
+            },
+            {
+              "action": "Then the app should stop publishing signed-in task data for the previous account"
+            },
+            {
+              "action": "And the next signed-in account should publish its own task snapshot after refresh"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "task-composer",
+      "title": "Mobile task composer and task lifecycle",
+      "description": "The mobile task composer should support creating, editing, completing, and deleting tasks.",
+      "cases": [
+        {
+          "id": "task-composer-create-a-task-from-the-active-tab",
+          "title": "Create a task from the active tab",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@task-composer"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the overview contains at least one editable task"
+          ],
+          "steps": [
+            {
+              "action": "When the tester opens the task composer"
+            },
+            {
+              "action": "And the tester enters task content, a scheduled date, a priority, and an optional category label"
+            },
+            {
+              "action": "And the tester saves the task"
+            },
+            {
+              "action": "Then the new task should appear in the expected task group"
+            }
+          ]
+        },
+        {
+          "id": "task-composer-edit-an-existing-task",
+          "title": "Edit an existing task",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@task-composer"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the overview contains at least one editable task"
+          ],
+          "steps": [
+            {
+              "action": "Given an existing task is visible in the list"
+            },
+            {
+              "action": "When the tester opens the task editor for that item"
+            },
+            {
+              "action": "And the tester changes the content, priority, date, or category"
+            },
+            {
+              "action": "And the tester saves the task"
+            },
+            {
+              "action": "Then the list should show the updated values"
+            }
+          ]
+        },
+        {
+          "id": "task-composer-complete-and-reopen-a-task",
+          "title": "Complete and reopen a task",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@task-composer"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the overview contains at least one editable task"
+          ],
+          "steps": [
+            {
+              "action": "Given an open task is visible in the list"
+            },
+            {
+              "action": "When the tester marks the task as completed"
+            },
+            {
+              "action": "Then the task should reflect a completed state and move according to the current rules"
+            },
+            {
+              "action": "When the tester restores or reopens the same task"
+            },
+            {
+              "action": "Then the task should return to an active state without duplicate entries"
+            }
+          ]
+        },
+        {
+          "id": "task-composer-delete-a-task-from-the-mobile-list",
+          "title": "Delete a task from the mobile list",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@task-composer"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the overview contains at least one editable task"
+          ],
+          "steps": [
+            {
+              "action": "Given an existing task is visible in the list"
+            },
+            {
+              "action": "When the tester deletes that task and confirms any warning dialog"
+            },
+            {
+              "action": "Then the task should disappear from the list after the next refresh"
+            }
+          ]
+        },
+        {
+          "id": "task-composer-prevent-submitting-a-blank-task-from-the-composer",
+          "title": "Prevent submitting a blank task from the composer",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@task-composer"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the overview contains at least one editable task"
+          ],
+          "steps": [
+            {
+              "action": "When the tester opens the task composer"
+            },
+            {
+              "action": "And the task content field is empty or whitespace only"
+            },
+            {
+              "action": "Then the Save action should remain disabled"
+            },
+            {
+              "action": "And the active tab should not receive a blank task"
+            }
+          ]
+        },
+        {
+          "id": "task-composer-inspect-task-details-from-an-advanced-list-item",
+          "title": "Inspect task details from an advanced list item",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@task-composer"
+          ],
+          "preconditions": [
+            "Given the tester is signed in to the mobile app",
+            "And the overview contains at least one editable task"
+          ],
+          "steps": [
+            {
+              "action": "Given Advanced Mode is enabled"
+            },
+            {
+              "action": "And at least one task is visible in the active list"
+            },
+            {
+              "action": "When the tester long-presses the task item"
+            },
+            {
+              "action": "Then a task details alert should show content, scheduled date, section, priority, and status"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
