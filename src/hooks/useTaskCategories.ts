@@ -37,22 +37,46 @@ export const useTaskCategories = () => {
     DEFAULT_TASK_CATEGORIES,
   );
   const categoriesRef = React.useRef(categories);
+  const hydratedUser = React.useRef<string | null>(null);
+  const currentUser = React.useRef(userId);
+  const loadVersion = React.useRef(0);
+  currentUser.current = userId;
+  React.useEffect(
+    () => () => {
+      loadVersion.current += 1;
+    },
+    [],
+  );
 
   React.useEffect(() => {
     categoriesRef.current = categories;
   }, [categories]);
 
   const loadCategories = React.useCallback(async () => {
-    setLoading(true);
+    const version = ++loadVersion.current;
+    // Refocusing a loaded page refreshes quietly instead of replacing its
+    // rows with a spinner (and re-registering the dock action mid-slide).
+    setLoading(hydratedUser.current !== userId);
     setError(null);
     try {
       const next = await readPlanner(userId, 'goal');
+      if (version !== loadVersion.current || currentUser.current !== userId)
+        return;
+      hydratedUser.current = userId;
       categoriesRef.current = next;
-      setCategories(next);
+      setCategories(previous =>
+        previous.length === next.length &&
+        previous.every((value, index) => value === next[index])
+          ? previous
+          : next,
+      );
     } catch {
+      if (version !== loadVersion.current || currentUser.current !== userId)
+        return;
       setError('Saved goals could not be loaded. Try again before editing.');
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current && currentUser.current === userId)
+        setLoading(false);
     }
   }, [userId]);
 
@@ -73,6 +97,7 @@ export const useTaskCategories = () => {
     async (updater: (previous: string[]) => string[]) => {
       if (!userId || loading || error)
         throw new Error('Goals are not ready. Please try again.');
+      loadVersion.current += 1;
       const nextCategories = applyCategoryUpdate(
         categoriesRef.current,
         updater,
@@ -80,6 +105,7 @@ export const useTaskCategories = () => {
 
       await writePlanner(userId, 'goal', nextCategories, categoriesRef.current);
       const saved = await readPlanner(userId, 'goal');
+      loadVersion.current += 1;
       void syncPlanner(userId, 'goal');
       categoriesRef.current = saved;
       setCategories(saved);

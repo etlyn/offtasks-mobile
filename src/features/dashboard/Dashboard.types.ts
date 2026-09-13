@@ -7,11 +7,13 @@ export interface DashboardScreenRouteParams {
   view?: 'calendar' | 'goal';
   category?: string;
   searchToggleRequestId?: number;
+  openTaskRequest?: { id: string; requestId: number };
 }
 
 export interface DashboardScreenProps {
   composerOnly?: boolean;
   initialDate?: string;
+  initialCategory?: string;
   onComposerClose?: () => void;
   onBack?: () => void;
   route?: {

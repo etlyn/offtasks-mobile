@@ -3,6 +3,7 @@ import {
   AccessibilityInfo,
   Alert,
   Animated,
+  Dimensions,
   DeviceEventEmitter,
 } from 'react-native';
 import {
@@ -13,11 +14,17 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  TaskCreationContext,
+  type NoteCreationAction,
+  type GoalCreationAction,
+} from '../src/navigation/TaskCreationContext';
 import { NotesScreen } from '../src/features/planner/Notes.screen';
+import { NotesFilter } from '../src/features/planner/NotesFilter';
 import { GoalsScreen } from '../src/features/planner/Goals.screen';
 import { MonthCalendar } from '../src/features/dashboard/components/MonthCalendar';
 import { DashboardTabBar } from '../src/navigation/DashboardTabBar';
-import { readPlanner, plannerKey } from '../src/lib/plannerSync';
+import { readPlanner, writePlanner, plannerKey } from '../src/lib/plannerSync';
 import type { Task } from '../src/types/task';
 
 jest.mock('../src/providers/AuthProvider', () => ({
@@ -60,13 +67,62 @@ jest.mock('../src/features/dashboard/Dashboard.screen', () => {
   };
 });
 
+function NotesHarness() {
+  const [noteAction, setNoteAction] = React.useState<NoteCreationAction | null>(
+    null,
+  );
+  return (
+    <TaskCreationContext.Provider
+      value={{
+        calendarDay: '2026-09-12',
+        setCalendarDay: jest.fn(),
+        openTask: jest.fn(),
+        noteAction,
+        setNoteAction,
+      }}
+    >
+      <NotesScreen />
+      <DashboardTabBar {...makeTabProps(1)} />
+    </TaskCreationContext.Provider>
+  );
+}
+
+const mockGoalTask = jest.fn();
+function GoalsHarness() {
+  const [goalAction, setGoalAction] = React.useState<GoalCreationAction | null>(
+    null,
+  );
+  return (
+    <TaskCreationContext.Provider
+      value={{
+        calendarDay: '2026-09-12',
+        setCalendarDay: jest.fn(),
+        openTask: mockGoalTask,
+        goalAction,
+        setGoalAction,
+      }}
+    >
+      <GoalsScreen />
+      <DashboardTabBar {...makeTabProps(2)} />
+    </TaskCreationContext.Provider>
+  );
+}
+
 beforeEach(async () => {
+  mockGoalTask.mockClear();
   await AsyncStorage.clear();
   jest.restoreAllMocks();
 });
 
 const makeTabProps = (index = 0) => {
-  const names = ['Calendar', 'Notes', 'Goals', 'Later'];
+  const names = [
+    'Calendar',
+    'Notes',
+    'Goals',
+    'Later',
+    'Statistics',
+    'Account',
+  ];
   return {
     state: { index, routes: names.map(name => ({ key: name, name })) },
     descriptors: Object.fromEntries(names.map(name => [name, { options: {} }])),
@@ -76,6 +132,73 @@ const makeTabProps = (index = 0) => {
     },
   } as unknown as React.ComponentProps<typeof DashboardTabBar>;
 };
+
+test.each([4, 5])(
+  'drawer destination %s retains the same four-tab dock and global plus',
+  async index => {
+    const openTask = jest.fn();
+    const props = makeTabProps(index);
+    render(
+      <TaskCreationContext.Provider
+        value={{
+          calendarDay: '2026-09-12',
+          setCalendarDay: jest.fn(),
+          openTask,
+        }}
+      >
+        <DashboardTabBar {...props} />
+      </TaskCreationContext.Provider>,
+    );
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
+    expect(screen.queryByRole('tab', { name: 'Account' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Statistics' })).toBeNull();
+    expect(screen.queryAllByRole('tab', { selected: true })).toHaveLength(0);
+    fireEvent.press(screen.getByRole('button', { name: 'Add task' }));
+    expect(openTask).toHaveBeenCalledTimes(1);
+    fireEvent.press(screen.getByRole('tab', { name: 'Notes' }));
+    expect(props.navigation.navigate).toHaveBeenCalledWith('Notes', undefined);
+    await act(async () => {});
+  },
+);
+
+test('Notes filter stays visually compact without shrinking its touch targets', async () => {
+  jest
+    .spyOn(Dimensions, 'get')
+    .mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 1 });
+  jest
+    .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
+    .mockResolvedValue(true);
+  const timing = jest.spyOn(Animated, 'timing');
+  const onChange = jest.fn();
+  const view = render(<NotesFilter pinnedOnly={false} onChange={onChange} />);
+  expect(screen.getByTestId('notes-filter-track')).toHaveStyle({
+    height: 30,
+    borderRadius: 15,
+  });
+  expect(screen.getByTestId('notes-filter')).toHaveStyle({
+    width: 132,
+    minHeight: 44,
+  });
+  for (const tab of screen.getAllByRole('tab'))
+    expect(tab).toHaveStyle({ minHeight: 44 });
+  fireEvent.press(screen.getByRole('tab', { name: 'All' }));
+  expect(onChange).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByRole('tab', { name: 'Pinned' }));
+  expect(onChange).toHaveBeenCalledWith(true);
+  view.rerender(<NotesFilter pinnedOnly onChange={onChange} />);
+  await waitFor(() =>
+    expect(screen.getByTestId('notes-filter-selection')).toHaveStyle({
+      width: 64,
+      top: 2,
+      bottom: 2,
+      left: 2,
+      borderRadius: 13,
+      transform: [{ translateX: 64 }],
+    }),
+  );
+  expect(screen.getByRole('tab', { name: 'Pinned' })).toBeSelected();
+  expect(timing).not.toHaveBeenCalled();
+});
 
 test('glass dock sizes its selection lens and respects Reduce Motion', async () => {
   jest
@@ -161,8 +284,37 @@ test('shows Calendar, Notes, Goals and Later in order and emits tab navigation',
   });
 });
 
+test('global search requests open existing notes without modifying them', async () => {
+  const note = {
+    id: 'search-note',
+    title: 'Existing note',
+    body: 'Keep this body',
+    pinned: false,
+    updatedAt: '2026-09-12T00:00:00Z',
+  };
+  await writePlanner('screen-test-user', 'note', [note]);
+  const route = { params: { openNoteRequest: { id: note.id, requestId: 1 } } };
+  const view = render(<NotesScreen route={route} />);
+  await screen.findByLabelText('Note title');
+  expect(screen.getByLabelText('Note body').props.value).toBe(note.body);
+  fireEvent.press(screen.getByLabelText('Close note'));
+  view.rerender(<NotesScreen route={route} />);
+  expect(screen.queryByLabelText('Note body')).toBeNull();
+  expect(await readPlanner('screen-test-user', 'note')).toEqual([note]);
+});
+
+test('global search requests open the matching goal detail', async () => {
+  await writePlanner('screen-test-user', 'goal', ['Travel']);
+  render(
+    <GoalsScreen
+      route={{ params: { openGoalRequest: { id: 'Travel', requestId: 1 } } }}
+    />,
+  );
+  await screen.findByText('Goal tasks: Travel');
+});
+
 test('creates, searches, pins, edits and deletes a note through the screen', async () => {
-  render(<NotesScreen />);
+  render(<NotesHarness />);
   await screen.findByText('No notes yet');
   fireEvent.press(screen.getByLabelText('Add note'));
   expect(screen.getByLabelText('Save note')).toBeDisabled();
@@ -177,9 +329,18 @@ test('creates, searches, pins, edits and deletes a note through the screen', asy
   await screen.findByLabelText('Unpin App ideas');
   fireEvent.press(screen.getByRole('tab', { name: 'Pinned' }));
   expect(screen.getByLabelText('Open note App ideas')).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Search notes' }));
+  await waitFor(() =>
+    expect(screen.getByLabelText('Search notes').props.editable).toBe(true),
+  );
   fireEvent.changeText(screen.getByLabelText('Search notes'), 'missing');
   expect(screen.getByText('No matching notes')).toBeTruthy();
   fireEvent.press(screen.getByLabelText('Clear note search'));
+  fireEvent.press(screen.getByLabelText('Close search'));
+  await waitFor(() =>
+    expect(screen.queryByTestId('notes-search-overlay')).toBeNull(),
+  );
+  expect(screen.getByRole('tab', { name: 'Pinned' })).toBeSelected();
   fireEvent.press(screen.getByLabelText('Open note App ideas'));
   fireEvent.changeText(screen.getByLabelText('Note body'), 'Updated note');
   fireEvent.press(screen.getByLabelText('Save note'));
@@ -197,8 +358,45 @@ test('creates, searches, pins, edits and deletes a note through the screen', asy
   expect(await readPlanner('screen-test-user', 'note')).toEqual([]);
 });
 
+test('Notes search stays behind its header icon and preserves the pinned list underneath', async () => {
+  jest
+    .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
+    .mockResolvedValue(true);
+  render(<NotesHarness />);
+  await screen.findByText('No notes yet');
+  expect(screen.queryByTestId('task-search-field')).toBeNull();
+  expect(screen.queryByLabelText('Add task')).toBeNull();
+  fireEvent.press(screen.getByLabelText('Add note'));
+  fireEvent.changeText(screen.getByLabelText('Note title'), 'Unpinned idea');
+  fireEvent.press(screen.getByLabelText('Save note'));
+  await screen.findByLabelText('Open note Unpinned idea');
+  fireEvent.press(screen.getByRole('tab', { name: 'Pinned' }));
+  expect(screen.getByText('No pinned notes')).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Search notes' }));
+  await waitFor(() =>
+    expect(screen.getByLabelText('Search notes').props.editable).toBe(true),
+  );
+  expect(
+    screen.getByTestId('notes-underlay', { includeHiddenElements: true }).props
+      .pointerEvents,
+  ).toBe('none');
+  expect(screen.getByText('All notes')).toBeTruthy();
+  fireEvent.changeText(screen.getByLabelText('Search notes'), 'Unpinned');
+  expect(screen.getByLabelText('Open note Unpinned idea')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Close search'));
+  await waitFor(() =>
+    expect(screen.queryByTestId('notes-search-overlay')).toBeNull(),
+  );
+  expect(screen.getByRole('tab', { name: 'Pinned' })).toBeSelected();
+  expect(screen.getByText('No pinned notes')).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Search notes' }));
+  await waitFor(() =>
+    expect(screen.getByLabelText('Search notes').props.value).toBe(''),
+  );
+});
+
 test('failed saves preserve the draft and corrupted storage disables creation', async () => {
-  const view = render(<NotesScreen />);
+  const view = render(<NotesHarness />);
   await screen.findByText('No notes yet');
   fireEvent.press(screen.getByLabelText('Add note'));
   fireEvent.changeText(screen.getByLabelText('Note title'), 'Keep this draft');
@@ -218,13 +416,48 @@ test('failed saves preserve the draft and corrupted storage disables creation', 
   );
   view.unmount();
   await AsyncStorage.setItem(plannerKey('screen-test-user', 'note'), '{bad');
-  render(<NotesScreen />);
+  render(<NotesHarness />);
   await screen.findByText('Notes could not be loaded');
   expect(screen.getByLabelText('Add note')).toBeDisabled();
 });
 
+test('Goals search is layered and empty-goal removal stays behind options', async () => {
+  jest
+    .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
+    .mockResolvedValue(true);
+  await writePlanner('screen-test-user', 'goal', ['Travel']);
+  render(<GoalsHarness />);
+  await screen.findByLabelText('Open goal Travel, 0 of 0 completed');
+  expect(screen.queryByText('No tasks yet')).toBeNull();
+  expect(screen.queryByLabelText('Remove empty goal Travel')).toBeNull();
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  fireEvent.press(screen.getByLabelText('Options for Travel'));
+  expect(alert).toHaveBeenCalledWith(
+    'Travel',
+    undefined,
+    expect.arrayContaining([
+      expect.objectContaining({ text: 'Remove empty goal' }),
+    ]),
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Search goals' }));
+  await waitFor(() =>
+    expect(screen.getByLabelText('Search goals').props.editable).toBe(true),
+  );
+  fireEvent.changeText(screen.getByLabelText('Search goals'), 'missing');
+  expect(screen.getByText('No matching goals')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Clear goal search'));
+  expect(
+    screen.getByLabelText('Open goal Travel, 0 of 0 completed'),
+  ).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Close search'));
+  await waitFor(() =>
+    expect(screen.queryByTestId('goals-search-overlay')).toBeNull(),
+  );
+  expect(screen.getByLabelText('Add goal')).not.toBeDisabled();
+});
+
 test('creates a goal and opens its task list', async () => {
-  render(<GoalsScreen />);
+  render(<GoalsHarness />);
   await waitFor(() =>
     expect(screen.getByLabelText('Add goal')).not.toBeDisabled(),
   );
@@ -233,6 +466,8 @@ test('creates a goal and opens its task list', async () => {
   fireEvent.changeText(screen.getByLabelText('Goal name'), 'Summer plans');
   fireEvent.press(screen.getByLabelText('Save goal'));
   await screen.findByText('Goal tasks: Summer Plans');
+  fireEvent.press(screen.getByLabelText('Add task'));
+  expect(mockGoalTask).toHaveBeenCalledWith(undefined, 'Summer Plans');
   expect(await readPlanner('screen-test-user', 'goal')).toContain(
     'Summer Plans',
   );

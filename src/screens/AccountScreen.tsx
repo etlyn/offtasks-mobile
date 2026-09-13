@@ -1,6 +1,10 @@
 import React from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { Alert, ScrollView, Text, View } from 'react-native';
+import {
+  useNavigation,
+  type NavigationProp,
+  type ParamListBase,
+} from '@react-navigation/native';
 import Feather from 'react-native-vector-icons/Feather';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTasks } from '@/providers/TasksProvider';
@@ -15,7 +19,12 @@ import {
   subscribePlanner,
 } from '@/lib/plannerSync';
 import { supabaseClient } from '@/lib/supabase';
+import {
+  GentlePressable as Pressable,
+  PageBackdrop,
+} from '@/components/ProductUI';
 import { LoginScreen } from './LoginScreen';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export async function importGuestItems() {
   const [tasks, notes, goals] = await Promise.all([
@@ -40,10 +49,11 @@ export async function importGuestItems() {
 
 export const AccountScreen = () => {
   const { session } = useAuth();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { refresh, error: taskError } = useTasks();
   const theme = useAppTheme();
   const styles = plannerStyles(theme);
+  const insets = useSafeAreaInsets();
   const [busy, setBusy] = React.useState(false);
   const lock = React.useRef(false);
   const [, redraw] = React.useReducer(value => value + 1, 0);
@@ -72,24 +82,33 @@ export const AccountScreen = () => {
   };
   return (
     <View style={styles.root}>
-      <PlannerHeader title="Account" onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <PageBackdrop />
+      <PlannerHeader
+        title="Account"
+        onBack={() => navigation.navigate('Calendar')}
+      />
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + 110 },
+        ]}
+      >
         <Text style={styles.body}>{session.user.email}</Text>
         <Text accessibilityRole="alert" style={styles.body}>
           {taskError ??
             plannerSyncProblem(session.user.id) ??
-            'Account storage'}
+            'Your account syncs across devices.'}
         </Text>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Sync now"
           disabled={busy}
           onPress={() => void sync()}
-          style={styles.search}
+          style={[styles.card, styles.row]}
         >
           <Feather
             name="refresh-cw"
-            size={20}
+            size={18}
             color={theme.colors.textPrimary}
           />
           <Text style={styles.body}>{busy ? 'Syncing' : 'Sync now'}</Text>
@@ -98,7 +117,7 @@ export const AccountScreen = () => {
           accessibilityRole="button"
           accessibilityLabel="Import device items"
           disabled={busy}
-          style={styles.search}
+          style={[styles.card, styles.row]}
           onPress={() =>
             Alert.alert(
               'Import device items?',
@@ -110,7 +129,7 @@ export const AccountScreen = () => {
             )
           }
         >
-          <Feather name="upload" size={20} color={theme.colors.textPrimary} />
+          <Feather name="upload" size={18} color={theme.colors.textPrimary} />
           <Text style={styles.body}>Import device items</Text>
         </Pressable>
       </ScrollView>

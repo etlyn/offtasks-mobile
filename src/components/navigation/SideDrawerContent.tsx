@@ -1,11 +1,25 @@
 import React from 'react';
-import { Alert, Keyboard, Pressable, Text, View } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
+import { Alert, Keyboard, Switch, Text, View } from 'react-native';
+import {
+  ArrowRight,
+  ChartNoAxesColumnIncreasing,
+  ChevronRight,
+  EyeOff,
+  LogOut,
+  Moon,
+  RefreshCw,
+  SlidersHorizontal,
+  Trash2,
+  X,
+  type LucideIcon,
+} from 'lucide-react-native';
 import {
   DrawerContentScrollView,
   DrawerContentComponentProps,
 } from '@react-navigation/drawer';
-import { CommonActions } from '@react-navigation/native';
+import { GentlePressable as Pressable } from '@/components/ProductUI';
+import { CalendarBackdrop } from '@/components/PageBackdrop';
+import { GlassSurface } from '@/components/GlassSurface';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { deleteAccount, supabaseClient } from '@/lib/supabase';
@@ -20,39 +34,81 @@ import { createStyles } from './SideDrawerContent.styles';
 
 type ToggleControlProps = {
   value: boolean;
-  onPress: () => void;
+  onPress: (value: boolean) => void;
   accessibilityLabel: string;
-  styles: ReturnType<typeof createStyles>;
+  accessibilityHint?: string;
 };
 
 const ToggleControl = ({
   value,
   onPress,
   accessibilityLabel,
+  accessibilityHint,
+}: ToggleControlProps) => {
+  const theme = useAppTheme();
+  return (
+    <Switch
+      value={value}
+      onValueChange={onPress}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      trackColor={{
+        false: theme.colors.borderStrong,
+        true: theme.isDark ? '#D8F3E5' : '#152D25',
+      }}
+      thumbColor={theme.isDark && value ? '#101916' : '#FFFFFF'}
+    />
+  );
+};
+
+function PreferenceRow({
+  icon: Icon,
+  title,
+  detail,
+  value,
+  onChange,
+  label,
   styles,
-}: ToggleControlProps) => (
-  <Pressable
-    accessibilityRole="switch"
-    accessibilityState={{ checked: value }}
-    accessibilityLabel={accessibilityLabel}
-    onPress={onPress}
-    style={({ pressed }) => [
-      styles.glassToggle,
-      value && styles.glassToggleActive,
-      pressed && styles.glassTogglePressed,
-    ]}
-  >
-    <View
-      style={[
-        styles.glassToggleTrackFill,
-        value && styles.glassToggleTrackFillActive,
-      ]}
-    />
-    <View
-      style={[styles.glassToggleThumb, value && styles.glassToggleThumbActive]}
-    />
-  </Pressable>
-);
+}: {
+  icon: LucideIcon;
+  title: string;
+  detail?: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+  label: string;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const theme = useAppTheme();
+  return (
+    <View style={styles.preferenceRow}>
+      <View
+        style={styles.rowIcon}
+        accessible={false}
+        accessibilityElementsHidden
+      >
+        <Icon
+          size={18}
+          strokeWidth={1.7}
+          color={theme.isDark ? '#D8F3E5' : '#152D25'}
+        />
+      </View>
+      <View style={styles.rowBody}>
+        <View style={styles.rowText}>
+          <Text style={styles.rowLabel}>{title}</Text>
+          {detail ? <Text style={styles.rowDetail}>{detail}</Text> : null}
+        </View>
+        <View style={styles.switchTarget}>
+          <ToggleControl
+            value={value}
+            onPress={onChange}
+            accessibilityLabel={label}
+            accessibilityHint={detail}
+          />
+        </View>
+      </View>
+    </View>
+  );
+}
 
 export const SideDrawerContent = (props: DrawerContentComponentProps) => {
   const { navigation } = props;
@@ -76,34 +132,12 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
 
   const handleNavigate = React.useCallback(
     (routeName: string) => {
-      navigation.navigate(routeName as never);
+      Keyboard.dismiss();
+      navigation.navigate('Dashboard', { screen: routeName });
       navigation.closeDrawer();
     },
     [navigation],
   );
-
-  const handleResetToHome = React.useCallback(() => {
-    Keyboard.dismiss();
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [
-          {
-            name: 'Dashboard',
-            state: {
-              index: 0,
-              routes: [
-                {
-                  name: 'Calendar',
-                  params: { group: 'today', view: 'calendar' },
-                },
-              ],
-            },
-          },
-        ],
-      }),
-    );
-  }, [navigation]);
 
   const handleSignOut = React.useCallback(async () => {
     try {
@@ -187,256 +221,185 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
       .slice(0, 2)
       .map(part => part[0]?.toUpperCase() ?? '')
       .join('') || 'U';
-  const completionLabel =
-    totals.all > 0
-      ? `${totals.completed}/${totals.all} completed`
-      : 'No tasks yet';
-  const handleCloseDrawer = React.useCallback(() => {
-    navigation.closeDrawer();
-  }, [navigation]);
+  const brand = theme.isDark ? '#D8F3E5' : '#152D25';
+  const danger = theme.isDark ? '#F4A5A5' : '#A83E3E';
 
   return (
-    <DrawerContentScrollView
-      {...props}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={[
-        styles.container,
-        {
-          paddingTop: insets.top + 24,
-          paddingBottom: insets.bottom + 40,
-        },
-      ]}
-    >
-      <View style={styles.headerActions}>
+    <View style={styles.shell}>
+      <View pointerEvents="none" style={styles.backdrop}>
+        <CalendarBackdrop />
+      </View>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <Text style={styles.wordmark}>
+          offtasks<Text style={styles.brandDot}>.</Text>
+        </Text>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close menu"
-          onPress={handleCloseDrawer}
-          style={({ pressed }) => [
-            styles.closeButton,
-            pressed && styles.closeButtonPressed,
-          ]}
+          onPress={() => navigation.closeDrawer()}
+          style={styles.closeTarget}
         >
-          <Feather name="x" size={18} color={theme.colors.textPrimary} />
+          <GlassSurface navigation style={styles.closeSurface}>
+            <X size={18} strokeWidth={1.8} color={brand} />
+          </GlassSurface>
         </Pressable>
       </View>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Go to Calendar"
-        onPress={handleResetToHome}
-        style={({ pressed }) => [
-          styles.heroCard,
-          pressed && styles.closeButtonPressed,
+      <DrawerContentScrollView
+        {...props}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: 12,
+            paddingBottom: Math.max(insets.bottom, 16) + 12,
+            paddingStart: 24,
+            paddingEnd: 24,
+          },
         ]}
       >
-        <View style={styles.profileRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={session ? 'Account and sync' : 'Sign in for sync'}
+          accessibilityHint={
+            session
+              ? 'Open your account and sync settings'
+              : 'Your guest items stay on this device'
+          }
+          onPress={() => handleNavigate('Account')}
+          style={styles.profile}
+        >
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials}</Text>
           </View>
           <View style={styles.profileMeta}>
-            <Text style={styles.profileName}>{userLabel}</Text>
-            <Text style={styles.profileEmail} numberOfLines={1}>
+            <Text style={styles.profileName} numberOfLines={1}>
+              {userLabel}
+            </Text>
+            <Text style={styles.profileDetail} numberOfLines={1}>
               {email}
             </Text>
-            <Text style={styles.profileMetaNote}>{completionLabel}</Text>
           </View>
-        </View>
-      </Pressable>
-
-      <View style={styles.menuCard}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.menuRow,
-            pressed && styles.menuRowPressed,
-          ]}
-          onPress={() => handleNavigate('Statistics')}
-        >
-          <View style={[styles.menuIcon, styles.statisticsIcon]}>
-            <Feather
-              name="pie-chart"
-              size={16}
-              color={theme.colors.iconPrimary}
-            />
-          </View>
-          <View style={styles.menuTextBlock}>
-            <Text style={styles.menuLabel}>Statistics</Text>
-          </View>
-          <View style={styles.menuActionSlot}>
-            <Feather
-              name="chevron-right"
-              size={18}
-              color={theme.colors.iconMuted}
-              style={styles.menuChevron}
-            />
-          </View>
+          <ChevronRight
+            size={16}
+            strokeWidth={1.7}
+            color={theme.colors.textMuted}
+          />
         </Pressable>
 
-        <View style={styles.menuRow}>
-          <View style={[styles.menuIcon, styles.themeIcon]}>
-            <Feather
-              name={isDarkMode ? 'moon' : 'sun'}
-              size={16}
-              color={theme.isDark ? '#fde68a' : '#8a5a00'}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Statistics"
+          accessibilityHint={
+            totals.all > 0
+              ? `${totals.completed} of ${totals.all} tasks completed`
+              : undefined
+          }
+          onPress={() => handleNavigate('Statistics')}
+          style={styles.statisticsTarget}
+        >
+          <GlassSurface navigation style={styles.statisticsSurface}>
+            <ChartNoAxesColumnIncreasing
+              size={19}
+              strokeWidth={1.7}
+              color={brand}
             />
-          </View>
-          <View style={styles.menuTextBlock}>
-            <Text style={styles.menuLabel}>Appearance</Text>
-            <Text style={styles.menuValue}>
-              {isDarkMode ? 'Dark glass' : 'Light glass'}
+            <Text style={[styles.rowLabel, styles.statisticsLabel]}>
+              Statistics
             </Text>
-          </View>
-          <ToggleControl
-            value={isDarkMode}
-            onPress={toggleTheme}
-            accessibilityLabel="Toggle dark mode"
-            styles={styles}
-          />
-        </View>
-
-        <View style={styles.menuRow}>
-          <View style={[styles.menuIcon, styles.hideIcon]}>
-            <Feather
-              name="eye-off"
-              size={16}
-              color={theme.colors.iconPrimary}
-            />
-          </View>
-          <View style={styles.menuTextBlock}>
-            <Text style={styles.menuLabel}>Hide Completed Tasks</Text>
-            <Text style={styles.menuValue}>
-              Keep the drawer focused on active work
-            </Text>
-          </View>
-          <ToggleControl
-            value={hideCompleted}
-            onPress={() => {
-              setHideCompleted(!hideCompleted);
-            }}
-            accessibilityLabel="Toggle hide completed tasks"
-            styles={styles}
-          />
-        </View>
-
-        <View style={styles.menuRow}>
-          <View style={[styles.menuIcon, styles.advancedIcon]}>
-            <Feather name="cpu" size={16} color={theme.colors.iconPrimary} />
-          </View>
-          <View style={styles.menuTextBlock}>
-            <Text style={styles.menuLabel}>Advanced Mode</Text>
-            <Text style={styles.menuValue}>
-              Show extra controls and deeper task detail
-            </Text>
-          </View>
-          <ToggleControl
-            value={advancedMode}
-            onPress={() => {
-              setAdvancedMode(!advancedMode);
-            }}
-            accessibilityLabel="Toggle advanced mode"
-            styles={styles}
-          />
-        </View>
-
-        <View style={styles.menuRow}>
-          <View style={[styles.menuIcon, styles.autoIcon]}>
-            <Feather
-              name="refresh-cw"
-              size={16}
-              color={theme.colors.iconPrimary}
-            />
-          </View>
-          <View style={styles.menuTextBlock}>
-            <Text style={styles.menuLabel}>Auto-move due tasks</Text>
-            <Text style={styles.menuValue}>
-              Reflow overdue items into the current day
-            </Text>
-          </View>
-          <ToggleControl
-            value={autoArrange}
-            onPress={() => {
-              setAutoArrange(!autoArrange);
-            }}
-            accessibilityLabel="Toggle auto move due tasks"
-            styles={styles}
-          />
-        </View>
-
-        <View style={[styles.menuRow, styles.menuRowLast]}>
-          <View style={[styles.menuIcon, styles.versionIcon]}>
-            <Feather name="info" size={16} color={theme.colors.iconPrimary} />
-          </View>
-          <View style={styles.menuTextBlock}>
-            <Text style={styles.menuLabel}>App Version</Text>
-          </View>
-          <View style={styles.menuActionSlot}>
-            <Text style={styles.menuActionValue}>{appVersion}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.footer}>
-        {!session ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Sign in for sync"
-            style={styles.logoutButton}
-            onPress={() => handleNavigate('Account')}
-          >
-            <Feather name="log-in" size={18} color={theme.colors.textPrimary} />
-            <Text style={styles.menuLabel}>Sign in for sync</Text>
-          </Pressable>
-        ) : (
-          <>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Account and sync"
-              style={styles.logoutButton}
-              onPress={() => handleNavigate('Account')}
-            >
-              <Feather
-                name="refresh-cw"
-                size={18}
-                color={theme.colors.textPrimary}
-              />
-              <Text style={styles.menuLabel}>Account and sync</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Delete account"
-              disabled={isDeletingAccount}
-              style={({ pressed }) => [
-                styles.deleteAccountButton,
-                pressed && styles.deleteAccountButtonPressed,
-                isDeletingAccount && styles.footerButtonDisabled,
-              ]}
-              onPress={handleDeleteAccount}
-            >
-              <View style={styles.deleteAccountIconWrap}>
-                <Feather name="trash-2" size={16} color="#b91c1c" />
-              </View>
-              <Text style={styles.deleteAccountLabel}>
-                {isDeletingAccount ? 'Deleting Account' : 'Delete Account'}
+            {totals.all > 0 ? (
+              <Text style={styles.progress}>
+                {totals.completed}/{totals.all}
               </Text>
-            </Pressable>
+            ) : null}
+            <ChevronRight
+              size={16}
+              strokeWidth={1.7}
+              color={theme.colors.textMuted}
+            />
+          </GlassSurface>
+        </Pressable>
 
+        <Text accessibilityRole="header" style={styles.sectionLabel}>
+          Preferences
+        </Text>
+        <PreferenceRow
+          icon={Moon}
+          title="Dark mode"
+          value={isDarkMode}
+          onChange={toggleTheme}
+          label="Toggle dark mode"
+          styles={styles}
+        />
+        <PreferenceRow
+          icon={EyeOff}
+          title="Hide completed"
+          value={hideCompleted}
+          onChange={setHideCompleted}
+          label="Toggle hide completed tasks"
+          styles={styles}
+        />
+        <PreferenceRow
+          icon={SlidersHorizontal}
+          title="Advanced mode"
+          detail="Labels & priority filters"
+          value={advancedMode}
+          onChange={setAdvancedMode}
+          label="Toggle advanced mode"
+          styles={styles}
+        />
+        <PreferenceRow
+          icon={RefreshCw}
+          title="Auto-move due tasks"
+          detail="Move overdue tasks to Today"
+          value={autoArrange}
+          onChange={setAutoArrange}
+          label="Toggle auto move due tasks"
+          styles={styles}
+        />
+
+        <View style={styles.footer}>
+          {!session ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Log out"
-              style={({ pressed }) => [
-                styles.logoutButton,
-                pressed && styles.logoutButtonPressed,
-              ]}
-              onPress={handleSignOut}
+              accessibilityLabel="Sign in"
+              onPress={() => handleNavigate('Account')}
+              style={styles.signIn}
             >
-              <View style={styles.logoutIconWrap}>
-                <Feather name="log-out" size={16} color="#e11d24" />
-              </View>
-              <Text style={styles.logoutLabel}>Log Out</Text>
+              <Text style={styles.signInLabel}>Sign in</Text>
+              <ArrowRight
+                size={17}
+                strokeWidth={1.8}
+                color={theme.isDark ? '#101916' : '#FFFFFF'}
+              />
             </Pressable>
-          </>
-        )}
-      </View>
-    </DrawerContentScrollView>
+          ) : (
+            <View style={styles.accountActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Log out"
+                onPress={handleSignOut}
+                style={styles.accountAction}
+              >
+                <LogOut size={17} strokeWidth={1.7} color={brand} />
+                <Text style={styles.rowLabel}>Log out</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Delete account"
+                disabled={isDeletingAccount}
+                onPress={handleDeleteAccount}
+                style={styles.accountAction}
+              >
+                <Trash2 size={16} strokeWidth={1.7} color={danger} />
+                <Text style={[styles.deleteLabel, { color: danger }]}>
+                  {isDeletingAccount ? 'Deleting account…' : 'Delete account'}
+                </Text>
+              </Pressable>
+            </View>
+          )}
+          <Text style={styles.version}>Version {appVersion}</Text>
+        </View>
+      </DrawerContentScrollView>
+    </View>
   );
 };

@@ -15,6 +15,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDrawerStatus } from '@react-navigation/drawer';
 
 import { PlannerHeader } from '@/components/navigation/PlannerHeader';
+import { QuietEmpty } from '@/components/ProductUI';
+import { Bookmark, Flag } from 'lucide-react-native';
 import { tasksForDay, tasksForGoal } from '@/utils/planner';
 import { TaskList } from '@/components/task-quick-list';
 import {
@@ -108,6 +110,7 @@ export const DashboardScreen = ({
   onBack,
   composerOnly = false,
   initialDate,
+  initialCategory,
   onComposerClose,
 }: DashboardScreenProps) => {
   const { tasks, loading, error, refreshing, refresh, applyTaskUpdate } =
@@ -122,6 +125,10 @@ export const DashboardScreen = ({
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   const [searchDockVisible, setSearchDockVisible] = React.useState(false);
+  const searchRequest = route?.params?.searchToggleRequestId;
+  React.useEffect(() => {
+    if (searchRequest) setSearchDockVisible(true);
+  }, [searchRequest]);
   const {
     reduceMotion: reduceSearchMotion,
     animateLayout: animateSearchLayout,
@@ -307,7 +314,7 @@ export const DashboardScreen = ({
   const [selectedPriority, setSelectedPriority] = React.useState<number>(0);
   const [categoryQuery, setCategoryQuery] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(
-    null,
+    initialCategory ?? null,
   );
   const [categoryPendingDelete, setCategoryPendingDelete] = React.useState<
     string | null
@@ -423,6 +430,22 @@ export const DashboardScreen = ({
     },
     [activeGroup],
   );
+
+  const handledTaskRequest = React.useRef<number | null>(null);
+  const openTaskRequest = route?.params?.openTaskRequest;
+  React.useEffect(() => {
+    if (
+      !openTaskRequest ||
+      loading ||
+      composerOnly ||
+      handledTaskRequest.current === openTaskRequest.requestId
+    )
+      return;
+    const task = allTasks.find(item => item.id === openTaskRequest.id);
+    handledTaskRequest.current = openTaskRequest.requestId;
+    if (task) handleEditTask(task);
+    else Alert.alert('Task unavailable', 'This task may have been removed.');
+  }, [openTaskRequest, loading, composerOnly, allTasks, handleEditTask]);
 
   const handleShowTaskDetails = React.useCallback(
     (task: Task | TaskWithOverdueFlag) => {
@@ -731,6 +754,7 @@ export const DashboardScreen = ({
                 : groupLabels[activeGroup])
             }
             onBack={onBack}
+            backInHeader={!!goal && !!onBack}
             actions={[
               {
                 icon: 'search',
@@ -758,7 +782,7 @@ export const DashboardScreen = ({
           onRefresh={handleRefresh}
           onAddTask={openComposer}
           showFab={false}
-          calendar={isCalendar || searchPage}
+          calendar
           search={searchPage}
           entranceProgress={searchPage ? searchTransition.progress : undefined}
           onScrollUp={
@@ -816,8 +840,9 @@ export const DashboardScreen = ({
             <View
               style={{
                 flexDirection: 'row',
-                justifyContent: 'space-between',
-                marginBottom: 16,
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 8,
                 paddingHorizontal: 4,
               }}
             >
@@ -834,9 +859,13 @@ export const DashboardScreen = ({
                     : 'Day plan'
                   : 'Tasks'}
               </Text>
-              <Text style={{ color: theme.colors.textSecondary }}>
-                {completedCount} / {totalCount}
-              </Text>
+              {totalCount > 0 ? (
+                <Text
+                  style={{ color: theme.colors.textSecondary, fontSize: 12 }}
+                >
+                  {completedCount}/{totalCount}
+                </Text>
+              ) : null}
             </View>
           ) : null}
           {searchPage && !loading && displayTasks.length === 0 ? (
@@ -852,9 +881,16 @@ export const DashboardScreen = ({
             <CalendarEmptyPlan
               allComplete={totalCount > 0 && completedCount === totalCount}
             />
+          ) : !searchPage && !loading && !error && displayTasks.length === 0 ? (
+            <QuietEmpty
+              icon={goal ? Flag : Bookmark}
+              label={
+                activeFilterCount > 0 ? 'No matching tasks' : 'No tasks planned'
+              }
+            />
           ) : (
             <TaskList
-              calendar={isCalendar || searchPage}
+              calendar
               tasks={displayTasks}
               onToggle={handleToggleTask}
               onPress={handleEditTask}
@@ -892,7 +928,7 @@ export const DashboardScreen = ({
         barStyle={theme.statusBarStyle}
         backgroundColor="transparent"
       />
-      {isCalendar ? <CalendarBackdrop /> : null}
+      <CalendarBackdrop />
       <View
         testID="search-underlay"
         style={styles.scroll}

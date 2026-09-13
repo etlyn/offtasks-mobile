@@ -1,21 +1,21 @@
 import { StyleSheet } from 'react-native';
-import { palette, type AppTheme } from '@/theme/colors';
+import { type AppTheme } from '@/theme/colors';
 
 export const plannerStyles = (theme: AppTheme) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.colors.background },
-    content: { paddingHorizontal: 18, paddingTop: 4, gap: 12 },
+    content: { paddingHorizontal: 24, paddingTop: 4, gap: 12 },
     search: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
-      borderRadius: 20,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: theme.colors.border,
       backgroundColor: theme.colors.surface,
       paddingHorizontal: 12,
       minHeight: 44,
-      marginHorizontal: 18,
+      marginHorizontal: 24,
       marginBottom: 12,
     },
     input: {
@@ -28,44 +28,46 @@ export const plannerStyles = (theme: AppTheme) =>
     segments: {
       flexDirection: 'row',
       gap: 8,
-      marginHorizontal: 18,
-      marginBottom: 12,
+      marginHorizontal: 24,
+      marginBottom: 8,
     },
     segment: {
       minWidth: 76,
-      minHeight: 36,
+      minHeight: 44,
       justifyContent: 'center',
       alignItems: 'center',
-      borderRadius: 18,
+      borderRadius: 22,
       paddingHorizontal: 16,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      backgroundColor: theme.colors.surface,
+      borderWidth: 0,
+      backgroundColor: 'transparent',
     },
     activeSegment: {
-      backgroundColor: palette.mintStrong,
-      borderColor: palette.mintStrong,
+      backgroundColor: theme.isDark ? '#D8F3E5' : '#152D25',
     },
-    activeLabel: { color: '#fff' },
+    activeLabel: { color: theme.isDark ? '#101916' : '#fff' },
     card: {
-      backgroundColor: theme.colors.surface,
-      borderColor: theme.colors.border,
+      backgroundColor: theme.isDark
+        ? 'rgba(255,255,255,0.035)'
+        : 'rgba(255,255,255,0.60)',
+      borderColor: theme.isDark
+        ? 'rgba(255,255,255,0.09)'
+        : 'rgba(21,45,37,0.08)',
       borderWidth: 1,
       borderRadius: 18,
       padding: 16,
-      gap: 12,
+      gap: 10,
     },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     grow: { flex: 1 },
     title: {
       color: theme.colors.textPrimary,
-      fontSize: 17,
-      lineHeight: 24,
+      fontSize: 15,
+      lineHeight: 21,
       fontWeight: '600',
       letterSpacing: 0,
     },
-    body: { color: theme.colors.textSecondary, fontSize: 14, lineHeight: 21 },
-    date: { color: theme.colors.textMuted, fontSize: 12, lineHeight: 18 },
+    body: { color: theme.colors.textSecondary, fontSize: 13, lineHeight: 20 },
+    date: { color: theme.colors.textSecondary, fontSize: 11, lineHeight: 16 },
     iconButton: {
       width: 44,
       height: 44,
@@ -76,17 +78,18 @@ export const plannerStyles = (theme: AppTheme) =>
     empty: {
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 52,
-      gap: 16,
+      paddingVertical: 28,
+      gap: 12,
     },
     modal: { flex: 1, backgroundColor: theme.colors.background },
     modalHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: 16,
+      paddingHorizontal: 20,
+      paddingVertical: 10,
       gap: 16,
-      borderBottomWidth: 1,
+      borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,
     },
     modalTitle: {
@@ -97,23 +100,34 @@ export const plannerStyles = (theme: AppTheme) =>
       textAlign: 'center',
     },
     editorTitle: {
-      fontSize: 22,
-      lineHeight: 30,
+      fontSize: 18,
+      lineHeight: 26,
       fontWeight: '600',
       color: theme.colors.textPrimary,
-      padding: 18,
+      padding: 24,
     },
     editorBody: {
       flex: 1,
-      fontSize: 16,
-      lineHeight: 25,
+      fontSize: 15,
+      lineHeight: 24,
       color: theme.colors.textPrimary,
-      paddingHorizontal: 18,
+      paddingHorizontal: 24,
       paddingTop: 12,
       textAlignVertical: 'top',
     },
-    save: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12 },
-    saveText: { color: palette.mintStrong, fontSize: 16, fontWeight: '600' },
+    save: {
+      minHeight: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      borderRadius: 22,
+      backgroundColor: theme.isDark ? '#D8F3E5' : '#152D25',
+    },
+    saveText: {
+      color: theme.isDark ? '#101916' : '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '600',
+    },
     disabled: { opacity: 0.4 },
     progressTrack: {
       height: 4,
@@ -121,12 +135,17 @@ export const plannerStyles = (theme: AppTheme) =>
       backgroundColor: theme.colors.border,
       overflow: 'hidden',
     },
-    progressFill: { height: 4, backgroundColor: palette.mint },
+    progressFill: {
+      height: 4,
+      backgroundColor: theme.isDark ? '#D8F3E5' : '#152D25',
+    },
     goalIcon: {
-      width: 40,
-      height: 40,
+      width: 36,
+      height: 36,
       borderRadius: 12,
-      backgroundColor: theme.colors.tabBarActiveBackground,
+      backgroundColor: theme.isDark
+        ? 'rgba(216,243,229,0.10)'
+        : 'rgba(21,45,37,0.06)',
       justifyContent: 'center',
       alignItems: 'center',
     },

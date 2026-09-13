@@ -14,6 +14,7 @@ import { Search, X } from 'lucide-react-native';
 import { GlassSurface } from '@/components/GlassSurface';
 import { useAppTheme } from '@/theme/colors';
 import { useCalendarTransition } from './useCalendarTransition';
+import { HeaderSlot, useSharedHeader } from '@/navigation/SharedHeader';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -60,6 +61,23 @@ export function TaskSearchButton({ onPress }: { onPress: () => void }) {
 }
 
 export function TaskSearchHeader({
+  registerHeader = true,
+  ...props
+}: React.ComponentProps<typeof SearchHeaderContent> & {
+  registerHeader?: boolean;
+}) {
+  const sharedHeader = useSharedHeader();
+  if (!sharedHeader || !registerHeader)
+    return <SearchHeaderContent {...props} />;
+  return (
+    <>
+      <HeaderSlot searching />
+      <SearchHeaderContent {...props} />
+    </>
+  );
+}
+
+function SearchHeaderContent({
   topInset,
   value,
   onChange,
@@ -68,6 +86,7 @@ export function TaskSearchHeader({
   fieldProgress,
   ready,
   resultCount,
+  scope = 'tasks',
 }: {
   topInset: number;
   value: string;
@@ -77,6 +96,7 @@ export function TaskSearchHeader({
   fieldProgress: Animated.Value;
   ready: boolean;
   resultCount: number;
+  scope?: 'tasks' | 'notes' | 'goals' | 'items';
 }) {
   const theme = useAppTheme();
   const input = React.useRef<TextInput>(null);
@@ -132,8 +152,20 @@ export function TaskSearchHeader({
               >
                 <TextInput
                   ref={input}
-                  accessibilityLabel="Search all tasks"
-                  placeholder="Search all tasks"
+                  accessibilityLabel={
+                    scope === 'items'
+                      ? 'Search'
+                      : scope === 'tasks'
+                      ? 'Search all tasks'
+                      : `Search ${scope}`
+                  }
+                  placeholder={
+                    scope === 'items'
+                      ? 'Search'
+                      : scope === 'tasks'
+                      ? 'Search all tasks'
+                      : `Search ${scope}`
+                  }
                   placeholderTextColor={theme.colors.textSecondary}
                   selectionColor={brand}
                   style={[s.input, { color: theme.colors.textPrimary }]}
@@ -149,7 +181,11 @@ export function TaskSearchHeader({
                 {value.length > 0 ? (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Clear search"
+                    accessibilityLabel={
+                      scope === 'tasks' || scope === 'items'
+                        ? 'Clear search'
+                        : `Clear ${scope.slice(0, -1)} search`
+                    }
                     onPress={() => {
                       onChange('');
                       input.current?.focus();
@@ -192,6 +228,7 @@ export function TaskSearchHeader({
         ]}
       >
         <TaskSearchSummary
+          scope={scope}
           count={resultCount}
           hasQuery={value.trim().length > 0}
         />
@@ -211,9 +248,11 @@ export function TaskSearchHeader({
 function TaskSearchSummary({
   count,
   hasQuery,
+  scope,
 }: {
   count: number;
   hasQuery: boolean;
+  scope: 'tasks' | 'notes' | 'goals' | 'items';
 }) {
   const theme = useAppTheme();
   return (
@@ -222,13 +261,17 @@ function TaskSearchSummary({
         accessibilityRole="header"
         style={[s.title, { color: theme.colors.textPrimary }]}
       >
-        {hasQuery ? 'Results' : 'All tasks'}
+        {hasQuery
+          ? 'Results'
+          : scope === 'items'
+          ? 'Everything'
+          : `All ${scope}`}
       </Text>
       {hasQuery ? (
         <Text
           accessibilityLiveRegion="polite"
           accessibilityLabel={`${count} ${
-            count === 1 ? 'task' : 'tasks'
+            count === 1 ? scope.slice(0, -1) : scope
           } found`}
           style={[s.count, { color: theme.colors.textSecondary }]}
         >

@@ -2,16 +2,30 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  BackHandler,
+  Keyboard,
+  StyleSheet,
   FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
+import { useFocusEffect } from '@react-navigation/native';
+import { useTaskCreation } from '@/navigation/TaskCreationContext';
+import { TaskSearchHeader } from '@/features/dashboard/components/TaskSearch';
+import { useSearchTransition } from '@/features/dashboard/components/useSearchTransition';
+import { Bookmark, FileText } from 'lucide-react-native';
+import {
+  GentlePressable as Pressable,
+  PageBackdrop,
+  QuietEmpty,
+} from '@/components/ProductUI';
+import { useCalendarTransition } from '@/features/dashboard/components/useCalendarTransition';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PlannerHeader } from '@/components/navigation/PlannerHeader';
 import { useAuth } from '@/providers/AuthProvider';
@@ -25,11 +39,18 @@ import {
 } from '@/lib/plannerSync';
 import { filterNotes, saveNote, type Note } from '@/lib/notes';
 import { palette, useAppTheme } from '@/theme/colors';
+import { NotesFilter } from './NotesFilter';
 import { plannerStyles } from './Planner.styles';
 
-export const NotesScreen = () => {
+export const NotesScreen = ({
+  route,
+}: {
+  route?: { params?: { openNoteRequest?: { id: string; requestId: number } } };
+}) => {
   const userId = useAuth().session?.user.id || GUEST_ID;
   const theme = useAppTheme();
+  const { reduceMotion, animateLayout } = useCalendarTransition();
+  const brand = theme.isDark ? '#D8F3E5' : '#152D25';
   const styles = plannerStyles(theme);
   const insets = useSafeAreaInsets();
   const [notes, setNotes] = useState<Note[]>([]);
@@ -44,6 +65,50 @@ export const NotesScreen = () => {
     body: string;
   } | null>(null);
   const [saving, setSaving] = useState(false);
+  const handledRequest = useRef<number | null>(null);
+  const openRequest = route?.params?.openNoteRequest;
+  useEffect(() => {
+    if (
+      !openRequest ||
+      loading ||
+      loadError ||
+      handledRequest.current === openRequest.requestId
+    )
+      return;
+    handledRequest.current = openRequest.requestId;
+    const note = notes.find(item => item.id === openRequest.id);
+    if (note) setEditor({ id: note.id, title: note.title, body: note.body });
+    else Alert.alert('Note unavailable', 'This note may have been removed.');
+  }, [openRequest, loading, loadError, notes]);
+  const [searchVisible, setSearchVisible] = useState(false);
+  const search = useSearchTransition(searchVisible, reduceMotion, () =>
+    setQuery(''),
+  );
+  const closeSearch = React.useCallback(() => {
+    Keyboard.dismiss();
+    setSearchVisible(false);
+  }, []);
+  const setNoteAction = useTaskCreation()?.setNoteAction;
+  useEffect(() => {
+    setNoteAction?.({
+      disabled: loading || loadError || saving || !!editor,
+      onPress: () => {
+        Keyboard.dismiss();
+        setEditor({ title: '', body: '' });
+      },
+    });
+    return () => setNoteAction?.(null);
+  }, [setNoteAction, loading, loadError, saving, editor]);
+  useFocusEffect(
+    React.useCallback(() => {
+      const back = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (!searchVisible || editor) return false;
+        closeSearch();
+        return true;
+      });
+      return () => back.remove();
+    }, [searchVisible, editor, closeSearch]),
+  );
   const busy = useRef(false);
   const alive = useRef(true);
 
@@ -89,7 +154,10 @@ export const NotesScreen = () => {
     try {
       await writePlanner(userId, 'note', next, notes);
       const saved = await readPlanner(userId, 'note');
-      if (alive.current) setNotes(saved);
+      if (alive.current) {
+        animateLayout();
+        setNotes(saved);
+      }
       void syncPlanner(userId, 'note');
       return true;
     } catch {
@@ -154,172 +222,203 @@ export const NotesScreen = () => {
     );
   };
 
+  const renderList = (searchPage: boolean) => (
+    <FlatList
+      testID={searchPage ? 'notes-search-results' : 'notes-list'}
+      data={filterNotes(
+        notes,
+        searchPage ? query : '',
+        searchPage ? false : pinnedOnly,
+      )}
+      keyExtractor={note => note.id}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      automaticallyAdjustKeyboardInsets
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: insets.bottom + 110 },
+      ]}
+      ListEmptyComponent={
+        <View style={styles.empty}>
+          {loading ? (
+            <ActivityIndicator color={brand} />
+          ) : (
+            <>
+              <QuietEmpty
+                icon={FileText}
+                label={
+                  loadError
+                    ? 'Notes could not be loaded'
+                    : searchPage && query
+                    ? 'No matching notes'
+                    : !searchPage && pinnedOnly
+                    ? 'No pinned notes'
+                    : 'No notes yet'
+                }
+              />
+              {loadError ? (
+                <Pressable
+                  accessibilityRole="button"
+                  style={styles.save}
+                  onPress={() => setReload(value => value + 1)}
+                >
+                  <Text style={styles.saveText}>Retry</Text>
+                </Pressable>
+              ) : null}
+            </>
+          )}
+        </View>
+      }
+      renderItem={({ item }) => (
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Open note ${item.title}`}
+              style={styles.grow}
+              onPress={() =>
+                setEditor({ id: item.id, title: item.title, body: item.body })
+              }
+            >
+              <Text style={styles.title} numberOfLines={2}>
+                {item.title}
+              </Text>
+              {item.body ? (
+                <Text style={styles.body} numberOfLines={2}>
+                  {item.body}
+                </Text>
+              ) : null}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${item.pinned ? 'Unpin' : 'Pin'} ${
+                item.title
+              }`}
+              accessibilityState={{ selected: item.pinned, disabled: saving }}
+              disabled={saving}
+              style={styles.iconButton}
+              onPress={() =>
+                persist(
+                  notes.map(note =>
+                    note.id === item.id
+                      ? { ...note, pinned: !note.pinned }
+                      : note,
+                  ),
+                )
+              }
+            >
+              <Bookmark
+                size={18}
+                strokeWidth={1.6}
+                color={item.pinned ? brand : theme.colors.textSecondary}
+                fill={item.pinned ? brand : 'none'}
+              />
+            </Pressable>
+          </View>
+          <Text style={styles.date}>
+            {new Date(item.updatedAt).toLocaleString(undefined, {
+              month: 'short',
+              day: 'numeric',
+            })}
+          </Text>
+        </View>
+      )}
+    />
+  );
+
   return (
     <View style={styles.root}>
-      <PlannerHeader
-        title="Notes"
-        actions={[
-          {
-            icon: 'plus',
-            label: 'Add note',
-            disabled: loading || loadError || saving,
-            onPress: () => setEditor({ title: '', body: '' }),
-          },
-        ]}
-      />
-      {plannerSyncProblem(userId) ? (
-        <Text accessibilityRole="alert" style={styles.body}>
-          {plannerSyncProblem(userId)}
-        </Text>
-      ) : null}
-      <View style={styles.search}>
-        <Feather name="search" size={18} color={theme.colors.textMuted} />
-        <TextInput
-          accessibilityLabel="Search notes"
-          placeholder="Search notes"
-          placeholderTextColor={theme.colors.textMuted}
-          value={query}
-          onChangeText={setQuery}
-          style={styles.input}
-          autoCorrect={false}
-        />
-        {query ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Clear note search"
-            style={styles.iconButton}
-            onPress={() => setQuery('')}
-          >
-            <Feather name="x" size={18} color={theme.colors.textMuted} />
-          </Pressable>
-        ) : null}
-      </View>
-      <View style={styles.segments}>
-        {['All', 'Pinned'].map((label, index) => (
-          <Pressable
-            key={label}
-            accessibilityRole="tab"
-            accessibilityLabel={label}
-            accessibilityState={{ selected: pinnedOnly === !!index }}
-            style={[
-              styles.segment,
-              pinnedOnly === !!index && styles.activeSegment,
-            ]}
-            onPress={() => setPinnedOnly(!!index)}
-          >
-            <Text
-              style={[
-                styles.body,
-                pinnedOnly === !!index && styles.activeLabel,
-              ]}
-            >
-              {label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      <FlatList
-        data={filterNotes(notes, query, pinnedOnly)}
-        keyExtractor={note => note.id}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: insets.bottom + 110 },
-        ]}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            {loading ? (
-              <ActivityIndicator color={palette.mint} />
-            ) : (
-              <>
-                <Feather
-                  name="file-text"
-                  size={32}
-                  color={theme.colors.textMuted}
-                />
-                <Text style={styles.body}>
-                  {loadError
-                    ? 'Notes could not be loaded'
-                    : query
-                    ? 'No matching notes'
-                    : pinnedOnly
-                    ? 'No pinned notes'
-                    : 'No notes yet'}
-                </Text>
-                {loadError ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    style={styles.save}
-                    onPress={() => setReload(value => value + 1)}
-                  >
-                    <Text style={styles.saveText}>Retry</Text>
-                  </Pressable>
-                ) : null}
-              </>
-            )}
-          </View>
+      <PageBackdrop />
+      <View
+        style={styles.grow}
+        testID="notes-underlay"
+        pointerEvents={search.mounted ? 'none' : 'auto'}
+        accessibilityElementsHidden={search.mounted}
+        importantForAccessibility={
+          search.mounted ? 'no-hide-descendants' : 'auto'
         }
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.row}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Open note ${item.title}`}
-                style={styles.grow}
-                onPress={() =>
-                  setEditor({ id: item.id, title: item.title, body: item.body })
-                }
-              >
-                <Text style={styles.title} numberOfLines={2}>
-                  {item.title}
-                </Text>
-                {item.body ? (
-                  <Text style={styles.body} numberOfLines={2}>
-                    {item.body}
-                  </Text>
-                ) : null}
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${item.pinned ? 'Unpin' : 'Pin'} ${
-                  item.title
-                }`}
-                accessibilityState={{ selected: item.pinned, disabled: saving }}
-                disabled={saving}
-                style={styles.iconButton}
-                onPress={() =>
-                  persist(
-                    notes.map(note =>
-                      note.id === item.id
-                        ? { ...note, pinned: !note.pinned }
-                        : note,
-                    ),
-                  )
-                }
-              >
-                <Feather
-                  name="bookmark"
-                  size={20}
-                  color={item.pinned ? palette.mint : theme.colors.textMuted}
-                />
-              </Pressable>
-            </View>
-            <Text style={styles.date}>
-              Edited{' '}
-              {new Date(item.updatedAt).toLocaleString(undefined, {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-              })}
-            </Text>
-          </View>
-        )}
-      />
+      >
+        <PlannerHeader
+          title="Notes"
+          actions={[
+            {
+              icon: 'search',
+              label: 'Search notes',
+              onPress: () => setSearchVisible(true),
+            },
+          ]}
+        />
+        {plannerSyncProblem(userId) ? (
+          <Text accessibilityRole="alert" style={styles.body}>
+            {plannerSyncProblem(userId)}
+          </Text>
+        ) : null}
+        <NotesFilter
+          pinnedOnly={pinnedOnly}
+          onChange={value => {
+            animateLayout();
+            setPinnedOnly(value);
+          }}
+        />
+        {renderList(false)}
+      </View>
+      {search.mounted ? (
+        <View
+          testID="notes-search-overlay"
+          style={StyleSheet.absoluteFill}
+          accessibilityViewIsModal
+          onAccessibilityEscape={closeSearch}
+        >
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: theme.colors.background,
+                opacity: search.progress,
+              },
+            ]}
+          >
+            <PageBackdrop />
+          </Animated.View>
+          <TaskSearchHeader
+            scope="notes"
+            topInset={insets.top}
+            value={query}
+            onChange={value => {
+              animateLayout();
+              setQuery(value);
+            }}
+            onClose={closeSearch}
+            progress={search.progress}
+            fieldProgress={search.fieldProgress}
+            ready={search.ready && !editor}
+            resultCount={filterNotes(notes, query, false).length}
+          />
+          <Animated.View
+            style={[
+              styles.grow,
+              {
+                opacity: search.progress,
+                transform: [
+                  {
+                    translateY: search.progress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [24, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            {renderList(true)}
+          </Animated.View>
+        </View>
+      ) : null}
       <Modal
         visible={!!editor}
-        animationType="slide"
+        animationType={reduceMotion ? 'none' : 'slide'}
         presentationStyle="pageSheet"
         onRequestClose={closeEditor}
       >
@@ -327,6 +426,7 @@ export const NotesScreen = () => {
           style={styles.modal}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
+          <PageBackdrop />
           <View style={styles.modalHeader}>
             <Pressable
               accessibilityRole="button"
@@ -335,7 +435,7 @@ export const NotesScreen = () => {
               style={styles.iconButton}
               onPress={closeEditor}
             >
-              <Feather name="x" size={22} color={theme.colors.textPrimary} />
+              <Feather name="x" size={18} color={theme.colors.textPrimary} />
             </Pressable>
             <Text style={styles.modalTitle}>
               {editor?.id ? 'Edit note' : 'New note'}
@@ -354,13 +454,17 @@ export const NotesScreen = () => {
               ]}
             >
               {saving ? (
-                <ActivityIndicator color={palette.mint} />
+                <ActivityIndicator
+                  color={theme.isDark ? '#101916' : '#FFFFFF'}
+                />
               ) : (
                 <Text style={styles.saveText}>Save</Text>
               )}
             </Pressable>
           </View>
           <TextInput
+            selectionColor={brand}
+            keyboardAppearance={theme.keyboardAppearance}
             accessibilityLabel="Note title"
             placeholder="Title"
             placeholderTextColor={theme.colors.textMuted}
@@ -373,6 +477,8 @@ export const NotesScreen = () => {
             editable={!saving}
           />
           <TextInput
+            selectionColor={brand}
+            keyboardAppearance={theme.keyboardAppearance}
             accessibilityLabel="Note body"
             placeholder="Note"
             placeholderTextColor={theme.colors.textMuted}
@@ -395,7 +501,7 @@ export const NotesScreen = () => {
               ]}
               onPress={remove}
             >
-              <Feather name="trash-2" size={22} color={palette.danger} />
+              <Feather name="trash-2" size={18} color={palette.danger} />
             </Pressable>
           ) : null}
         </KeyboardAvoidingView>

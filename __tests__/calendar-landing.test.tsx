@@ -195,6 +195,33 @@ test('search uses compact glass and Calendar rows across dates, including comple
   expect(screen.getByText('Composer date: 2030-04-12')).toBeTruthy();
 });
 
+test('global search task requests open the editor once and can reopen the same item later', async () => {
+  mockTasks = [task()];
+  const route = {
+    params: {
+      view: 'calendar' as const,
+      openTaskRequest: { id: 'landing-task', requestId: 1 },
+    },
+  };
+  const view = render(<DashboardScreen route={route} />);
+  expect(screen.getByLabelText('Close test composer')).toBeOnTheScreen();
+  fireEvent.press(screen.getByLabelText('Close test composer'));
+  view.rerender(<DashboardScreen route={route} />);
+  expect(screen.queryByLabelText('Close test composer')).toBeNull();
+  view.rerender(
+    <DashboardScreen
+      route={{
+        params: {
+          ...route.params,
+          openTaskRequest: { id: 'landing-task', requestId: 2 },
+        },
+      }}
+    />,
+  );
+  expect(screen.getByLabelText('Close test composer')).toBeOnTheScreen();
+  await act(async () => {});
+});
+
 test('clear, no results and cancel preserve Calendar selection and collapse state', async () => {
   renderLanding();
   const anotherDay = screen
@@ -699,11 +726,21 @@ test.each(names)(
   'floating plus opens creation without navigating away from %s',
   async name => {
     const openTask = jest.fn();
+    const openNote = jest.fn();
+    const openGoal = jest.fn();
+    const addLabel =
+      name === 'Notes'
+        ? 'Add note'
+        : name === 'Goals'
+        ? 'Add goal'
+        : 'Add task';
     const props = tabProps(names.indexOf(name));
     render(
       <TaskCreationContext.Provider
         value={{
           openTask,
+          noteAction: { onPress: openNote, disabled: false },
+          goalAction: { onPress: openGoal, disabled: false, label: 'Add goal' },
           calendarDay: '2027-01-05',
           setCalendarDay: jest.fn(),
         }}
@@ -711,7 +748,7 @@ test.each(names)(
         <DashboardTabBar {...props} />
       </TaskCreationContext.Provider>,
     );
-    expect(screen.getByLabelText('Add task')).toHaveStyle({
+    expect(screen.getByLabelText(addLabel)).toHaveStyle({
       width: 46,
       height: 46,
     });
@@ -726,10 +763,19 @@ test.each(names)(
     expect(screen.getByTestId('tab-dock-edge').props.pointerEvents).toBe(
       'none',
     );
-    fireEvent.press(screen.getByLabelText('Add task'));
-    expect(openTask).toHaveBeenCalledWith(
-      name === 'Calendar' ? '2027-01-05' : undefined,
-    );
+    fireEvent.press(screen.getByLabelText(addLabel));
+    if (name === 'Notes') {
+      expect(openNote).toHaveBeenCalledTimes(1);
+      expect(openTask).not.toHaveBeenCalled();
+    } else if (name === 'Goals') {
+      expect(openGoal).toHaveBeenCalledTimes(1);
+      expect(openTask).not.toHaveBeenCalled();
+    } else {
+      expect(openTask).toHaveBeenCalledWith(
+        name === 'Calendar' ? '2027-01-05' : undefined,
+      );
+      expect(openNote).not.toHaveBeenCalled();
+    }
     await waitFor(() =>
       expect(props.navigation.navigate).not.toHaveBeenCalled(),
     );

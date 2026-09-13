@@ -6,7 +6,17 @@
  */
 import React from 'react';
 import Svg, { Path, Circle, Line, Polyline, Rect } from 'react-native-svg';
-import { Bookmark, ChevronUp, FileText, Folder } from 'lucide-react-native';
+import {
+  Bookmark,
+  ChevronUp,
+  FileText,
+  Folder,
+  Info,
+  LogIn,
+  RefreshCw,
+  Upload,
+  SquarePen,
+} from 'lucide-react-native';
 
 interface IconProps {
   name: string;
@@ -27,6 +37,11 @@ const FeatherIcon = ({ name, size = 24, color = '#000', style }: IconProps) => {
     'chevron-up': ChevronUp,
     'file-text': FileText,
     folder: Folder,
+    info: Info,
+    'log-in': LogIn,
+    'refresh-cw': RefreshCw,
+    upload: Upload,
+    'edit-3': SquarePen,
   }[name];
   if (SupplementalIcon)
     return <SupplementalIcon size={size} color={color} style={style} />;

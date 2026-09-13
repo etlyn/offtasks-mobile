@@ -11,13 +11,28 @@ import {
   readLocalTasks,
 } from '../src/lib/localTasks';
 
+const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
-  useNavigation: () => ({ goBack: jest.fn() }),
+  useNavigation: () => ({ navigate: mockNavigate }),
 }));
-jest.mock('../src/components/navigation/PlannerHeader', () => ({
-  PlannerHeader: () => null,
-}));
+jest.mock('../src/components/navigation/PlannerHeader', () => {
+  const { Pressable, Text } = require('react-native');
+  return {
+    PlannerHeader: ({ onBack }: { onBack: () => void }) => (
+      <Pressable accessibilityLabel="Back" onPress={onBack}>
+        <Text>Back</Text>
+      </Pressable>
+    ),
+  };
+});
+
+test('Account returns to existing app navigation without requiring back history', async () => {
+  const screen = render(<LoginScreen />);
+  await waitFor(() => expect(screen.getByLabelText('Back')).toBeTruthy());
+  fireEvent.press(screen.getByLabelText('Back'));
+  expect(mockNavigate).toHaveBeenCalledWith('Calendar');
+});
 jest.mock('../src/lib/supabase', () => ({
   supabaseClient: {
     rpc: jest.fn(),
@@ -29,9 +44,10 @@ jest.mock('../src/lib/supabase', () => ({
   },
 }));
 
-test('guest auth validation does not contact the backend', () => {
+test('guest auth validation does not contact the backend', async () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   const screen = render(<LoginScreen />);
+  await waitFor(() => expect(screen.getByText('Sign in')).toBeTruthy());
   fireEvent.press(screen.getByText('Sign in'));
   expect(alert).toHaveBeenCalledWith(
     'Missing details',

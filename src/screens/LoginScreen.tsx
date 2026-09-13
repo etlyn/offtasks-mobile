@@ -9,7 +9,6 @@ import {
   StatusBar,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -17,9 +16,19 @@ import { SUPABASE_RESET_REDIRECT_URL } from '@env';
 
 import { supabaseClient } from '@/lib/supabase';
 import { authErrorMessage } from '@/utils/authErrors';
-import { palette, useAppTheme } from '@/theme/colors';
-import { useNavigation } from '@react-navigation/native';
+import { useAppTheme } from '@/theme/colors';
+import {
+  useNavigation,
+  type NavigationProp,
+  type ParamListBase,
+} from '@react-navigation/native';
 import { PlannerHeader } from '@/components/navigation/PlannerHeader';
+
+import {
+  GentlePressable as TouchableOpacity,
+  PageBackdrop,
+} from '@/components/ProductUI';
+import { useCalendarTransition } from '@/features/dashboard/components/useCalendarTransition';
 
 const redirectUrl =
   SUPABASE_RESET_REDIRECT_URL || 'https://offtasks.com/reset-password';
@@ -27,8 +36,10 @@ const redirectUrl =
 type AuthMode = 'signIn' | 'signUp';
 
 export const LoginScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const theme = useAppTheme();
+  const { animateLayout } = useCalendarTransition();
+  const brand = theme.isDark ? '#D8F3E5' : '#152D25';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -38,8 +49,8 @@ export const LoginScreen = () => {
 
   const toggleMode = () => {
     if (loading) return;
+    animateLayout();
     setMode(prev => (prev === 'signIn' ? 'signUp' : 'signIn'));
-    setEmail('');
     setPassword('');
     setConfirmPassword('');
   };
@@ -131,17 +142,23 @@ export const LoginScreen = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={24}
     >
+      <PageBackdrop />
       <StatusBar
         barStyle={theme.statusBarStyle}
         backgroundColor="transparent"
       />
-      <PlannerHeader title="Account" onBack={() => navigation.goBack()} />
+      <PlannerHeader
+        title="Account"
+        onBack={() => navigation.navigate('Calendar')}
+      />
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Offtasks</Text>
+        <Text style={styles.title}>
+          offtasks<Text style={{ color: brand }}>.</Text>
+        </Text>
         <Text style={styles.subtitle}>
           {mode === 'signIn'
             ? 'Sign in for cross-device sync.'
@@ -151,6 +168,8 @@ export const LoginScreen = () => {
         <View style={styles.formGroup}>
           <Text style={styles.label}>Email</Text>
           <TextInput
+            editable={!loading}
+            selectionColor={brand}
             accessibilityLabel="Email"
             style={styles.input}
             placeholder="you@example.com"
@@ -168,6 +187,8 @@ export const LoginScreen = () => {
         <View style={styles.formGroup}>
           <Text style={styles.label}>Password</Text>
           <TextInput
+            editable={!loading}
+            selectionColor={brand}
             accessibilityLabel="Password"
             style={styles.input}
             placeholder="••••••••"
@@ -175,7 +196,7 @@ export const LoginScreen = () => {
             secureTextEntry
             value={password}
             onChangeText={setPassword}
-            textContentType="password"
+            textContentType={mode === 'signUp' ? 'newPassword' : 'password'}
             keyboardAppearance={theme.keyboardAppearance}
           />
         </View>
@@ -184,6 +205,8 @@ export const LoginScreen = () => {
           <View style={styles.formGroup}>
             <Text style={styles.label}>Confirm password</Text>
             <TextInput
+              editable={!loading}
+              selectionColor={brand}
               accessibilityLabel="Confirm password"
               style={styles.input}
               placeholder="••••••••"
@@ -191,19 +214,20 @@ export const LoginScreen = () => {
               secureTextEntry
               value={confirmPassword}
               onChangeText={setConfirmPassword}
-              textContentType="password"
+              textContentType={mode === 'signUp' ? 'newPassword' : 'password'}
               keyboardAppearance={theme.keyboardAppearance}
             />
           </View>
         ) : null}
 
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.primaryButton}
           onPress={handleSubmit}
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color={theme.colors.textPrimary} />
+            <ActivityIndicator color={theme.isDark ? '#101916' : '#FFFFFF'} />
           ) : (
             <Text style={styles.primaryButtonText}>
               {mode === 'signIn' ? 'Sign in' : 'Create account'}
@@ -212,6 +236,7 @@ export const LoginScreen = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.secondaryButton}
           onPress={toggleMode}
           disabled={loading}
@@ -224,6 +249,7 @@ export const LoginScreen = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.linkButton}
           onPress={handleResetPassword}
           disabled={loading}
@@ -244,20 +270,19 @@ const createStyles = (theme: ReturnType<typeof useAppTheme>) =>
     container: {
       flexGrow: 1,
       padding: 24,
-      paddingTop: 100,
-      paddingBottom: 48,
-      backgroundColor: theme.colors.background,
+      paddingTop: 24,
+      paddingBottom: 144,
     },
     title: {
-      fontSize: 36,
+      fontSize: 22,
       fontWeight: '700',
       color: theme.colors.textPrimary,
       marginBottom: 12,
     },
     subtitle: {
-      fontSize: 16,
+      fontSize: 15,
       color: theme.colors.textSecondary,
-      marginBottom: 32,
+      marginBottom: 28,
     },
     formGroup: {
       marginBottom: 20,
@@ -274,40 +299,43 @@ const createStyles = (theme: ReturnType<typeof useAppTheme>) =>
       backgroundColor: theme.colors.inputBackground,
       color: theme.colors.textPrimary,
       paddingHorizontal: 16,
-      paddingVertical: 14,
+      minHeight: 44,
+      paddingVertical: 12,
       fontSize: 16,
     },
     primaryButton: {
-      backgroundColor: theme.isDark
-        ? 'rgba(0, 150, 137, 0.22)'
-        : 'rgba(6, 182, 212, 0.15)',
-      paddingVertical: 16,
+      backgroundColor: theme.isDark ? '#D8F3E5' : '#152D25',
+      minHeight: 44,
+      paddingVertical: 12,
       borderRadius: 16,
       alignItems: 'center',
       marginTop: 8,
       borderWidth: 1,
-      borderColor: palette.accent,
+      borderColor: 'transparent',
     },
     primaryButtonText: {
-      fontSize: 16,
+      fontSize: 14,
       fontWeight: '600',
-      color: theme.colors.textPrimary,
+      color: theme.isDark ? '#101916' : '#FFFFFF',
     },
     secondaryButton: {
+      minHeight: 44,
+      justifyContent: 'center',
       alignItems: 'center',
       marginTop: 24,
     },
     secondaryButtonText: {
-      color: palette.accentMuted,
+      color: theme.isDark ? '#D8F3E5' : '#152D25',
       fontSize: 15,
     },
     linkButton: {
+      minHeight: 44,
+      justifyContent: 'center',
       alignItems: 'center',
-      marginTop: 16,
+      marginTop: 4,
     },
     linkButtonText: {
       color: theme.colors.textSecondary,
-      textDecorationLine: 'underline',
       fontSize: 14,
     },
   });

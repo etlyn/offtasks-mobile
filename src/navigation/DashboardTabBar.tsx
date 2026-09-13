@@ -2,6 +2,7 @@ import * as React from 'react';
 import {
   AccessibilityInfo,
   Animated,
+  Easing,
   Keyboard,
   Pressable,
   StyleSheet,
@@ -21,35 +22,61 @@ const DOCK_INSET = 4;
 const DOCK_RADIUS = DOCK_HEIGHT / 2;
 const SELECTION_RADIUS = DOCK_RADIUS - DOCK_INSET;
 
-export const DashboardTabBar: React.FC<BottomTabBarProps> = ({
-  state,
-  descriptors,
-  navigation,
-}) => {
+export const DashboardTabBar: React.FC<
+  BottomTabBarProps & { onNavigate?: () => void }
+> = ({ state, descriptors, navigation, onNavigate }) => {
   const insets = useSafeAreaInsets();
   const theme = useAppTheme();
   const creation = useTaskCreation();
+  const mainRoutes = state.routes.filter(route =>
+    ['Calendar', 'Notes', 'Goals', 'Later'].includes(route.name),
+  );
+  const mainIndex = mainRoutes.findIndex(
+    route => route.key === state.routes[state.index]?.key,
+  );
+  const lastMainIndex = React.useRef(Math.max(0, mainIndex));
+  React.useEffect(() => {
+    if (mainIndex >= 0) lastMainIndex.current = mainIndex;
+  }, [mainIndex]);
+  const lensIndex = mainIndex >= 0 ? mainIndex : lastMainIndex.current;
+  const isNotes = state.routes[state.index]?.name === 'Notes';
+  const isGoals = state.routes[state.index]?.name === 'Goals';
+  const contextualAction = isNotes
+    ? creation?.noteAction
+    : isGoals
+    ? creation?.goalAction
+    : null;
+  const addLabel = isNotes
+    ? 'Add note'
+    : isGoals
+    ? creation?.goalAction?.label ?? 'Add goal'
+    : 'Add task';
+  const addDisabled =
+    (isNotes || isGoals) && (!contextualAction || contextualAction.disabled);
   const styles = React.useMemo(() => createStyles(theme), [theme]);
   const [width, setWidth] = React.useState(0);
   const [keyboardVisible, setKeyboardVisible] = React.useState(false);
   const [reduceMotion, setReduceMotion] = React.useState(true);
   const position = React.useRef(new Animated.Value(0)).current;
   const stretch = React.useRef(new Animated.Value(1)).current;
+  const lensOpacity = React.useRef(
+    new Animated.Value(mainIndex < 0 ? 0 : 1),
+  ).current;
   const laidOut = React.useRef(false);
   // Calendar's longer label needs more room at the capsule's curved edges.
-  const totalWeight = state.routes.reduce(
+  const totalWeight = mainRoutes.reduce(
     (sum, route) => sum + (route.name === 'Calendar' ? 1.2 : 1),
     0,
   );
-  const tabWidths = state.routes.map(
+  const tabWidths = mainRoutes.map(
     route =>
       (Math.max(0, width - DOCK_INSET * 2) *
         (route.name === 'Calendar' ? 1.2 : 1)) /
       totalWeight,
   );
-  const selectionWidth = tabWidths[state.index] ?? 0;
+  const selectionWidth = tabWidths[lensIndex] ?? 0;
   const target = tabWidths
-    .slice(0, state.index)
+    .slice(0, lensIndex)
     .reduce((sum, value) => sum + value, 0);
   const activeColor = theme.isDark ? '#F5F5F7' : '#292B30';
   const inactiveColor = theme.isDark ? '#B9BBC2' : '#63666D';
@@ -98,6 +125,22 @@ export const DashboardTabBar: React.FC<BottomTabBarProps> = ({
     return () => movement.stop();
   }, [target, width, reduceMotion, position, stretch]);
 
+  React.useEffect(() => {
+    const toValue = mainIndex < 0 ? 0 : 1;
+    if (reduceMotion) {
+      lensOpacity.setValue(toValue);
+      return;
+    }
+    const animation = Animated.timing(lensOpacity, {
+      toValue,
+      duration: 260,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [mainIndex, lensOpacity, reduceMotion]);
+
   const pressLens = (pressed: boolean) => {
     if (reduceMotion) return;
     Animated.spring(stretch, {
@@ -140,6 +183,7 @@ export const DashboardTabBar: React.FC<BottomTabBarProps> = ({
                   styles.lens,
                   {
                     width: selectionWidth,
+                    opacity: lensOpacity,
                     transform: [{ translateX: position }, { scaleY: stretch }],
                   },
                 ]}
@@ -155,8 +199,8 @@ export const DashboardTabBar: React.FC<BottomTabBarProps> = ({
                 </GlassSurface>
               </Animated.View>
             ) : null}
-            {state.routes.map((route, index) => {
-              const focused = state.index === index;
+            {mainRoutes.map((route, index) => {
+              const focused = mainIndex === index;
               const options = descriptors[route.key].options;
               const label =
                 typeof options.tabBarLabel === 'string'
@@ -181,6 +225,7 @@ export const DashboardTabBar: React.FC<BottomTabBarProps> = ({
                       target: route.key,
                       canPreventDefault: true,
                     });
+                    if (!event.defaultPrevented) onNavigate?.();
                     if (!focused && !event.defaultPrevented)
                       navigation.navigate(route.name, route.params);
                   }}
@@ -234,17 +279,31 @@ export const DashboardTabBar: React.FC<BottomTabBarProps> = ({
         {creation ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Add task"
-            accessibilityHint="Opens task creation without leaving this page"
-            onPress={() =>
+            accessibilityLabel={addLabel}
+            accessibilityHint={
+              isNotes
+                ? 'Opens a new note without leaving Notes'
+                : addLabel === 'Add goal'
+                ? 'Opens a new goal without leaving Goals'
+                : 'Opens task creation without leaving this page'
+            }
+            disabled={addDisabled}
+            accessibilityState={{ disabled: addDisabled }}
+            onPress={() => {
+              onNavigate?.();
+              if (isNotes || isGoals) {
+                contextualAction?.onPress();
+                return;
+              }
               creation.openTask(
                 state.routes[state.index]?.name === 'Calendar'
                   ? creation.calendarDay
                   : undefined,
-              )
-            }
+              );
+            }}
             style={({ pressed }) => [
               styles.addShadow,
+              addDisabled && styles.addDisabled,
               pressed && styles.addPressed,
             ]}
           >
@@ -367,4 +426,5 @@ const createStyles = (theme: ReturnType<typeof useAppTheme>) =>
       backgroundColor: theme.isDark ? '#D8F3E5' : '#152D25',
     },
     addPressed: { opacity: 0.7 },
+    addDisabled: { opacity: 0.4 },
   });

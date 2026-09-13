@@ -255,7 +255,7 @@ const TaskListRow = ({
   return (
     <Swipeable
       ref={swipeableRef}
-      renderRightActions={renderRightActions}
+      renderRightActions={onDelete ? renderRightActions : undefined}
       friction={2}
       rightThreshold={24}
       overshootRight={false}

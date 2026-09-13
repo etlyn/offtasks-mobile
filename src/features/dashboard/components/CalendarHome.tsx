@@ -6,50 +6,13 @@ import {
   CircleCheck,
   RotateCcw,
 } from 'lucide-react-native';
-import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+export { CalendarBackdrop } from '@/components/PageBackdrop';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassSurface } from '@/components/GlassSurface';
 import { useAppTheme } from '@/theme/colors';
 import { getToday } from '@/hooks/useDate';
 import { TaskSearchButton } from './TaskSearch';
-
-export function CalendarBackdrop() {
-  const { isDark } = useAppTheme();
-  return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <Svg width="100%" height="100%">
-        <Defs>
-          <RadialGradient id="calendarMint" cx="95%" cy="12%" rx="90%" ry="55%">
-            <Stop
-              offset="0"
-              stopColor={isDark ? '#17473D' : '#CBE7D9'}
-              stopOpacity={isDark ? 0.7 : 0.85}
-            />
-            <Stop
-              offset="1"
-              stopColor={isDark ? '#09090B' : '#F4F6FB'}
-              stopOpacity="0"
-            />
-          </RadialGradient>
-          <RadialGradient id="calendarWarm" cx="0%" cy="48%" rx="80%" ry="48%">
-            <Stop
-              offset="0"
-              stopColor={isDark ? '#38301D' : '#F0E8D6'}
-              stopOpacity="0.45"
-            />
-            <Stop
-              offset="1"
-              stopColor={isDark ? '#09090B' : '#F4F6FB'}
-              stopOpacity="0"
-            />
-          </RadialGradient>
-        </Defs>
-        <Rect width="100%" height="100%" fill="url(#calendarMint)" />
-        <Rect width="100%" height="100%" fill="url(#calendarWarm)" />
-      </Svg>
-    </View>
-  );
-}
+import { HeaderSlot, useSharedHeader } from '@/navigation/SharedHeader';
 
 export function CalendarHomeHeader({
   onMenu,
@@ -60,6 +23,18 @@ export function CalendarHomeHeader({
 }) {
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
+  const sharedHeader = useSharedHeader();
+  if (sharedHeader)
+    return (
+      <>
+        <HeaderSlot
+          onMenu={onMenu}
+          onSearch={onSearch}
+          searchLabel="Search tasks"
+        />
+        <View style={{ height: insets.top + 58 }} />
+      </>
+    );
   return (
     <View style={[s.header, { paddingTop: insets.top + 4 }]}>
       <Pressable
