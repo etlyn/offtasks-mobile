@@ -1,7 +1,13 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import {
+  AccessibilityInfo,
+  Alert,
+  Animated,
+  DeviceEventEmitter,
+} from 'react-native';
 import {
   fireEvent,
+  act,
   render,
   screen,
   waitFor,
@@ -57,6 +63,66 @@ jest.mock('../src/features/dashboard/Dashboard.screen', () => {
 beforeEach(async () => {
   await AsyncStorage.clear();
   jest.restoreAllMocks();
+});
+
+const makeTabProps = (index = 0) => {
+  const names = ['Calendar', 'Notes', 'Goals', 'Later'];
+  return {
+    state: { index, routes: names.map(name => ({ key: name, name })) },
+    descriptors: Object.fromEntries(names.map(name => [name, { options: {} }])),
+    navigation: {
+      navigate: jest.fn(),
+      emit: jest.fn(() => ({ defaultPrevented: false })),
+    },
+  } as unknown as React.ComponentProps<typeof DashboardTabBar>;
+};
+
+test('glass dock sizes its selection lens and respects Reduce Motion', async () => {
+  jest
+    .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
+    .mockResolvedValue(true);
+  const spring = jest.spyOn(Animated, 'spring');
+  const view = render(<DashboardTabBar {...makeTabProps()} />);
+  fireEvent(screen.getByTestId('main-tab-dock'), 'layout', {
+    nativeEvent: { layout: { width: 300, height: 56, x: 0, y: 0 } },
+  });
+  expect(screen.getByTestId('main-tab-dock')).toHaveStyle({
+    minHeight: 56,
+    borderWidth: 0,
+    padding: 4,
+    borderRadius: 28,
+  });
+  expect(screen.getByTestId('tab-selection-lens')).toHaveStyle({
+    width: (292 * 1.2) / 4.2,
+    top: 4,
+    bottom: 4,
+    left: 4,
+    borderRadius: 24,
+  });
+  expect(screen.getByTestId('tab-selection-glass')).toHaveStyle({
+    borderRadius: 24,
+  });
+  for (const tab of screen.getAllByRole('tab')) {
+    expect(tab).toHaveStyle({ minHeight: 48 });
+  }
+  view.rerender(<DashboardTabBar {...makeTabProps(2)} />);
+  await waitFor(() =>
+    expect(screen.getByRole('tab', { name: 'Goals' })).toBeSelected(),
+  );
+  expect(screen.getByTestId('tab-selection-lens')).toHaveStyle({
+    width: 292 / 4.2,
+  });
+  expect(spring).not.toHaveBeenCalled();
+});
+
+test('floating navigation hides for the keyboard and returns afterward', async () => {
+  render(<DashboardTabBar {...makeTabProps(1)} />);
+  act(() => DeviceEventEmitter.emit('keyboardDidShow', {}));
+  expect(screen.queryByRole('tab', { name: 'Notes' })).toBeNull();
+  act(() => DeviceEventEmitter.emit('keyboardDidHide', {}));
+  await waitFor(() =>
+    expect(screen.getByRole('tab', { name: 'Notes' })).toBeSelected(),
+  );
 });
 
 test('shows Calendar, Notes, Goals and Later in order and emits tab navigation', () => {
@@ -172,7 +238,7 @@ test('creates a goal and opens its task list', async () => {
   );
 });
 
-test('calendar renders the selected month and supports collapse, expand and today', () => {
+test('calendar starts expanded and supports collapse and today', async () => {
   const onChange = jest.fn();
   const tasks: Task[] = [
     {
@@ -189,18 +255,62 @@ test('calendar renders the selected month and supports collapse, expand and toda
   expect(
     screen.getByText('August 2026', { includeHiddenElements: true }),
   ).toBeTruthy();
-  fireEvent.press(screen.getByRole('button', { name: /23 August 2026/ }));
+  expect(screen.getByTestId('calendar-month')).toBeTruthy();
+  expect(
+    screen.getByRole('button', { name: /August 22, 2026, has tasks/ }),
+  ).toBeSelected();
+  fireEvent.press(screen.getByRole('button', { name: /August 23, 2026/ }));
   expect(onChange).toHaveBeenCalledWith('2026-08-23');
   fireEvent.press(screen.getByLabelText('Collapse calendar'));
-  expect(
-    screen.queryByText('August 2026', { includeHiddenElements: true }),
-  ).toBeNull();
+  expect(screen.getByTestId('calendar-week')).toBeTruthy();
+  expect(screen.queryByTestId('calendar-footer')).toBeNull();
+  expect(screen.queryByTestId('calendar-expand-row')).toBeNull();
+  expect(screen.getByLabelText('Expand calendar')).toHaveStyle({
+    minWidth: 72,
+    minHeight: 44,
+  });
+  expect(screen.queryByText('August 2026')).toBeNull();
+  expect(screen.queryByLabelText('Go to today')).toBeNull();
+  expect(screen.queryByLabelText('Previous month')).toBeNull();
   fireEvent.press(screen.getByLabelText('Expand calendar'));
+  expect(screen.getByTestId('calendar-month')).toBeTruthy();
+  expect(screen.getByRole('button', { name: /August 1, 2026/ })).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Next month'));
+  expect(screen.getByText('September 2026')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Previous month'));
+  expect(screen.getByText('August 2026')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Collapse calendar'));
+  expect(screen.getByTestId('calendar-week')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Expand calendar'));
+  await waitFor(() =>
+    expect(screen.getByTestId('calendar-month')).toBeTruthy(),
+  );
+});
+
+test('year picker jumps years, pages, cancels, and preserves the selected task date', async () => {
+  const onChange = jest.fn();
+  render(<MonthCalendar day="2024-02-29" onChange={onChange} tasks={[]} />);
+  fireEvent.press(screen.getByLabelText('Choose calendar year'));
+  expect(screen.getByRole('button', { name: 'Choose 2024' })).toBeSelected();
+  fireEvent.press(screen.getByLabelText('Next 12 years'));
+  expect(screen.getByLabelText('Choose 2028')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Previous 12 years'));
+  fireEvent.press(screen.getByLabelText('Choose 2025'));
+  expect(screen.getByText('February 2025')).toBeTruthy();
+  expect(screen.queryByLabelText('Close year picker')).toBeNull();
   expect(
-    screen.getByText('August 2026', { includeHiddenElements: true }),
-  ).toBeTruthy();
-  fireEvent.press(screen.getByLabelText('Go to today'));
-  expect(onChange).toHaveBeenCalledWith(
-    expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+    screen.queryByRole('button', { name: /February 29, 2025/ }),
+  ).toBeNull();
+  expect(onChange).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByLabelText('Choose calendar year'));
+  fireEvent.press(screen.getByLabelText('Next 12 years'));
+  fireEvent.press(screen.getByLabelText('Close year picker'));
+  expect(screen.getByText('February 2025')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Collapse calendar'));
+  expect(screen.queryByLabelText('Choose calendar year')).toBeNull();
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: /February 29, 2024/ }),
+    ).toBeSelected(),
   );
 });

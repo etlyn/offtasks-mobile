@@ -1,35 +1,25 @@
 import * as React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Animated,
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Feather from 'react-native-vector-icons/Feather';
-import { palette, useAppTheme } from '@/theme/colors';
-const labels: Record<string, string> = {
-  Calendar: 'Calendar',
-  Notes: 'Notes',
-  Goals: 'Goals',
-  Later: 'Later',
-};
+import { Plus } from 'lucide-react-native';
+import { useAppTheme } from '@/theme/colors';
+import { GlassSurface } from '@/components/GlassSurface';
+import { useTaskCreation } from './TaskCreationContext';
+import { TabBarIcon } from './TabBarIcon';
 
-const TabIcon = ({
-  route,
-  focused,
-  inactiveColor,
-}: {
-  route: string;
-  focused: boolean;
-  inactiveColor: string;
-}) => {
-  const color = focused ? palette.mintStrong : inactiveColor;
-
-  const icons: Record<string, string> = {
-    Calendar: 'calendar',
-    Notes: 'file-text',
-    Goals: 'folder',
-    Later: 'clock',
-  };
-  return <Feather name={icons[route] || 'calendar'} size={21} color={color} />;
-};
+const DOCK_HEIGHT = 56;
+const DOCK_INSET = 4;
+const DOCK_RADIUS = DOCK_HEIGHT / 2;
+const SELECTION_RADIUS = DOCK_RADIUS - DOCK_INSET;
 
 export const DashboardTabBar: React.FC<BottomTabBarProps> = ({
   state,
@@ -38,82 +28,240 @@ export const DashboardTabBar: React.FC<BottomTabBarProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const theme = useAppTheme();
+  const creation = useTaskCreation();
   const styles = React.useMemo(() => createStyles(theme), [theme]);
+  const [width, setWidth] = React.useState(0);
+  const [keyboardVisible, setKeyboardVisible] = React.useState(false);
+  const [reduceMotion, setReduceMotion] = React.useState(true);
+  const position = React.useRef(new Animated.Value(0)).current;
+  const stretch = React.useRef(new Animated.Value(1)).current;
+  const laidOut = React.useRef(false);
+  // Calendar's longer label needs more room at the capsule's curved edges.
+  const totalWeight = state.routes.reduce(
+    (sum, route) => sum + (route.name === 'Calendar' ? 1.2 : 1),
+    0,
+  );
+  const tabWidths = state.routes.map(
+    route =>
+      (Math.max(0, width - DOCK_INSET * 2) *
+        (route.name === 'Calendar' ? 1.2 : 1)) /
+      totalWeight,
+  );
+  const selectionWidth = tabWidths[state.index] ?? 0;
+  const target = tabWidths
+    .slice(0, state.index)
+    .reduce((sum, value) => sum + value, 0);
+  const activeColor = theme.isDark ? '#F5F5F7' : '#292B30';
+  const inactiveColor = theme.isDark ? '#B9BBC2' : '#63666D';
+
+  React.useEffect(() => {
+    let mounted = true;
+    AccessibilityInfo.isReduceMotionEnabled().then(value => {
+      if (mounted) setReduceMotion(value);
+    });
+    const motion = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      setReduceMotion,
+    );
+    const show = Keyboard.addListener('keyboardDidShow', () =>
+      setKeyboardVisible(true),
+    );
+    const hide = Keyboard.addListener('keyboardDidHide', () =>
+      setKeyboardVisible(false),
+    );
+    return () => {
+      mounted = false;
+      motion.remove();
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!width) return;
+    if (reduceMotion || !laidOut.current) {
+      stretch.stopAnimation();
+      stretch.setValue(1);
+      position.setValue(target);
+      laidOut.current = true;
+      return;
+    }
+    // Position and spring deformation stay on the native animation driver.
+    const movement = Animated.spring(position, {
+      toValue: target,
+      damping: 22,
+      stiffness: 240,
+      mass: 0.85,
+      useNativeDriver: true,
+    });
+    movement.start();
+    return () => movement.stop();
+  }, [target, width, reduceMotion, position, stretch]);
+
+  const pressLens = (pressed: boolean) => {
+    if (reduceMotion) return;
+    Animated.spring(stretch, {
+      toValue: pressed ? 0.98 : 1,
+      damping: 16,
+      stiffness: 300,
+      mass: 0.6,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  if (keyboardVisible) return null;
 
   return (
-    <View style={[styles.wrapper, { paddingBottom: insets.bottom + 12 }]}>
-      <View style={styles.container}>
-        <View pointerEvents="none" style={styles.containerSheen} />
-        {state.routes.map((route, index) => {
-          const isFocused = state.index === index;
-          const { options } = descriptors[route.key];
-          const fallbackLabel = labels[route.name] ?? route.name;
-          const label =
-            options.tabBarLabel !== undefined
-              ? options.tabBarLabel
-              : options.title !== undefined
-              ? options.title
-              : fallbackLabel;
-
-          const resolvedLabel =
-            typeof label === 'function'
-              ? label({
-                  focused: isFocused,
-                  color: isFocused
-                    ? palette.mintStrong
-                    : theme.colors.textSecondary,
-                  position: 'below-icon',
-                  children: fallbackLabel,
-                })
-              : label;
-
-          const labelText =
-            typeof resolvedLabel === 'string' ? resolvedLabel : fallbackLabel;
-
-          const handlePress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name, route.params);
-            }
-          };
-
-          return (
-            <Pressable
-              key={route.key}
-              accessibilityRole="tab"
-              accessibilityState={isFocused ? { selected: true } : {}}
-              accessibilityLabel={options.tabBarAccessibilityLabel || labelText}
-              testID={options.tabBarButtonTestID}
-              onLongPress={() =>
-                navigation.emit({ type: 'tabLongPress', target: route.key })
-              }
-              onPress={handlePress}
-              style={({ pressed }) => [
-                styles.tabItem,
-                isFocused && styles.tabItemActive,
-                pressed && styles.tabItemPressed,
-              ]}
-            >
-              <View style={styles.tabIcon}>
-                <TabIcon
-                  route={route.name}
-                  focused={isFocused}
-                  inactiveColor={theme.colors.textMuted}
-                />
-              </View>
-              <Text
-                style={[styles.tabLabel, isFocused && styles.tabLabelActive]}
+    <View
+      pointerEvents="box-none"
+      style={[
+        styles.wrapper,
+        { paddingBottom: Math.max(insets.bottom, 12) + 4 },
+      ]}
+    >
+      <View pointerEvents="box-none" style={styles.row}>
+        <View testID="tab-dock-shadow" style={styles.shadow}>
+          <GlassSurface
+            testID="main-tab-dock"
+            style={styles.dock}
+            onLayout={event => setWidth(event.nativeEvent.layout.width)}
+          >
+            {!theme.isDark ? (
+              <View
+                pointerEvents="none"
+                style={[StyleSheet.absoluteFill, styles.dockTint]}
+              />
+            ) : null}
+            {width > 0 ? (
+              <Animated.View
+                testID="tab-selection-lens"
+                pointerEvents="none"
+                style={[
+                  styles.lens,
+                  {
+                    width: selectionWidth,
+                    transform: [{ translateX: position }, { scaleY: stretch }],
+                  },
+                ]}
               >
-                {labelText}
-              </Text>
-            </Pressable>
-          );
-        })}
+                <GlassSurface
+                  navigation
+                  testID="tab-selection-glass"
+                  style={styles.selectionGlass}
+                >
+                  <View
+                    style={[StyleSheet.absoluteFill, styles.selectionTint]}
+                  />
+                </GlassSurface>
+              </Animated.View>
+            ) : null}
+            {state.routes.map((route, index) => {
+              const focused = state.index === index;
+              const options = descriptors[route.key].options;
+              const label =
+                typeof options.tabBarLabel === 'string'
+                  ? options.tabBarLabel
+                  : options.title ?? route.name;
+              const color = focused ? activeColor : inactiveColor;
+              return (
+                <Pressable
+                  key={route.key}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: focused }}
+                  accessibilityLabel={options.tabBarAccessibilityLabel || label}
+                  testID={options.tabBarButtonTestID}
+                  onPressIn={() => pressLens(true)}
+                  onPressOut={() => pressLens(false)}
+                  onLongPress={() =>
+                    navigation.emit({ type: 'tabLongPress', target: route.key })
+                  }
+                  onPress={() => {
+                    const event = navigation.emit({
+                      type: 'tabPress',
+                      target: route.key,
+                      canPreventDefault: true,
+                    });
+                    if (!focused && !event.defaultPrevented)
+                      navigation.navigate(route.name, route.params);
+                  }}
+                  style={({ pressed }) => [
+                    styles.tab,
+                    { flex: route.name === 'Calendar' ? 1.2 : 1 },
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <View
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                  >
+                    <TabBarIcon
+                      route={route.name}
+                      selected={focused}
+                      color={color}
+                      cutout={theme.isDark ? '#414249' : '#F0F1F4'}
+                    />
+                  </View>
+                  {typeof options.tabBarLabel === 'function' ? (
+                    options.tabBarLabel({
+                      focused,
+                      color,
+                      position: 'below-icon',
+                      children: route.name,
+                    })
+                  ) : (
+                    <Text
+                      style={[
+                        styles.label,
+                        { color },
+                        focused && styles.selectedLabel,
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  )}
+                </Pressable>
+              );
+            })}
+            {!theme.isDark ? (
+              <View
+                testID="tab-dock-edge"
+                pointerEvents="none"
+                style={styles.dockEdge}
+              />
+            ) : null}
+          </GlassSurface>
+        </View>
+        {creation ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add task"
+            accessibilityHint="Opens task creation without leaving this page"
+            onPress={() =>
+              creation.openTask(
+                state.routes[state.index]?.name === 'Calendar'
+                  ? creation.calendarDay
+                  : undefined,
+              )
+            }
+            style={({ pressed }) => [
+              styles.addShadow,
+              pressed && styles.addPressed,
+            ]}
+          >
+            <GlassSurface testID="global-add-surface" style={styles.add}>
+              <View
+                testID="global-add-tint"
+                pointerEvents="none"
+                style={[StyleSheet.absoluteFill, styles.addTint]}
+              />
+              <Plus
+                size={23}
+                strokeWidth={1.9}
+                color={theme.isDark ? '#101916' : '#FFFFFF'}
+              />
+            </GlassSurface>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -122,66 +270,101 @@ export const DashboardTabBar: React.FC<BottomTabBarProps> = ({
 const createStyles = (theme: ReturnType<typeof useAppTheme>) =>
   StyleSheet.create({
     wrapper: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
       alignItems: 'center',
-      backgroundColor: theme.colors.background,
-      paddingHorizontal: 16,
-      pointerEvents: 'box-none',
+      paddingHorizontal: 20,
     },
-    container: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+    row: {
       width: '100%',
       maxWidth: 600,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 20,
-      backgroundColor: theme.colors.tabBarBackground,
-      borderWidth: 1,
-      borderColor: theme.colors.tabBarBorder,
-      overflow: 'hidden',
-      shadowColor: theme.colors.shadow,
-      shadowOpacity: 1,
-      shadowOffset: { width: 0, height: 12 },
-      shadowRadius: 26,
-      elevation: 12,
-      gap: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
     },
-    containerSheen: {
-      ...StyleSheet.absoluteFillObject,
-      borderRadius: 20,
-      opacity: theme.isDark ? 0 : 1,
-      shadowColor: 'rgba(255, 255, 255, 0.85)',
-      shadowOpacity: 1,
-      shadowOffset: { width: 0, height: 1 },
-      shadowRadius: 2,
-    },
-    tabItem: {
+    shadow: {
       flex: 1,
-      minHeight: 58,
-      borderRadius: 16,
-      flexDirection: 'column',
+      borderRadius: DOCK_RADIUS,
+      shadowColor: '#101116',
+      shadowOpacity: theme.isDark ? 0.16 : 0.12,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 6,
+    },
+    dock: {
+      flexDirection: 'row',
+      minHeight: DOCK_HEIGHT,
+      padding: DOCK_INSET,
+      borderRadius: DOCK_RADIUS,
+      borderWidth: 0,
+    },
+    dockTint: { backgroundColor: 'rgba(255,255,255,0.24)' },
+    // Overlay the edge so the compact layout and selection geometry stay intact.
+    dockEdge: {
+      ...StyleSheet.absoluteFillObject,
+      borderRadius: DOCK_RADIUS,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: 'rgba(67,78,73,0.22)',
+      borderTopColor: 'rgba(255,255,255,0.9)',
+    },
+    lens: {
+      position: 'absolute',
+      top: DOCK_INSET,
+      bottom: DOCK_INSET,
+      left: DOCK_INSET,
+      // Concentric curves keep the inset even around both ends of the dock.
+      borderRadius: SELECTION_RADIUS,
+    },
+    selectionGlass: {
+      ...StyleSheet.absoluteFillObject,
+      borderRadius: SELECTION_RADIUS,
+      borderWidth: 0,
+    },
+    selectionTint: {
+      backgroundColor: theme.isDark
+        ? 'rgba(230,232,231,0.10)'
+        : 'rgba(136,145,140,0.09)',
+    },
+    tab: {
+      flex: 1,
+      minHeight: DOCK_HEIGHT - DOCK_INSET * 2,
+      paddingVertical: 5,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 8,
+      gap: 2,
+      borderRadius: SELECTION_RADIUS,
     },
-    tabItemActive: {
-      backgroundColor: theme.colors.tabBarActiveBackground,
-      borderWidth: 1,
-      borderColor: theme.colors.tabBarActiveBorder,
-    },
-    tabItemPressed: {
-      opacity: 0.88,
-    },
-    tabIcon: {
-      marginBottom: 6,
-    },
-    tabLabel: {
+    label: {
       fontSize: 11,
+      lineHeight: 14,
       fontWeight: '500',
-      color: theme.colors.textMuted,
+      letterSpacing: 0.05,
     },
-    tabLabelActive: {
-      color: palette.mintStrong,
+    selectedLabel: { fontWeight: '600' },
+    pressed: { opacity: 0.65 },
+    addShadow: {
+      width: 46,
+      height: 46,
+      borderRadius: 23,
+      shadowColor: '#152D25',
+      shadowOffset: { width: 0, height: 5 },
+      shadowRadius: 10,
+      shadowOpacity: 0.2,
+      elevation: 6,
     },
+    add: {
+      width: 46,
+      height: 46,
+      borderRadius: 23,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 0,
+    },
+    addTint: {
+      // Match the selected day in MonthCalendar in both themes.
+      backgroundColor: theme.isDark ? '#D8F3E5' : '#152D25',
+    },
+    addPressed: { opacity: 0.7 },
   });

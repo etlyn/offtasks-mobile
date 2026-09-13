@@ -1,19 +1,19 @@
 import * as React from 'react';
 import {
   Alert,
+  Animated,
+  BackHandler,
   Keyboard,
   Pressable,
   StyleSheet,
   StatusBar,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDrawerStatus } from '@react-navigation/drawer';
 
-import { TopBar } from '@/components/navigation/TopBar';
 import { PlannerHeader } from '@/components/navigation/PlannerHeader';
 import { tasksForDay, tasksForGoal } from '@/utils/planner';
 import { TaskList } from '@/components/task-quick-list';
@@ -44,7 +44,17 @@ import type {
 import { FilterBar } from './components/FilterBar';
 import { Layout } from './components/Layout';
 import { TaskComposerModal } from './components/TaskComposerModal';
+import { useTaskCreation } from '@/navigation/TaskCreationContext';
 import { MonthCalendar } from './components/MonthCalendar';
+import { useCalendarTransition } from './components/useCalendarTransition';
+import { useSearchTransition } from './components/useSearchTransition';
+import { TaskSearchHeader, TaskSearchEmpty } from './components/TaskSearch';
+import {
+  CalendarBackdrop,
+  CalendarHomeHeader,
+  CalendarPlanHeading,
+  CalendarEmptyPlan,
+} from './components/CalendarHome';
 
 const groupSegments: GroupSegment[] = [
   { key: 'today', label: 'Today' },
@@ -93,7 +103,13 @@ const priorityOptions: PriorityOption[] = [
   },
 ];
 
-export const DashboardScreen = ({ route, onBack }: DashboardScreenProps) => {
+export const DashboardScreen = ({
+  route,
+  onBack,
+  composerOnly = false,
+  initialDate,
+  onComposerClose,
+}: DashboardScreenProps) => {
   const { tasks, loading, error, refreshing, refresh, applyTaskUpdate } =
     useTasks();
   const {
@@ -105,8 +121,11 @@ export const DashboardScreen = ({ route, onBack }: DashboardScreenProps) => {
   const { categories, addCategory, removeCategory } = useTaskCategories();
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
-  const searchInputRef = React.useRef<TextInput | null>(null);
   const [searchDockVisible, setSearchDockVisible] = React.useState(false);
+  const {
+    reduceMotion: reduceSearchMotion,
+    animateLayout: animateSearchLayout,
+  } = useCalendarTransition();
   const navigation = useNavigation();
   const drawerStatus = useDrawerStatus();
   const prevDrawerStatusRef = React.useRef(drawerStatus);
@@ -159,6 +178,24 @@ export const DashboardScreen = ({ route, onBack }: DashboardScreenProps) => {
   const goal =
     route?.params?.view === 'goal' ? route.params.category : undefined;
   const [calendarDay, setCalendarDay] = React.useState(getToday());
+  const [calendarExpanded, setCalendarExpanded] = React.useState(true);
+  const { animateLayout: animateCalendarLayout } = useCalendarTransition();
+  const changeCalendarExpanded = React.useCallback(
+    (expanded: boolean) => {
+      animateCalendarLayout();
+      setCalendarExpanded(expanded);
+    },
+    [animateCalendarLayout],
+  );
+  const resetCalendar = () => {
+    animateCalendarLayout();
+    setCalendarDay(getToday());
+  };
+  const taskCreation = useTaskCreation();
+  const setGlobalCalendarDay = taskCreation?.setCalendarDay;
+  React.useEffect(() => {
+    if (isCalendar) setGlobalCalendarDay?.(calendarDay);
+  }, [isCalendar, calendarDay, setGlobalCalendarDay]);
   const allTasks = React.useMemo(() => Object.values(tasks).flat(), [tasks]);
   const baseTasks = React.useMemo(
     () =>
@@ -171,6 +208,11 @@ export const DashboardScreen = ({ route, onBack }: DashboardScreenProps) => {
   );
 
   const [searchQuery, setSearchQuery] = React.useState('');
+  const searchTransition = useSearchTransition(
+    searchDockVisible,
+    reduceSearchMotion,
+    () => setSearchQuery(''),
+  );
   const [selectedLabels, setSelectedLabels] = React.useState<string[]>([]);
   const [prioritySortDirection, setPrioritySortDirection] = React.useState<
     'asc' | 'desc' | null
@@ -196,20 +238,11 @@ export const DashboardScreen = ({ route, onBack }: DashboardScreenProps) => {
   }, [availableLabels, selectedLabels.length]);
 
   const filteredTasks = React.useMemo(() => {
-    const normalizedSearchQuery = searchQuery.trim().toLowerCase();
-
-    if (!applyFilters && !normalizedSearchQuery) {
+    if (!applyFilters) {
       return baseTasks;
     }
 
     return baseTasks.filter(task => {
-      if (
-        normalizedSearchQuery &&
-        !task.content.toLowerCase().includes(normalizedSearchQuery)
-      ) {
-        return false;
-      }
-
       if (advancedMode) {
         if (selectedLabels.length > 0) {
           if (!task.label || !selectedLabels.includes(task.label)) {
@@ -229,7 +262,6 @@ export const DashboardScreen = ({ route, onBack }: DashboardScreenProps) => {
     applyFilters,
     baseTasks,
     effectiveShowCompleted,
-    searchQuery,
     selectedLabels,
   ]);
 
@@ -255,22 +287,12 @@ export const DashboardScreen = ({ route, onBack }: DashboardScreenProps) => {
   );
   const hasSearchQuery = searchQuery.trim().length > 0;
 
-  const displayTasks = searchDockVisible
-    ? hasSearchQuery
-      ? globalSearchResults
-      : []
-    : advancedMode
-    ? sortedTasks
-    : filteredTasks;
-
   const activeFilterCount =
-    (searchQuery ? 1 : 0) +
-    selectedLabels.length +
-    (prioritySortDirection ? 1 : 0);
+    selectedLabels.length + (prioritySortDirection ? 1 : 0);
   const totalCount = baseTasks.length;
   const completedCount = baseTasks.filter(task => task.isComplete).length;
 
-  const [composerVisible, setComposerVisible] = React.useState(false);
+  const [composerVisible, setComposerVisible] = React.useState(composerOnly);
   const [composerMode, setComposerMode] = React.useState<'create' | 'edit'>(
     'create',
   );
@@ -280,7 +302,7 @@ export const DashboardScreen = ({ route, onBack }: DashboardScreenProps) => {
   const [newTaskContent, setNewTaskContent] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
   const [selectedDate, setSelectedDate] = React.useState<string | null>(
-    getDefaultDateForGroup(activeGroup),
+    initialDate ?? getDefaultDateForGroup(activeGroup),
   );
   const [selectedPriority, setSelectedPriority] = React.useState<number>(0);
   const [categoryQuery, setCategoryQuery] = React.useState('');
@@ -311,10 +333,29 @@ export const DashboardScreen = ({ route, onBack }: DashboardScreenProps) => {
     );
 
   const handleCloseSearch = React.useCallback(() => {
-    setSearchQuery('');
     setSearchDockVisible(false);
     Keyboard.dismiss();
   }, []);
+
+  React.useEffect(() => {
+    if (!searchDockVisible) return;
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        handleCloseSearch();
+        return true;
+      },
+    );
+    return () => subscription.remove();
+  }, [searchDockVisible, handleCloseSearch]);
+
+  const handleSearchChange = React.useCallback(
+    (value: string) => {
+      animateSearchLayout();
+      setSearchQuery(value);
+    },
+    [animateSearchLayout],
+  );
 
   const handleRefresh = React.useCallback(() => {
     refresh({ showRefreshSpinner: true });
@@ -431,7 +472,8 @@ export const DashboardScreen = ({ route, onBack }: DashboardScreenProps) => {
     setSelectedCategory(null);
     setComposerMode('create');
     setEditingTask(null);
-  }, [activeGroup]);
+    onComposerClose?.();
+  }, [activeGroup, onComposerClose]);
 
   const handleComposerGroupChange = React.useCallback(
     (group: DashboardGroup) => {
@@ -550,16 +592,12 @@ export const DashboardScreen = ({ route, onBack }: DashboardScreenProps) => {
     setCategoryQuery('');
   }, []);
   const handleToggleSearch = React.useCallback(() => {
-    setSearchDockVisible(current => {
-      if (current) {
-        Keyboard.dismiss();
-        setSearchQuery('');
-        return false;
-      }
-
-      return true;
-    });
-  }, []);
+    if (searchDockVisible) {
+      handleCloseSearch();
+      return;
+    }
+    setSearchDockVisible(true);
+  }, [handleCloseSearch, searchDockVisible]);
 
   const handleOpenDrawer = React.useCallback(() => {
     navigation.dispatch(DrawerActions.openDrawer());
@@ -633,6 +671,220 @@ export const DashboardScreen = ({ route, onBack }: DashboardScreenProps) => {
     setPrioritySortDirection(null);
   }, []);
 
+  const composer = (
+    <TaskComposerModal
+      visible={composerVisible}
+      onClose={closeComposer}
+      insetTop={insets.top}
+      insetBottom={insets.bottom}
+      newTaskContent={newTaskContent}
+      onChangeTaskContent={setNewTaskContent}
+      onChangeGroup={handleComposerGroupChange}
+      priorityOptions={priorityOptions}
+      onSelectPriority={handleSelectPriority}
+      selectedPriority={selectedPriority}
+      selectedCategory={selectedCategory}
+      onClearCategory={handleClearCategory}
+      submitting={submitting}
+      onSubmit={handleSubmitTask}
+      categoryQuery={categoryQuery}
+      onCategoryQueryChange={setCategoryQuery}
+      filteredCategories={filteredCategories}
+      canCreateCategory={canCreateCategory}
+      onCreateCategory={handleCreateCategory}
+      onSelectCategory={handleSelectCategory}
+      onDeleteCategory={handleRequestDeleteCategory}
+      categoryPendingDelete={categoryPendingDelete}
+      onCancelDeleteCategory={handleCancelDeleteCategory}
+      onConfirmDeleteCategory={handleConfirmDeleteCategory}
+      mode={composerMode}
+      selectedDate={selectedDate}
+      onChangeDate={handleComposerDateChange}
+    />
+  );
+  if (composerOnly) return composer;
+
+  const renderPage = (searchPage: boolean) => {
+    const displayTasks = searchPage
+      ? hasSearchQuery
+        ? globalSearchResults
+        : []
+      : advancedMode
+      ? sortedTasks
+      : filteredTasks;
+    return (
+      <>
+        {isCalendar && !searchPage ? (
+          <CalendarHomeHeader
+            onMenu={handleOpenDrawer}
+            onSearch={handleToggleSearch}
+          />
+        ) : !searchPage ? (
+          <PlannerHeader
+            title={
+              goal ||
+              (isCalendar
+                ? new Date(`${calendarDay}T12:00:00`).toLocaleDateString(
+                    undefined,
+                    { weekday: 'long', month: 'short', day: 'numeric' },
+                  )
+                : groupLabels[activeGroup])
+            }
+            onBack={onBack}
+            actions={[
+              {
+                icon: 'search',
+                label: 'Search tasks',
+                onPress: handleToggleSearch,
+              },
+            ]}
+          />
+        ) : (
+          <TaskSearchHeader
+            topInset={insets.top}
+            value={searchQuery}
+            onChange={handleSearchChange}
+            onClose={handleCloseSearch}
+            progress={searchTransition.progress}
+            fieldProgress={searchTransition.fieldProgress}
+            ready={searchTransition.ready}
+            resultCount={displayTasks.length}
+          />
+        )}
+
+        <Layout
+          bottomInset={insets.bottom}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          onAddTask={openComposer}
+          showFab={false}
+          calendar={isCalendar || searchPage}
+          search={searchPage}
+          entranceProgress={searchPage ? searchTransition.progress : undefined}
+          onScrollUp={
+            isCalendar && !searchPage && calendarExpanded
+              ? () => changeCalendarExpanded(false)
+              : undefined
+          }
+          filterBar={
+            !searchPage && advancedMode ? (
+              <FilterBar
+                availableLabels={availableLabels}
+                selectedLabels={selectedLabels}
+                activeFilterCount={activeFilterCount}
+                prioritySortDirection={prioritySortDirection}
+                theme={theme}
+                themeStyles={themeStyles}
+                onTogglePrioritySort={togglePrioritySort}
+                onToggleLabel={toggleLabel}
+                onClearAllFilters={clearAllFilters}
+              />
+            ) : null
+          }
+        >
+          {error ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading tasks"
+              onPress={handleRefresh}
+            >
+              <Text
+                accessibilityRole="alert"
+                style={{ color: theme.colors.textPrimary }}
+              >
+                {error} Tap to retry.
+              </Text>
+            </Pressable>
+          ) : null}
+          {isCalendar && !searchPage ? (
+            <MonthCalendar
+              day={calendarDay}
+              onChange={setCalendarDay}
+              tasks={allTasks}
+              expanded={calendarExpanded}
+              onExpandedChange={changeCalendarExpanded}
+            />
+          ) : null}
+          {isCalendar && !searchPage ? (
+            <CalendarPlanHeading
+              completed={completedCount}
+              total={totalCount}
+              day={calendarDay}
+              onReset={resetCalendar}
+            />
+          ) : !searchPage ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                marginBottom: 16,
+                paddingHorizontal: 4,
+              }}
+            >
+              <Text
+                style={{
+                  color: theme.colors.textPrimary,
+                  fontWeight: '600',
+                  fontSize: 15,
+                }}
+              >
+                {isCalendar
+                  ? calendarDay === getToday()
+                    ? "Today's plan"
+                    : 'Day plan'
+                  : 'Tasks'}
+              </Text>
+              <Text style={{ color: theme.colors.textSecondary }}>
+                {completedCount} / {totalCount}
+              </Text>
+            </View>
+          ) : null}
+          {searchPage && !loading && displayTasks.length === 0 ? (
+            error ? null : (
+              <TaskSearchEmpty hasQuery={hasSearchQuery} />
+            )
+          ) : isCalendar &&
+            !searchPage &&
+            !loading &&
+            !error &&
+            activeFilterCount === 0 &&
+            displayTasks.length === 0 ? (
+            <CalendarEmptyPlan
+              allComplete={totalCount > 0 && completedCount === totalCount}
+            />
+          ) : (
+            <TaskList
+              calendar={isCalendar || searchPage}
+              tasks={displayTasks}
+              onToggle={handleToggleTask}
+              onPress={handleEditTask}
+              onLongPress={
+                searchPage || advancedMode ? handleShowTaskDetails : undefined
+              }
+              onDelete={handleDeleteTask}
+              getSecondaryText={
+                searchPage ? task => getTaskSearchContext(task) : undefined
+              }
+              loading={
+                loading &&
+                (searchPage ? allTasks.length === 0 : baseTasks.length === 0)
+              }
+              emptyIcon={activeFilterCount > 0 ? 'filter' : 'inbox'}
+              emptyTitle={
+                activeFilterCount > 0 ? 'No matching tasks' : 'No tasks yet'
+              }
+              emptyDescription={
+                activeFilterCount > 0
+                  ? 'Adjust your filters to see tasks again.'
+                  : 'Add a task to start building your list.'
+              }
+            />
+          )}
+        </Layout>
+      </>
+    );
+  };
+
   return (
     <View style={[styles.root, themeStyles.root]}>
       <StatusBar
@@ -640,194 +892,38 @@ export const DashboardScreen = ({ route, onBack }: DashboardScreenProps) => {
         barStyle={theme.statusBarStyle}
         backgroundColor="transparent"
       />
-
-      {!searchDockVisible ? (
-        <PlannerHeader
-          title={
-            goal ||
-            (isCalendar
-              ? new Date(`${calendarDay}T12:00:00`).toLocaleDateString(
-                  undefined,
-                  { weekday: 'long', month: 'short', day: 'numeric' },
-                )
-              : groupLabels[activeGroup])
-          }
-          onBack={onBack}
-          actions={[
-            {
-              icon: 'search',
-              label: 'Search tasks',
-              onPress: handleToggleSearch,
-            },
-            {
-              icon: 'plus',
-              label: 'Add task',
-              onPress: openComposer,
-              disabled: isCalendar && calendarDay < getToday(),
-            },
-          ]}
-        />
-      ) : (
-        <TopBar
-          topInset={insets.top}
-          titlePrimary={String(completedCount)}
-          titleSecondary={` / ${totalCount}`}
-          subtitle={groupLabels[activeGroup]}
-          searchVisible={searchDockVisible}
-          searchValue={searchQuery}
-          searchPlaceholder="Search all tasks"
-          onSearchChangeText={setSearchQuery}
-          onSearchToggle={handleToggleSearch}
-          onSearchClose={handleCloseSearch}
-          inputRef={searchInputRef}
-          leftAction={{
-            icon: 'menu',
-            label: 'Open navigation menu',
-            onPress: handleOpenDrawer,
-          }}
-        />
-      )}
-
-      <Layout
-        bottomInset={insets.bottom}
-        refreshing={refreshing}
-        onRefresh={handleRefresh}
-        onAddTask={openComposer}
-        showFab={false}
-        filterBar={
-          !searchDockVisible && advancedMode ? (
-            <FilterBar
-              availableLabels={availableLabels}
-              selectedLabels={selectedLabels}
-              activeFilterCount={activeFilterCount}
-              prioritySortDirection={prioritySortDirection}
-              theme={theme}
-              themeStyles={themeStyles}
-              onTogglePrioritySort={togglePrioritySort}
-              onToggleLabel={toggleLabel}
-              onClearAllFilters={clearAllFilters}
-            />
-          ) : null
+      {isCalendar ? <CalendarBackdrop /> : null}
+      <View
+        testID="search-underlay"
+        style={styles.scroll}
+        pointerEvents={searchTransition.mounted ? 'none' : 'auto'}
+        accessibilityElementsHidden={searchTransition.mounted}
+        importantForAccessibility={
+          searchTransition.mounted ? 'no-hide-descendants' : 'auto'
         }
       >
-        {error ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Retry loading tasks"
-            onPress={handleRefresh}
+        {renderPage(false)}
+      </View>
+      {searchTransition.mounted ? (
+        <View
+          testID="task-search-overlay"
+          style={StyleSheet.absoluteFill}
+          onAccessibilityEscape={handleCloseSearch}
+        >
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              themeStyles.root,
+              { opacity: searchTransition.progress },
+            ]}
           >
-            <Text
-              accessibilityRole="alert"
-              style={{ color: theme.colors.textPrimary }}
-            >
-              {error} Tap to retry.
-            </Text>
-          </Pressable>
-        ) : null}
-        {isCalendar && !searchDockVisible ? (
-          <MonthCalendar
-            day={calendarDay}
-            onChange={setCalendarDay}
-            tasks={allTasks}
-          />
-        ) : null}
-        {!searchDockVisible ? (
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              marginBottom: 16,
-              paddingHorizontal: 4,
-            }}
-          >
-            <Text
-              style={{
-                color: theme.colors.textPrimary,
-                fontWeight: '600',
-                fontSize: 15,
-              }}
-            >
-              {isCalendar
-                ? calendarDay === getToday()
-                  ? "Today's plan"
-                  : 'Day plan'
-                : 'Tasks'}
-            </Text>
-            <Text style={{ color: theme.colors.textSecondary }}>
-              {completedCount} / {totalCount}
-            </Text>
-          </View>
-        ) : null}
-        <TaskList
-          tasks={displayTasks}
-          onToggle={handleToggleTask}
-          onPress={handleEditTask}
-          onLongPress={
-            searchDockVisible || advancedMode
-              ? handleShowTaskDetails
-              : undefined
-          }
-          onDelete={handleDeleteTask}
-          getSecondaryText={
-            searchDockVisible ? task => getTaskSearchContext(task) : undefined
-          }
-          loading={
-            loading &&
-            (searchDockVisible ? allTasks.length === 0 : baseTasks.length === 0)
-          }
-          emptyIcon={
-            searchDockVisible && !hasSearchQuery
-              ? 'rotate-cw'
-              : searchDockVisible || activeFilterCount > 0
-              ? 'filter'
-              : 'inbox'
-          }
-          emptyTitle={
-            searchDockVisible && !hasSearchQuery
-              ? 'Start typing to search'
-              : searchDockVisible || activeFilterCount > 0
-              ? 'No matching tasks'
-              : 'No tasks yet'
-          }
-          emptyDescription={
-            searchDockVisible && !hasSearchQuery
-              ? 'Results will appear once you enter a search term.'
-              : searchDockVisible || activeFilterCount > 0
-              ? 'Adjust your filters to see tasks again.'
-              : 'Add a task to start building your list.'
-          }
-        />
-      </Layout>
-
-      <TaskComposerModal
-        visible={composerVisible}
-        onClose={closeComposer}
-        insetTop={insets.top}
-        insetBottom={insets.bottom}
-        newTaskContent={newTaskContent}
-        onChangeTaskContent={setNewTaskContent}
-        onChangeGroup={handleComposerGroupChange}
-        priorityOptions={priorityOptions}
-        onSelectPriority={handleSelectPriority}
-        selectedPriority={selectedPriority}
-        selectedCategory={selectedCategory}
-        onClearCategory={handleClearCategory}
-        submitting={submitting}
-        onSubmit={handleSubmitTask}
-        categoryQuery={categoryQuery}
-        onCategoryQueryChange={setCategoryQuery}
-        filteredCategories={filteredCategories}
-        canCreateCategory={canCreateCategory}
-        onCreateCategory={handleCreateCategory}
-        onSelectCategory={handleSelectCategory}
-        onDeleteCategory={handleRequestDeleteCategory}
-        categoryPendingDelete={categoryPendingDelete}
-        onCancelDeleteCategory={handleCancelDeleteCategory}
-        onConfirmDeleteCategory={handleConfirmDeleteCategory}
-        mode={composerMode}
-        selectedDate={selectedDate}
-        onChangeDate={handleComposerDateChange}
-      />
+            <CalendarBackdrop />
+          </Animated.View>
+          {renderPage(true)}
+        </View>
+      ) : null}
+      {composer}
     </View>
   );
 };

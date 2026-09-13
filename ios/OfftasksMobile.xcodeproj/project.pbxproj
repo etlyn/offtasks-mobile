@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D01200000111111111111111 /* OfftasksBlur.m in Sources */ = {isa = PBXBuildFile; fileRef = D01200000211111111111111 /* OfftasksBlur.m */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		4B38CC577BDACA8EA7D7DAEF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
@@ -42,6 +43,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D01200000211111111111111 /* OfftasksBlur.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = OfftasksBlur.m; path = OfftasksMobile/OfftasksBlur.m; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* OfftasksMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OfftasksMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = OfftasksMobile/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = OfftasksMobile/Info.plist; sourceTree = "<group>"; };
@@ -86,6 +88,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
 				A20000000611111111111111 /* WidgetSharedStore.m */,
+				D01200000211111111111111 /* OfftasksBlur.m */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				A20000000711111111111111 /* OfftasksMobile.entitlements */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
@@ -349,6 +352,7 @@
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
 				A10000000411111111111111 /* WidgetSharedStore.m in Sources */,
+				D01200000111111111111111 /* OfftasksBlur.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -398,7 +402,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.etlyn.offtasks;
 				PRODUCT_NAME = OfftasksMobile;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;

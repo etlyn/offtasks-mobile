@@ -1,0 +1,13 @@
+# Task search refinement
+
+September 12, 2026. Applies the approved Calendar language without changing the global dock or creation action.
+
+- Search entry: 18-point brand-green magnifier, 36-point native-material glass surface within a 44-point target, gently eased press feedback.
+- Search field: full available width within the page gutters, 44-point minimum height, 22-point radius, 15-point text, fine neutral-green edge and a single low-opacity shadow. Cancel sits right-aligned in the second row, alongside the scope/results label, rather than narrowing the field or requiring a separate empty row. Clear and Cancel retain 44-point targets. Native blur has the existing Reduce Transparency fallback.
+- Search shares Calendar's backdrop, compact heading, 16-point task-row gutters, rounded-square brand checkboxes, and faint hairline separators. Results include their existing task context; completion, editing and long-press details remain available.
+- Empty search is one short line. No-results text does not misleadingly suggest filters. Loading and retry remain distinct.
+- Search still covers all task dates and completed tasks, independently of Calendar filters. Cancel clears the query and retains the selected day and month/week state. Clear keeps editing active; the keyboard search key dismisses the keyboard without discarding results. Search scrolling adjusts for the iOS keyboard.
+- Search is an overlay: Calendar remains mounted underneath, preserving its visible month, selected day, expansion and scroll position. The background softly covers it while results rise 24 points into place. The right-aligned search surface expands from 44 points to full width; fixed-width inner content and a later text fade avoid stretching the type or icon. Cancel reverses the same transition before unmounting the overlay and clearing the query.
+- Opening uses 420ms gentle cubic ease-in/out; closing uses 340ms. Page compositing and content motion are native-driven; real field-width animation uses the layout driver. Interrupted transitions stop and continue from the current values. Keyboard focus waits for expansion to complete. Reduce Motion skips spatial transitions, including when changed mid-animation. Clearing and result-layout changes retain the 320ms layout ease. No search debounce delay.
+
+This pass uses Giorgi's saved preferences and the already-approved Calendar as its implementation reference; it does not claim a new Mobbin inspection. Verified with regression tests and the iPhone 17 Pro simulator.

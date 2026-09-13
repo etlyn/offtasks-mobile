@@ -63,6 +63,7 @@ export interface TaskListProps {
   onDelete?: (task: TaskType) => void;
   getSecondaryText?: (task: TaskType) => string | undefined;
   loading?: boolean;
+  calendar?: boolean;
   emptyIcon?: string;
   emptyTitle?: string;
   emptyDescription?: string;
@@ -76,13 +77,17 @@ export const TaskList = ({
   onDelete,
   getSecondaryText,
   loading,
+  calendar = false,
   emptyIcon,
   emptyTitle,
   emptyDescription,
 }: TaskListProps) => {
   const { advancedMode } = usePreferences();
   const theme = useAppTheme();
-  const styles = React.useMemo(() => createStyles(theme), [theme]);
+  const styles = React.useMemo(
+    () => createStyles(theme, calendar),
+    [theme, calendar],
+  );
   const orderedTasks = React.useMemo(() => {
     const next = [...tasks];
     next.sort((a, b) => Number(a.isComplete) - Number(b.isComplete));
@@ -120,7 +125,7 @@ export const TaskList = ({
   }
 
   return (
-    <View>
+    <View testID="task-list" style={calendar ? styles.planList : undefined}>
       {orderedTasks.map((task, index) => (
         <TaskListRow
           key={task.id}
@@ -276,6 +281,7 @@ const TaskListRow = ({
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
         >
           <View
+            testID={`task-checkbox-${task.id}`}
             style={[
               styles.checkbox,
               isOverdue && styles.checkboxPriority,
@@ -287,17 +293,21 @@ const TaskListRow = ({
                 size="small"
                 color={
                   task.isComplete
-                    ? theme.colors.textInverse
+                    ? theme.isDark
+                      ? '#101916'
+                      : '#FFFFFF'
                     : isOverdue
                     ? palette.danger
-                    : palette.mintStrong
+                    : theme.isDark
+                    ? '#D8F3E5'
+                    : '#152D25'
                 }
               />
             ) : task.isComplete ? (
               <Feather
                 name="check"
-                size={16}
-                color={theme.colors.textInverse}
+                size={14}
+                color={theme.isDark ? '#101916' : '#FFFFFF'}
               />
             ) : null}
           </View>
