@@ -130,9 +130,10 @@ GitHub CI performs a frozen dependency install and runs these tests. Native
 compilation, signing, device testing, and store uploads remain separate gates.
 `yarn lint` runs the existing ESLint configuration.
 
-The 58 mobile manual acceptance scenarios and a Maestro guest flow live in
-[etlyn-e2e/offtasks/mobile](https://github.com/etlyn/etlyn-e2e/tree/main/offtasks/mobile).
-From an `etlyn-e2e` checkout, run `yarn e2e:test:offtasks:mobile`.
+The 58 mobile acceptance scenarios now live in [qa/manifest.json](qa/manifest.json),
+with the native flow at [qa/maestro/guest.yaml](qa/maestro/guest.yaml).
+Use the standalone E2E website to import branch snapshots, test and report.
+See [QA ownership and import instructions](qa/README.md).
 Manual scenarios are not automated test results.
 
 The September 2026 sign-in investigation reproduced `ENOTFOUND` for the obsolete
