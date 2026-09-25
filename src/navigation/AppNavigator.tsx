@@ -26,6 +26,12 @@ import { SideDrawerContent } from '@/components/navigation/SideDrawerContent';
 import { palette, useAppTheme } from '@/theme/colors';
 import { DashboardScreen } from '@/features/dashboard/Dashboard.screen';
 import { useTasks } from '@/providers/TasksProvider';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { AccountScreen } from '@/screens/AccountScreen';
+import { WelcomeScreen } from '@/screens/WelcomeScreen';
+import { useAuth } from '@/providers/AuthProvider';
+import { needsWelcome } from '@/lib/onboarding';
+import { OfftasksLoader } from '@/components/OfftasksLoader';
 
 const Drawer = createDrawerNavigator();
 
@@ -159,7 +165,7 @@ const DashboardTabs = () => {
 };
 const tabStyles = StyleSheet.create({ root: { flex: 1 } });
 
-export const AppNavigator = () => {
+const HomeNavigator = () => {
   const theme = useAppTheme();
   const { width } = useWindowDimensions();
 
@@ -197,5 +203,54 @@ export const AppNavigator = () => {
         }}
       />
     </Drawer.Navigator>
+  );
+};
+
+const Stack = createNativeStackNavigator();
+export const AppNavigator = () => {
+  const { session } = useAuth();
+  const signedIn = Boolean(session);
+  const theme = useAppTheme();
+  const { reduceMotion } = useCalendarTransition();
+  const [initialRoute, setInitialRoute] = React.useState<string>();
+  React.useEffect(() => {
+    let alive = true;
+    needsWelcome(signedIn).then(show => {
+      if (alive) setInitialRoute(show ? 'Welcome' : 'Home');
+    });
+    return () => {
+      alive = false;
+    };
+  }, [signedIn]);
+  if (!initialRoute)
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: theme.colors.background,
+        }}
+      >
+        <OfftasksLoader />
+      </View>
+    );
+  return (
+    <Stack.Navigator
+      initialRouteName={initialRoute}
+      screenOptions={{
+        headerShown: false,
+        animation: reduceMotion ? 'none' : 'slide_from_right',
+        contentStyle: { backgroundColor: theme.colors.background },
+      }}
+    >
+      <Stack.Screen name="Home" component={HomeNavigator} />
+      <Stack.Screen
+        name="Welcome"
+        component={WelcomeScreen}
+        options={{ gestureEnabled: false }}
+      />
+      <Stack.Screen name="Account" component={AccountScreen} />
+    </Stack.Navigator>
   );
 };

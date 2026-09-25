@@ -1,5 +1,4 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LoginScreen } from '../src/screens/LoginScreen';
@@ -12,9 +11,13 @@ import {
 } from '../src/lib/localTasks';
 
 const mockNavigate = jest.fn();
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
+}));
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
-  useNavigation: () => ({ navigate: mockNavigate }),
+  useNavigation: () => ({ navigate: mockNavigate, canGoBack: () => false }),
+  useRoute: () => ({ params: {} }),
 }));
 jest.mock('../src/components/navigation/PlannerHeader', () => {
   const { Pressable, Text } = require('react-native');
@@ -31,7 +34,7 @@ test('Account returns to existing app navigation without requiring back history'
   const screen = render(<LoginScreen />);
   await waitFor(() => expect(screen.getByLabelText('Back')).toBeTruthy());
   fireEvent.press(screen.getByLabelText('Back'));
-  expect(mockNavigate).toHaveBeenCalledWith('Calendar');
+  expect(mockNavigate).toHaveBeenCalledWith('Home');
 });
 jest.mock('../src/lib/supabase', () => ({
   supabaseClient: {
@@ -45,16 +48,11 @@ jest.mock('../src/lib/supabase', () => ({
 }));
 
 test('guest auth validation does not contact the backend', async () => {
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   const screen = render(<LoginScreen />);
   await waitFor(() => expect(screen.getByText('Sign in')).toBeTruthy());
   fireEvent.press(screen.getByText('Sign in'));
-  expect(alert).toHaveBeenCalledWith(
-    'Missing details',
-    'Provide both email and password.',
-  );
+  expect(screen.getByText('Enter a valid email address.')).toBeTruthy();
   expect(supabaseClient.auth.signInWithPassword).not.toHaveBeenCalled();
-  alert.mockRestore();
 });
 
 test('import sends device data without deleting it, including when the backend fails', async () => {

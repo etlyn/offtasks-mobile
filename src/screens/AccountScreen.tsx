@@ -85,12 +85,16 @@ export const AccountScreen = () => {
       <PageBackdrop />
       <PlannerHeader
         title="Account"
-        onBack={() => navigation.navigate('Calendar')}
+        onBack={() =>
+          navigation.canGoBack()
+            ? navigation.goBack()
+            : navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
+        }
       />
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: insets.bottom + 110 },
+          { paddingBottom: insets.bottom + 24 },
         ]}
       >
         <Text style={styles.body}>{session.user.email}</Text>

@@ -61,9 +61,7 @@ beforeEach(() => {
 test('single sign-in row opens Account; statistics opens its destination; close preserves the page', () => {
   render(<SideDrawerContent {...props} />);
   fireEvent.press(screen.getByRole('button', { name: 'Sign in for sync' }));
-  expect(navigation.navigate).toHaveBeenLastCalledWith('Dashboard', {
-    screen: 'Account',
-  });
+  expect(navigation.navigate).toHaveBeenLastCalledWith('Account');
   expect(
     screen.getAllByRole('button', { name: 'Sign in for sync' }),
   ).toHaveLength(1);
@@ -129,9 +127,7 @@ test('signed-in account remains reachable and deletion still requires explicit d
   render(<SideDrawerContent {...props} />);
   expect(screen.getByText('Test User')).toBeOnTheScreen();
   fireEvent.press(screen.getByRole('button', { name: 'Account and sync' }));
-  expect(navigation.navigate).toHaveBeenCalledWith('Dashboard', {
-    screen: 'Account',
-  });
+  expect(navigation.navigate).toHaveBeenCalledWith('Account');
   fireEvent.press(screen.getByRole('button', { name: 'Delete account' }));
   expect(alert).toHaveBeenCalledWith(
     'Delete account',

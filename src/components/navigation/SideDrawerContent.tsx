@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Trash2,
   X,
+  Compass,
   type LucideIcon,
 } from 'lucide-react-native';
 import {
@@ -215,7 +216,11 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
   const handleNavigate = React.useCallback(
     (routeName: string) => {
       Keyboard.dismiss();
-      navigation.navigate('Dashboard', { screen: routeName });
+      if (routeName === 'Account' || routeName === 'Welcome') {
+        navigation.navigate(routeName);
+      } else {
+        navigation.navigate('Dashboard', { screen: routeName });
+      }
       navigation.closeDrawer();
     },
     [navigation],
@@ -450,6 +455,16 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
               </View>
             )}
           </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Welcome to Offtasks"
+            onPress={() => handleNavigate('Welcome')}
+            style={styles.accountAction}
+          >
+            <Compass size={16} strokeWidth={1.7} color={brand} />
+            <Text style={styles.rowLabel}>Welcome to Offtasks</Text>
+            <ChevronRight size={14} color={theme.colors.textMuted} />
+          </Pressable>
           <AnalyticsPreferences />
           <Text style={styles.version}>Version {appVersion}</Text>
         </View>
