@@ -29,6 +29,9 @@ import { useCalendarTransition } from '@/features/dashboard/components/useCalend
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PlannerHeader } from '@/components/navigation/PlannerHeader';
 import { useAuth } from '@/providers/AuthProvider';
+import { getToday } from '@/hooks/useDate';
+import { useTasks } from '@/providers/TasksProvider';
+import type { NoteTask } from '@/lib/notes';
 import { GUEST_ID } from '@/lib/localTasks';
 import {
   readPlanner,
@@ -52,6 +55,8 @@ export const NotesScreen = ({
   const userId = useAuth().session?.user.id || GUEST_ID;
   const currentOwner = useRef(userId);
   currentOwner.current = userId;
+  const { refresh: refreshTasks } = useTasks();
+  const [taskDraft, setTaskDraft] = useState('');
   const theme = useAppTheme();
   const { reduceMotion, animateLayout } = useCalendarTransition();
   const brand = theme.isDark ? '#D8F3E5' : '#152D25';
@@ -68,6 +73,7 @@ export const NotesScreen = ({
     id?: string;
     title: string;
     body: string;
+    tasks?: NoteTask[];
   } | null>(null);
   const titleInput = useRef<TextInput>(null);
   const [editorClosing, setEditorClosing] = useState(false);
@@ -85,7 +91,13 @@ export const NotesScreen = ({
       return;
     handledRequest.current = openRequest.requestId;
     const note = notes.find(item => item.id === openRequest.id);
-    if (note) setEditor({ id: note.id, title: note.title, body: note.body });
+    if (note)
+      setEditor({
+        id: note.id,
+        title: note.title,
+        body: note.body,
+        tasks: note.tasks,
+      });
     else Alert.alert('Note unavailable', 'This note may have been removed.');
   }, [openRequest, loading, loadError, notes]);
   const [searchVisible, setSearchVisible] = useState(false);
@@ -127,6 +139,7 @@ export const NotesScreen = ({
     setLoadError(false);
     setNotes([]);
     setEditor(null);
+    setTaskDraft('');
     setEditorClosing(false);
     setSaving(false);
     setAppearanceNote(null);
@@ -174,6 +187,7 @@ export const NotesScreen = ({
         setNotes(saved);
       }
       void syncPlanner(userId, 'note');
+      void refreshTasks();
       return alive.current && currentOwner.current === userId;
     } catch {
       if (alive.current && currentOwner.current === userId)
@@ -189,14 +203,20 @@ export const NotesScreen = ({
   };
 
   const closeEditor = () => {
-    if (!busy.current) dismissEditor();
+    if (!busy.current) {
+      setTaskDraft('');
+      dismissEditor();
+    }
   };
 
   const submit = async () => {
     if (!editor || busy.current) return;
     try {
       const next = saveNote(notes, editor, editor.id);
-      if ((await persist(next)) && alive.current) dismissEditor();
+      if ((await persist(next)) && alive.current) {
+        setTaskDraft('');
+        dismissEditor();
+      }
     } catch (error) {
       Alert.alert('Could not save note', (error as Error).message);
     }
@@ -208,8 +228,8 @@ export const NotesScreen = ({
     Alert.alert(
       'Delete note?',
       userId === GUEST_ID
-        ? 'This note will be removed from this device.'
-        : 'This note will be removed from your account when synced.',
+        ? 'This note and its tasks will be removed from this device.'
+        : 'This note and its tasks will be removed from your account when synced.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -317,7 +337,12 @@ export const NotesScreen = ({
           note={item}
           disabled={saving || loading || loadError}
           onOpen={() =>
-            setEditor({ id: item.id, title: item.title, body: item.body })
+            setEditor({
+              id: item.id,
+              title: item.title,
+              body: item.body,
+              tasks: item.tasks,
+            })
           }
           onOptions={() => {
             Keyboard.dismiss();
@@ -452,6 +477,7 @@ export const NotesScreen = ({
         onShow={() => titleInput.current?.focus()}
         onDismiss={() => {
           setEditor(null);
+          setTaskDraft('');
           setEditorClosing(false);
         }}
       >
@@ -461,7 +487,13 @@ export const NotesScreen = ({
           closeLabel="Close note"
           saveLabel="Save note"
           busy={saving}
-          disabled={!(editor?.title.trim() || editor?.body.trim())}
+          disabled={
+            !(
+              editor?.title.trim() ||
+              editor?.body.trim() ||
+              editor?.tasks?.length
+            )
+          }
         />
         <ScrollView
           style={{ flexGrow: 0, flexShrink: 1 }}
@@ -497,6 +529,126 @@ export const NotesScreen = ({
             multiline
             editable={!saving}
           />
+          <Text style={{ color: theme.colors.textMuted, marginHorizontal: 12 }}>
+            Tasks appear in Calendar. Edit their date or goal there.
+          </Text>
+          {(editor?.tasks || []).map(task => (
+            <View
+              key={task.id}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                padding: 12,
+              }}
+            >
+              <Pressable
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: task.isComplete }}
+                accessibilityLabel={`Complete ${task.content}`}
+                disabled={saving}
+                onPress={() =>
+                  setEditor(
+                    value =>
+                      value && {
+                        ...value,
+                        tasks: value.tasks?.map(item =>
+                          item.id === task.id
+                            ? {
+                                ...item,
+                                isComplete: !item.isComplete,
+                                completed_at: !item.isComplete
+                                  ? getToday()
+                                  : null,
+                              }
+                            : item,
+                        ),
+                      },
+                  )
+                }
+              >
+                <Feather
+                  name={task.isComplete ? 'check-square' : 'square'}
+                  size={22}
+                  color={brand}
+                />
+              </Pressable>
+              <Text
+                style={{
+                  flex: 1,
+                  color: theme.colors.textMuted,
+                  textDecorationLine: task.isComplete ? 'line-through' : 'none',
+                }}
+              >
+                {task.content}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Remove task ${task.content}`}
+                disabled={saving}
+                onPress={() =>
+                  setEditor(
+                    value =>
+                      value && {
+                        ...value,
+                        tasks: value.tasks?.filter(item => item.id !== task.id),
+                      },
+                  )
+                }
+              >
+                <Feather name="x" size={18} color={brand} />
+              </Pressable>
+            </View>
+          ))}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              padding: 12,
+              gap: 8,
+            }}
+          >
+            <TextInput
+              accessibilityLabel="New note task"
+              placeholder="Add a task"
+              placeholderTextColor={theme.colors.textMuted}
+              value={taskDraft}
+              onChangeText={setTaskDraft}
+              editable={!saving}
+              style={{ flex: 1, color: brand }}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add note task"
+              disabled={saving || !taskDraft.trim()}
+              onPress={() => {
+                const content = taskDraft.trim();
+                if (!content) return;
+                setEditor(
+                  value =>
+                    value && {
+                      ...value,
+                      tasks: [
+                        ...(value.tasks || []),
+                        {
+                          id: `${Date.now().toString(36)}-${Math.random()
+                            .toString(36)
+                            .slice(2)}`,
+                          content,
+                          isComplete: false,
+                          priority: 0,
+                          target_group: 'today',
+                          date: getToday(),
+                        },
+                      ],
+                    },
+                );
+                setTaskDraft('');
+              }}
+            >
+              <Feather name="plus" size={22} color={brand} />
+            </Pressable>
+          </View>
           {editor?.id ? (
             <Pressable
               accessibilityRole="button"

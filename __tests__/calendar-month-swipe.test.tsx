@@ -97,7 +97,8 @@ test('rapid swipes accumulate and selecting a day resets the browsed viewport', 
       tasks={[]}
     />,
   );
-  expect(screen.getByLabelText('Sunday, September 13, 2026')).toBeTruthy();
+  // Today adds an accessibility suffix; this assertion is about the date.
+  expect(screen.getByLabelText(/^Sunday, September 13, 2026/)).toBeTruthy();
 });
 
 test('cancelled and multi-touch gestures do not browse, and compact mode offers accessible month actions', () => {

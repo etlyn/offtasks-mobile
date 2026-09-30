@@ -1,5 +1,8 @@
+import type { Task } from '@/types/task';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { noteTones, type NoteTone } from './noteAppearance';
+
+export type NoteTask = Omit<Task, 'user_id' | 'noteTitle'>;
 
 export interface Note {
   id: string;
@@ -8,6 +11,7 @@ export interface Note {
   pinned: boolean;
   updatedAt: string;
   tone?: NoteTone;
+  tasks?: NoteTask[];
 }
 
 export const notesStorageKey = (userId: string) => {
@@ -29,6 +33,7 @@ export function parseNotes(raw: string | null): Note[] {
         typeof note.pinned === 'boolean' &&
         (note.tone === undefined ||
           noteTones.some(tone => tone.id === note.tone)) &&
+        (note.tasks === undefined || validNoteTasks(note.tasks)) &&
         typeof note.updatedAt === 'string' &&
         Number.isFinite(Date.parse(note.updatedAt)),
     ) ||
@@ -54,7 +59,7 @@ export function filterNotes(notes: Note[], query: string, pinnedOnly: boolean) {
     .filter(
       note =>
         (!pinnedOnly || note.pinned) &&
-        `${note.title}\n${note.body}`.toLocaleLowerCase().includes(search),
+        `${note.title}\n${note.body}\n${(note.tasks || []).map(task => task.content).join('\n')}`.toLocaleLowerCase().includes(search),
     )
     .sort(
       (left, right) =>
@@ -65,13 +70,14 @@ export function filterNotes(notes: Note[], query: string, pinnedOnly: boolean) {
 
 export function saveNote(
   notes: Note[],
-  draft: Pick<Note, 'title' | 'body'>,
+  draft: Pick<Note, 'title' | 'body' | 'tasks'>,
   id?: string,
   now = new Date().toISOString(),
 ) {
   const title = draft.title.trim();
   const body = draft.body.trim();
-  if (!title && !body) throw new Error('Add a title or note before saving.');
+  if (!title && !body && !draft.tasks?.length)
+    throw new Error('Add a title or note before saving.');
   const previous = notes.find(note => note.id === id);
   if (id && !previous) throw new Error('This note no longer exists.');
   const note: Note = {
@@ -81,9 +87,40 @@ export function saveNote(
     body,
     updatedAt: now,
     pinned: previous?.pinned ?? false,
+    ...(draft.tasks ?? previous?.tasks
+      ? { tasks: draft.tasks ?? previous?.tasks }
+      : {}),
     ...(previous?.tone ? { tone: previous.tone } : {}),
   };
   return previous
     ? notes.map(item => (item.id === id ? note : item))
     : [note, ...notes];
+}
+
+function validNoteTasks(value: unknown): value is NoteTask[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      task =>
+        task &&
+        typeof task.id === 'string' &&
+        task.id.length > 0 &&
+        typeof task.content === 'string' &&
+        task.content.trim().length > 0 &&
+        typeof task.isComplete === 'boolean' &&
+        Number.isInteger(task.priority) &&
+        task.priority >= 0 &&
+        task.priority <= 3 &&
+        ['today', 'tomorrow', 'upcoming', 'close'].includes(
+          task.target_group,
+        ) &&
+        (task.date === null ||
+          (typeof task.date === 'string' &&
+            /^\d{4}-\d{2}-\d{2}$/.test(task.date))) &&
+        (task.label === undefined ||
+          task.label === null ||
+          typeof task.label === 'string'),
+    ) &&
+    new Set(value.map(task => task.id)).size === value.length
+  );
 }

@@ -34,10 +34,17 @@ target 'OfftasksMobile' do
     )
 
     installer.pods_project.targets.each do |target|
-      next unless target.name == 'fmt'
-
       target.build_configurations.each do |build_config|
-        build_config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+        # Xcode 27 rejects resource bundles that retain older podspec minimums.
+        # Keep every pod target at least at React Native's existing minimum.
+        deployment_target = build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+        if deployment_target && Gem::Version.new(deployment_target) < Gem::Version.new(min_ios_version_supported)
+          build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = min_ios_version_supported
+        end
+
+        if target.name == 'fmt'
+          build_config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+        end
       end
     end
   end

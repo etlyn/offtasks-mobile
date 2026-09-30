@@ -306,6 +306,13 @@ const TaskListRow = ({
             {task.content}
           </Text>
 
+          {task.noteTitle ? (
+            <Text style={styles.rowMeta}>Note: {task.noteTitle}</Text>
+          ) : null}
+          {!showBadges && task.label?.trim() ? (
+            <Text style={styles.rowMeta}>Goal: {task.label.trim()}</Text>
+          ) : null}
+
           {secondaryText ? (
             <Text style={styles.rowMeta}>{secondaryText}</Text>
           ) : null}

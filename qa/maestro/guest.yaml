@@ -1,0 +1,63 @@
+appId: com.etlyn.offtasks
+name: Guest workspace and local persistence
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: Calendar
+    timeout: 30000
+- assertVisible: Notes
+- assertVisible: Goals
+- assertVisible: Later
+- tapOn: Notes
+- tapOn: Add note
+- tapOn: Note title
+- inputText: Guest acceptance note
+- tapOn: Note body
+- inputText: Device-only content
+- tapOn: Save note
+- tapOn: Pin Guest acceptance note
+- tapOn: Pinned
+- assertVisible: Guest acceptance note
+- tapOn: Search notes
+- inputText: no-match-fixture
+- assertVisible: No matching notes
+- tapOn: Clear note search
+- hideKeyboard
+- tapOn: Goals
+- tapOn: Add goal
+- tapOn: Goal name
+- inputText: Acceptance list
+- tapOn: Save goal
+- assertVisible: Acceptance List
+- tapOn: Back
+- tapOn: Later
+- tapOn: Add task
+- tapOn: What needs to be done?
+- inputText: Guest acceptance task
+- tapOn: Add
+- assertVisible: Guest acceptance task
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: Calendar
+    timeout: 30000
+- tapOn: Later
+- assertVisible: Guest acceptance task
+- tapOn: Notes
+- assertVisible: Guest acceptance note
+- takeScreenshot: guest-notes
+- tapOn: Open navigation menu
+- tapOn: Toggle dark mode
+- tapOn: Toggle hide completed tasks
+- tapOn: Toggle advanced mode
+- tapOn: Toggle auto move due tasks
+- scrollUntilVisible:
+    element: Sign in for sync
+    direction: DOWN
+- tapOn: Sign in for sync
+- assertVisible: Email
+- assertVisible: Password
+- tapOn: Back
+- assertVisible: Notes
+- takeScreenshot: guest-return

@@ -8,7 +8,6 @@ import { DashboardScreen } from '@/features/dashboard/Dashboard.screen';
 import { NotesScreen } from '@/features/planner/Notes.screen';
 import { GoalsScreen } from '@/features/planner/Goals.screen';
 import { StatisticsScreen } from '@/features/completed/Completed.screen';
-import { AccountScreen } from '@/screens/AccountScreen';
 import { useCalendarTransition } from '@/features/dashboard/components/useCalendarTransition';
 import { DockRegistration } from './SharedDock';
 import { tabMotion } from './tabMotion';
@@ -64,7 +63,6 @@ export const MainTabNavigator = React.memo(function MainTabNavigator() {
         options={{ tabBarLabel: 'Later' }}
       />
       <Tab.Screen name="Statistics" component={StatisticsScreen} />
-      <Tab.Screen name="Account" component={AccountScreen} />
     </Tab.Navigator>
   );
 });

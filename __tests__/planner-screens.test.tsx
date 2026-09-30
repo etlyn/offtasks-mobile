@@ -631,3 +631,17 @@ test('note color saves without changing content, pinning, or list order', async 
     { ...note, tone: 'rose' },
   ]);
 });
+
+test('note editor saves checkbox tasks with the note', async () => {
+  render(<NotesHarness />);
+  await waitFor(() => expect(screen.getByLabelText('Add note')).toBeEnabled());
+  fireEvent.press(screen.getByLabelText('Add note'));
+  fireEvent(screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!, 'show');
+  await waitFor(() => expect(screen.getByLabelText('Note title')).toBeTruthy());
+  fireEvent.changeText(screen.getByLabelText('Note title'), 'Project tasks');
+  fireEvent.changeText(screen.getByLabelText('New note task'), 'Sketch the idea');
+  fireEvent.press(screen.getByLabelText('Add note task'));
+  expect(screen.getByLabelText('Complete Sketch the idea')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Save note'));
+  await waitFor(async () => expect((await readPlanner('screen-test-user', 'note')).some(note => note.tasks?.some(task => task.content === 'Sketch the idea'))).toBe(true));
+});

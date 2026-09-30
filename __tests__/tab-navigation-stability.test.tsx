@@ -88,6 +88,8 @@ test.each([true, false])(
     }
     const view = render(<Harness />);
     await act(async () => {});
+    // Account entry is owned by the root stack, never by the dock navigator.
+    expect(navigation.getRootState().routeNames).not.toContain('Account');
     for (const route of [
       'Notes',
       'Goals',

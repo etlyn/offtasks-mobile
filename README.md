@@ -17,7 +17,8 @@ No sibling checkout is required to install or run this app.
 - React Native CLI environment set up (Xcode, Android Studio, simulators/emulators).
 - Xcode 26 or later for App Store Connect uploads. Apple checks the SDK used to build the archive, so keeping `IPHONEOS_DEPLOYMENT_TARGET` at 15.1 is fine, but the release archive must be produced by the iOS 26 SDK or later.
 - Node.js 24 (`nvm use`) and Yarn 1.22.22 (available through `npx yarn@1.22.22`).
-- Ruby + Bundler for managing CocoaPods via the supplied `Gemfile`.
+- Ruby 3.3 + Bundler for managing CocoaPods via the supplied `Gemfile` and
+  `Gemfile.lock`. The bundle uses CocoaPods 1.16.2 and a compatible Xcodeproj.
 
 ### 2. Environment variables
 
@@ -77,6 +78,9 @@ Release bundles include JavaScript and do not require Metro. Before a manual
 `-configuration Release` with `NODE_ENV=production`. Xcode Cloud also runs the same preflight.
 `yarn start` remains available for explicit Metro development, not device releases.
 
+For wireless device builds and SSD-resident build output, see
+[the local iPhone release build guide](docs/ios-device-build.md).
+
 Tips for iOS:
 
 - Open the Simulator first (`open -a Simulator`) to speed up the first build.
@@ -130,9 +134,10 @@ GitHub CI performs a frozen dependency install and runs these tests. Native
 compilation, signing, device testing, and store uploads remain separate gates.
 `yarn lint` runs the existing ESLint configuration.
 
-The 58 mobile manual acceptance scenarios and a Maestro guest flow live in
-[etlyn-e2e/offtasks/mobile](https://github.com/etlyn/etlyn-e2e/tree/main/offtasks/mobile).
-From an `etlyn-e2e` checkout, run `yarn e2e:test:offtasks:mobile`.
+The 58 mobile acceptance scenarios now live in [qa/manifest.json](qa/manifest.json),
+with the native flow at [qa/maestro/guest.yaml](qa/maestro/guest.yaml).
+Use the standalone E2E website to import branch snapshots, test and report.
+See [QA ownership and import instructions](qa/README.md).
 Manual scenarios are not automated test results.
 
 The September 2026 sign-in investigation reproduced `ENOTFOUND` for the obsolete

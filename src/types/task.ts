@@ -8,6 +8,8 @@ export interface Task {
   priority: number;
   target_group: TaskGroup;
   date: string | null;
+  /** Derived from the owning note; never sent to the task table. */
+  noteTitle?: string;
   label?: string | null;
   completed_at?: string | null;
   inserted_at?: string;
