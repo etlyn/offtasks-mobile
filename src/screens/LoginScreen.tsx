@@ -34,6 +34,8 @@ import {
 import { OfftasksLoader } from '@/components/OfftasksLoader';
 import { useCalendarTransition } from '@/features/dashboard/components/useCalendarTransition';
 import { completeWelcome } from '@/lib/onboarding';
+import { useAuth } from '@/providers/AuthProvider';
+import { shouldReviewGuestItems } from '@/lib/guestImportReview';
 
 type AuthMode = 'signIn' | 'signUp' | 'reset';
 export const LoginScreen = () => {
@@ -42,6 +44,7 @@ export const LoginScreen = () => {
   const initialMode = (route.params as { initialMode?: AuthMode } | undefined)
     ?.initialMode;
   const theme = useAppTheme();
+  const { reviewGuestImport, finishGuestImportReview } = useAuth();
   const insets = useSafeAreaInsets();
   const { animateLayout } = useCalendarTransition();
   const brand = theme.isDark ? '#D8F3E5' : '#152D25';
@@ -114,12 +117,16 @@ export const LoginScreen = () => {
           setSent(true);
         }
       } else if (mode === 'signIn') {
+        finishGuestImportReview?.();
+        if (await shouldReviewGuestItems()) reviewGuestImport?.();
         const result = await supabaseClient.auth.signInWithPassword({
           email: normalizedEmail,
           password,
         });
         if (result.error) throw result.error;
       } else {
+        finishGuestImportReview?.();
+        if (await shouldReviewGuestItems()) reviewGuestImport?.();
         const result = await supabaseClient.auth.signUp({
           email: normalizedEmail,
           password,
@@ -132,6 +139,7 @@ export const LoginScreen = () => {
         }
       }
     } catch (reason) {
+      finishGuestImportReview?.();
       if (mounted.current) {
         animateLayout();
         setError(authErrorMessage(reason));

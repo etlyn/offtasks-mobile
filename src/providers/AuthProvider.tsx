@@ -12,16 +12,31 @@ import { supabaseClient } from '@/lib/supabase';
 interface AuthContextValue {
   session: Session | null;
   loading: boolean;
+  pendingGuestImport: boolean;
+  reviewGuestImport: () => void;
+  finishGuestImportReview: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue>({
   session: null,
   loading: true,
+  pendingGuestImport: false,
+  reviewGuestImport: () => {},
+  finishGuestImportReview: () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingGuestImport, setPendingGuestImport] = useState(false);
+  const reviewGuestImport = React.useCallback(
+    () => setPendingGuestImport(true),
+    [],
+  );
+  const finishGuestImportReview = React.useCallback(
+    () => setPendingGuestImport(false),
+    [],
+  );
 
   useEffect(() => {
     let active = true;
@@ -64,8 +79,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     () => ({
       session,
       loading,
+      pendingGuestImport,
+      reviewGuestImport,
+      finishGuestImportReview,
     }),
-    [session, loading],
+    [
+      session,
+      loading,
+      pendingGuestImport,
+      reviewGuestImport,
+      finishGuestImportReview,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

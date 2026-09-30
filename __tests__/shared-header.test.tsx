@@ -12,10 +12,15 @@ import {
 } from '../src/navigation/SharedHeader';
 import { OfftasksLoader } from '../src/components/OfftasksLoader';
 
+beforeEach(() => {
+  // React Native already supplies a jest.fn here; mockRestore clears its
+  // promise implementation and breaks the following loader tests.
+  (AccessibilityInfo.isReduceMotionEnabled as jest.Mock).mockResolvedValue(
+    true,
+  );
+});
+
 test('pull refresh activates the existing compact header wordmark without changing header bounds', async () => {
-  const motion = jest
-    .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
-    .mockResolvedValue(true);
   const renderHeader = (refreshing: boolean) => (
     <SharedHeaderProvider>
       <SharedHeaderHost
@@ -41,7 +46,6 @@ test('pull refresh activates the existing compact header wordmark without changi
     false,
   );
   expect(screen.getByTestId('persistent-main-header')).toBe(header);
-  motion.mockRestore();
 });
 
 jest.mock('../src/providers/PreferencesProvider', () => ({

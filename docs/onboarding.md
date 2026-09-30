@@ -12,6 +12,7 @@ Three short illustrated steps: capture in Later, plan with Calendar, and persona
 - The shared dock also checks planner focus, so it is removed while a root-stack screen covers Home and restored on return.
 - Sign-up, sign-in, and email-only reset share the standalone account screen. Confirmation explains the email step; errors are inline and requests are locked against duplicates.
 - Guest data remains local. Account → Import device items is still explicit, confirmed and non-destructive; signing in does not silently merge items.
+- Guests with existing content see an optional import review after signing in. Empty guests and restored account sessions go straight to the main app. Unreadable device storage never blocks authentication.
 - Account changes do not replay the startup splash.
 - No sample tasks, goals or notes are injected into the real workspace.
 

@@ -208,7 +208,7 @@ const HomeNavigator = () => {
 
 const Stack = createNativeStackNavigator();
 export const AppNavigator = () => {
-  const { session } = useAuth();
+  const { session, pendingGuestImport } = useAuth();
   const signedIn = Boolean(session);
   const theme = useAppTheme();
   const { reduceMotion } = useCalendarTransition();
@@ -216,12 +216,19 @@ export const AppNavigator = () => {
   React.useEffect(() => {
     let alive = true;
     needsWelcome(signedIn).then(show => {
-      if (alive) setInitialRoute(show ? 'Welcome' : 'Home');
+      if (alive)
+        setInitialRoute(
+          show
+            ? 'Welcome'
+            : signedIn && pendingGuestImport
+            ? 'Account'
+            : 'Home',
+        );
     });
     return () => {
       alive = false;
     };
-  }, [signedIn]);
+  }, [signedIn, pendingGuestImport]);
   if (!initialRoute)
     return (
       <View

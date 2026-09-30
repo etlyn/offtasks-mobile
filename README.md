@@ -17,7 +17,8 @@ No sibling checkout is required to install or run this app.
 - React Native CLI environment set up (Xcode, Android Studio, simulators/emulators).
 - Xcode 26 or later for App Store Connect uploads. Apple checks the SDK used to build the archive, so keeping `IPHONEOS_DEPLOYMENT_TARGET` at 15.1 is fine, but the release archive must be produced by the iOS 26 SDK or later.
 - Node.js 24 (`nvm use`) and Yarn 1.22.22 (available through `npx yarn@1.22.22`).
-- Ruby + Bundler for managing CocoaPods via the supplied `Gemfile`.
+- Ruby 3.3 + Bundler for managing CocoaPods via the supplied `Gemfile` and
+  `Gemfile.lock`. The bundle uses CocoaPods 1.16.2 and a compatible Xcodeproj.
 
 ### 2. Environment variables
 
@@ -76,6 +77,9 @@ Release bundles include JavaScript and do not require Metro. Before a manual
 `xcodebuild` invocation, run `npm run verify:production` and pass
 `-configuration Release` with `NODE_ENV=production`. Xcode Cloud also runs the same preflight.
 `yarn start` remains available for explicit Metro development, not device releases.
+
+For wireless device builds and SSD-resident build output, see
+[the local iPhone release build guide](docs/ios-device-build.md).
 
 Tips for iOS:
 
