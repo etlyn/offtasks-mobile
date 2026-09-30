@@ -64,3 +64,15 @@ so a volume name containing spaces (such as `Etlyn Dev`) is supported.
 The Release app includes its JavaScript bundle and does not need Metro.
 Installing the same bundle ID updates the existing installation; do not uninstall
 the app as a routine troubleshooting step because guest data is device-local.
+
+## iOS 27 startup
+
+The app uses UIKit's scene lifecycle: `AppDelegate` owns the React Native factory,
+and `SceneDelegate` starts it in the scene's window. `Info.plist` registers that
+delegate and keeps multiple windows disabled. This is required when building
+with the iOS 27 SDK; the former app-delegate-only lifecycle builds successfully
+but terminates at launch in `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption`.
+See [Apple's scene lifecycle migration guide](https://developer.apple.com/documentation/technotes/tn3187-migrating-to-the-uikit-scene-based-life-cycle).
+
+After installation, verify that the launched app remains in CoreDevice's running
+process list. A successful launch command alone does not confirm healthy startup.
