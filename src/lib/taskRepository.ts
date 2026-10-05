@@ -1,6 +1,7 @@
 import { trackTaskCreated } from '@/analytics';
 import { useMemo } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
+import { readNoteTasks, changeNoteTask, isNoteTaskId } from './noteTasks';
 import * as cloud from './supabase';
 import {
   createLocalTask,
@@ -14,8 +15,13 @@ export function taskRepository(userId?: string) {
   const owner = userId || GUEST_ID;
   return {
     owner,
-    read: () =>
-      userId ? cloud.fetchAllUserTasks(userId) : readLocalTasks(owner),
+    read: async () => {
+      const [tasks, noteTasks] = await Promise.all([
+        userId ? cloud.fetchAllUserTasks(userId) : readLocalTasks(owner),
+        readNoteTasks(owner),
+      ]);
+      return [...tasks, ...noteTasks];
+    },
     create: async (
       values: Omit<Parameters<typeof cloud.createTask>[0], 'userId'>,
     ): Promise<string | null> => {
@@ -37,11 +43,13 @@ export function taskRepository(userId?: string) {
       id: string,
       values: Parameters<typeof cloud.updateTask>[1],
     ) => {
-      if (userId) await cloud.updateTask(id, values);
+      if (isNoteTaskId(id)) await changeNoteTask(owner, id, values);
+      else if (userId) await cloud.updateTask(id, values);
       else await updateLocalTask(owner, id, values);
     },
     remove: async (id: string) => {
-      if (userId) await cloud.deleteTask(id);
+      if (isNoteTaskId(id)) await changeNoteTask(owner, id, null);
+      else if (userId) await cloud.deleteTask(id);
       else await deleteLocalTask(owner, id);
     },
   };

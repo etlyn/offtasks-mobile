@@ -24,13 +24,18 @@ const LoadingScreen = ({ backgroundColor }: { backgroundColor: string }) => (
   </View>
 );
 
-const RootNavigator = () => {
+const RootNavigator = ({
+  showSplash,
+  onSplashFinish,
+}: {
+  showSplash: boolean;
+  onSplashFinish: () => void;
+}) => {
   const { session, loading } = useAuth();
   const theme = useAppTheme();
-  const [showSplash, setShowSplash] = React.useState(true);
 
   if (showSplash) {
-    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+    return <SplashScreen onFinish={onSplashFinish} />;
   }
 
   if (loading) {
@@ -54,9 +59,12 @@ const RootNavigator = () => {
 
 const AccountWorkspace = () => {
   const { session } = useAuth();
+  // Account changes remount preferences, not the launch experience.
+  const [showSplash, setShowSplash] = React.useState(true);
+  const finishSplash = React.useCallback(() => setShowSplash(false), []);
   return (
     <PreferencesProvider key={session?.user.id || GUEST_ID}>
-      <RootNavigator />
+      <RootNavigator showSplash={showSplash} onSplashFinish={finishSplash} />
     </PreferencesProvider>
   );
 };

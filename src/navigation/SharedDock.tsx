@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { useIsFocused } from '@react-navigation/native';
 import { DashboardTabBar } from './DashboardTabBar';
 
 function createDockStore() {
@@ -41,13 +42,16 @@ export function DockRegistration(props: BottomTabBarProps) {
   return null;
 }
 export function SharedDockHost({ onNavigate }: { onNavigate: () => void }) {
+  // Home remains mounted underneath root-stack Welcome and Account screens.
+  // Its floating dock must only exist while the planner itself is focused.
+  const focused = useIsFocused();
   const store = React.useContext(DockContext)!;
   const props = React.useSyncExternalStore(
     store.subscribe,
     store.getSnapshot,
     store.getSnapshot,
   );
-  return props ? (
+  return focused && props ? (
     <View pointerEvents="box-none" style={styles.host}>
       <DashboardTabBar {...props} onNavigate={onNavigate} />
     </View>

@@ -48,7 +48,7 @@ export async function importGuestItems() {
 }
 
 export const AccountScreen = () => {
-  const { session } = useAuth();
+  const { session, pendingGuestImport, finishGuestImportReview } = useAuth();
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { refresh, error: taskError } = useTasks();
   const theme = useAppTheme();
@@ -59,6 +59,12 @@ export const AccountScreen = () => {
   const [, redraw] = React.useReducer(value => value + 1, 0);
   React.useEffect(() => subscribePlanner(redraw), []);
   if (!session) return <LoginScreen />;
+
+  const leaveAccount = () => {
+    finishGuestImportReview();
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+  };
 
   const sync = async (importItems = false) => {
     if (lock.current) return;
@@ -84,16 +90,36 @@ export const AccountScreen = () => {
     <View style={styles.root}>
       <PageBackdrop />
       <PlannerHeader
-        title="Account"
-        onBack={() => navigation.navigate('Calendar')}
+        title={pendingGuestImport ? 'You’re signed in' : 'Account'}
+        onBack={leaveAccount}
       />
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: insets.bottom + 110 },
+          { paddingBottom: insets.bottom + 24 },
         ]}
       >
         <Text style={styles.body}>{session.user.email}</Text>
+        {pendingGuestImport ? (
+          <View style={{ marginTop: 12, marginBottom: 12, gap: 8 }}>
+            <Text
+              style={[
+                styles.body,
+                {
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: theme.colors.textPrimary,
+                },
+              ]}
+            >
+              Bring your device items?
+            </Text>
+            <Text style={styles.body}>
+              Your guest tasks, notes and goals are still on this device. Import
+              them below to add them to your account, or keep them separate.
+            </Text>
+          </View>
+        ) : null}
         <Text accessibilityRole="alert" style={styles.body}>
           {taskError ??
             plannerSyncProblem(session.user.id) ??
@@ -132,6 +158,35 @@ export const AccountScreen = () => {
           <Feather name="upload" size={18} color={theme.colors.textPrimary} />
           <Text style={styles.body}>Import device items</Text>
         </Pressable>
+        {pendingGuestImport ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Continue to my account"
+            onPress={leaveAccount}
+            style={[
+              styles.card,
+              {
+                marginTop: 12,
+                backgroundColor: theme.isDark ? '#D8F3E5' : '#152D25',
+                minHeight: 50,
+                alignItems: 'center',
+                justifyContent: 'center',
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.body,
+                {
+                  color: theme.isDark ? '#152D25' : '#FFFFFF',
+                  fontWeight: '600',
+                },
+              ]}
+            >
+              Continue to my account
+            </Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
     </View>
   );
