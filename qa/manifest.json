@@ -10,7 +10,7 @@
     {
       "id": "authentication-validation",
       "title": "Mobile authentication validation and errors",
-      "description": "The mobile auth screen should block incomplete input and show clear alerts for auth failures.",
+      "description": "Managed mobile auth validates input inline and prevents duplicate requests.",
       "cases": [
         {
           "id": "authentication-validation-block-sign-in-with-missing-details",
@@ -32,7 +32,7 @@
               "action": "When the tester submits the form without email or password"
             },
             {
-              "action": "Then the app should show the Missing details alert"
+              "action": "Then the app should show an inline email or password validation error"
             },
             {
               "action": "And the tester should remain on the authentication screen"
@@ -62,7 +62,7 @@
               "action": "And the tester submits the form"
             },
             {
-              "action": "Then the app should show an Authentication error alert"
+              "action": "Then the app should show an inline authentication error"
             },
             {
               "action": "And the authenticated workspace should not open"
@@ -70,8 +70,8 @@
           ]
         },
         {
-          "id": "authentication-validation-block-signup-when-passwords-do-not-match",
-          "title": "Block signup when passwords do not match",
+          "id": "authentication-validation-block-signup-below-provider-password-minimum",
+          "title": "Block signup below the provider password minimum",
           "tags": [
             "@e2e",
             "@mobile",
@@ -86,13 +86,13 @@
               "action": "Given the tester switches to sign up mode"
             },
             {
-              "action": "When the tester enters different password and confirmation values"
+              "action": "When the tester enters a valid email and a password shorter than 10 characters"
             },
             {
               "action": "And the tester submits the form"
             },
             {
-              "action": "Then the app should show the Passwords do not match alert"
+              "action": "Then the app should show the inline minimum-password validation error"
             },
             {
               "action": "And the form should stay in sign up mode"
@@ -116,10 +116,10 @@
               "action": "Given the tester is on the authentication screen in sign in mode"
             },
             {
-              "action": "When the tester triggers forgot password without entering an email"
+              "action": "When the tester opens Forgot password and submits the email-only form without a valid email"
             },
             {
-              "action": "Then the app should show the Email required alert"
+              "action": "Then the app should show an inline email validation error"
             },
             {
               "action": "And no reset request should be sent"
@@ -207,16 +207,16 @@
               "action": "When the tester switches to sign up mode"
             },
             {
-              "action": "And the tester enters a new email address and matching passwords"
+              "action": "And the tester enters a new disposable email address and a password of at least 10 characters"
             },
             {
               "action": "And the tester submits the form"
             },
             {
-              "action": "Then the app should honor the test project's email confirmation policy"
+              "action": "Then the app should ask the tester to confirm their email"
             },
             {
-              "action": "And after confirmation and sign in the account should be able to create synced tasks"
+              "action": "And the confirmation callback should reopen Offtasks before sign-in restores the same managed identity"
             }
           ]
         },
@@ -240,19 +240,19 @@
               "action": "When the tester enters an existing account email address"
             },
             {
-              "action": "And the tester triggers the forgot password action"
+              "action": "And the tester opens Forgot password and submits the email-only reset form"
             },
             {
-              "action": "Then the app should confirm that a reset link was sent"
+              "action": "Then the app should show neutral inbox instructions"
             },
             {
-              "action": "And no unexpected auth error alert should remain visible"
+              "action": "And the recovery email should open Offtasks so a new password can be saved and used to sign in"
             }
           ]
         },
         {
-          "id": "authentication-delete-a-disposable-account-from-the-drawer",
-          "title": "Delete a disposable account from the drawer",
+          "id": "authentication-delete-only-disposable-offtasks-data-from-the-drawer",
+          "title": "Delete only disposable Offtasks data from the drawer",
           "tags": [
             "@e2e",
             "@mobile",
@@ -270,19 +270,19 @@
               "action": "And the authenticated account has at least one synced task and saved preferences"
             },
             {
-              "action": "When the tester opens the drawer and taps Delete Account"
+              "action": "When the tester opens the drawer and taps Delete Offtasks data"
             },
             {
-              "action": "And the tester confirms the destructive account deletion alert"
+              "action": "And the tester confirms the destructive Offtasks data deletion alert"
             },
             {
               "action": "Then the app should return to the device workspace without an account session"
             },
             {
-              "action": "And signing in again with the deleted account should fail"
+              "action": "And signing in again with the same managed identity should still succeed"
             },
             {
-              "action": "And the Supabase project should no longer contain that user's tasks, preferences or planner items"
+              "action": "And only this user's Offtasks tasks, preferences and planner items should be removed; shared identity and other-app data remain"
             }
           ]
         }
@@ -336,7 +336,7 @@
               "action": "Given the navigation drawer is open"
             },
             {
-              "action": "When the tester toggles appearance, Hide Completed Tasks, Advanced Mode, or Auto-move due tasks"
+              "action": "When the tester changes appearance, product analytics or Return to Later"
             },
             {
               "action": "Then the drawer control should reflect the new state immediately"
@@ -361,16 +361,16 @@
           ],
           "steps": [
             {
-              "action": "Given the tester has navigated away from the Today overview tab"
+              "action": "Given the tester has navigated away from Calendar"
             },
             {
               "action": "When the tester uses the drawer hero card or navigation to return home"
             },
             {
-              "action": "Then the app should land on the Overview section"
+              "action": "Then the app should return to the planner"
             },
             {
-              "action": "And the Today tab should be the active destination"
+              "action": "And Calendar should be the active destination"
             }
           ]
         },
@@ -401,7 +401,7 @@
               "action": "When the tester logs out from the drawer"
             },
             {
-              "action": "Then the app should return to the authentication screen"
+              "action": "Then the app should return to the separate device guest workspace"
             }
           ]
         }
@@ -1234,7 +1234,7 @@
               "action": "Then the current session should be cleared"
             },
             {
-              "action": "And the app should return to the authentication screen"
+              "action": "And the app should return to the separate device guest workspace"
             }
           ]
         }
@@ -1707,7 +1707,7 @@
     },
     {
       "id": "note-linked-tasks",
-      "title": "R1 \u2014 note-linked tasks and source labels",
+      "title": "R1 — note-linked tasks and source labels",
       "description": "2026-09-26 local implementation. Definitions are not executed device or live sync acceptance.",
       "cases": [
         {
@@ -1897,6 +1897,121 @@
             {
               "action": "Use VoiceOver and large text to add, toggle and delete note task bullets; inspect keyboard and bottom controls.",
               "expected": "Task state, labels and actions are announced; controls remain reachable without losing typed text."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "task-reminders",
+      "title": "Optional iOS task reminders",
+      "description": "Device-local notifications are opt-in, workspace-scoped and separate from account sync.",
+      "cases": [
+        {
+          "id": "task-reminders-opt-in-delivery",
+          "title": "Schedule and deliver a task reminder",
+          "tags": [
+            "@mobile",
+            "@ios",
+            "@reminders"
+          ],
+          "preconditions": [
+            "Use an iPhone build containing the OfftasksReminders native module",
+            "Use only disposable task text in a device guest workspace"
+          ],
+          "steps": [
+            {
+              "action": "Create a disposable task and choose a future time using Remind me"
+            },
+            {
+              "action": "Grant notification permission when prompted and save the task"
+            },
+            {
+              "action": "Verify the saved task shows its bell and reminder time"
+            },
+            {
+              "action": "Keep the app open until that time and verify a notification banner contains the disposable task text"
+            }
+          ]
+        },
+        {
+          "id": "task-reminders-denied-permission",
+          "title": "Handle notification permission denial",
+          "tags": [
+            "@mobile",
+            "@ios",
+            "@reminders"
+          ],
+          "preconditions": [
+            "Use an iPhone build containing the OfftasksReminders native module",
+            "Use only disposable task text in a device guest workspace"
+          ],
+          "steps": [
+            {
+              "action": "Deny Offtasks notification permission in Settings"
+            },
+            {
+              "action": "Open Remind me and choose a future time"
+            },
+            {
+              "action": "Verify the app explains how to open Settings without setting a reminder"
+            },
+            {
+              "action": "Save the task and verify no reminder indicator appears"
+            }
+          ]
+        },
+        {
+          "id": "task-reminders-edit-and-complete",
+          "title": "Edit and cancel a reminder",
+          "tags": [
+            "@mobile",
+            "@ios",
+            "@reminders"
+          ],
+          "preconditions": [
+            "Use an iPhone build containing the OfftasksReminders native module",
+            "Use only disposable task text in a device guest workspace"
+          ],
+          "steps": [
+            {
+              "action": "Set a reminder on a disposable task"
+            },
+            {
+              "action": "Rename the task and change its reminder time, then verify only the latest notification is pending"
+            },
+            {
+              "action": "Choose No reminder and verify its indicator disappears"
+            },
+            {
+              "action": "Set another reminder, complete the task and verify that reminder is cancelled"
+            }
+          ]
+        },
+        {
+          "id": "task-reminders-workspace-isolation",
+          "title": "Preserve reminder workspace isolation",
+          "tags": [
+            "@mobile",
+            "@ios",
+            "@reminders"
+          ],
+          "preconditions": [
+            "Use an iPhone build containing the OfftasksReminders native module",
+            "Use only disposable task text in a device guest workspace"
+          ],
+          "steps": [
+            {
+              "action": "Set a reminder on a disposable guest task"
+            },
+            {
+              "action": "Sign in with a disposable managed identity without importing guest items"
+            },
+            {
+              "action": "Verify guest reminders are not shown or scheduled in the account workspace"
+            },
+            {
+              "action": "Sign out and verify the guest reminder returns if its future time has not passed"
             }
           ]
         }

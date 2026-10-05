@@ -1,5 +1,15 @@
 # Guest-first Readiness Report
 
+October 4, 2026 update: the source integration passes 198 tests in 36 suites,
+TypeScript, five production configuration guards, and targeted native compilation
+of AppDelegate and the reminder module. The installed iPhone build remains at
+`dc52ed9`; the new reminders and previously unmerged guest/planner changes need a
+fresh build and device acceptance. Production `public.planner_items` and
+`public.import_device_items(jsonb)` are absent. Notes/Goals account sync and guest
+import require their backend migration. The dated sections below preserve the
+September 12 execution record and its original blockers; current managed-auth
+behavior is described in the README and product-owned QA manifest.
+
 Evidence date: 2026-09-12 UTC. Verdict: **Not ready for App Store submission.**
 
 Guest-first implementation and local regression checks are complete. The request

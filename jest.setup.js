@@ -4,7 +4,7 @@ import 'react-native-gesture-handler/jestSetup';
 import {AccessibilityInfo} from 'react-native';
 
 // Match the native promise contract; individual accessibility tests may override it.
-AccessibilityInfo.isReduceMotionEnabled = async () => false;
+AccessibilityInfo.isReduceMotionEnabled = jest.fn().mockResolvedValue(false);
 
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')

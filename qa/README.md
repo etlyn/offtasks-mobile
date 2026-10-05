@@ -2,7 +2,7 @@
 
 This product owns and maintains [manifest.json](manifest.json), the read-only
 acceptance asset imported by the standalone E2E website. It currently contains
-13 suites and 68 cases, including note-linked task journeys.
+14 suites and 72 cases, including note-linked tasks and iOS reminders.
 
 When product behavior changes, update this manifest in the same source change.
 Keep app, suite, and case IDs stable; change an ID only for a new identity.

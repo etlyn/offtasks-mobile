@@ -27,7 +27,7 @@ No sibling checkout is required to install or run this app.
    cp .env.example .env
    ```
 2. Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` for the same project as the web client's `VITE_PUBLIC_SUPABASE_URL` and `VITE_PUBLIC_SUPABASE_ANON_KEY`. Use only the public anonymous key, never a service-role key; backend access must be protected by Row Level Security.
-3. Account deletion requires the Supabase `delete-account` Edge Function to be deployed for the same project. The mobile client sends the active access token to that function and then clears the local native session.
+3. “Delete Offtasks data” requires the app-owned Supabase `delete-account` Edge Function. It removes Offtasks data, preserves the shared Etlyn identity, and clears the local native session.
 
 ### 3. Install dependencies
 
@@ -136,9 +136,11 @@ npx tsc --noEmit
 Jest is configured to resolve the `@/` alias and to mock `@env` variables.
 GitHub CI performs a frozen dependency install and runs these tests. Native
 compilation, signing, device testing, and store uploads remain separate gates.
-`yarn lint` runs the existing ESLint configuration.
+`yarn lint` runs the existing ESLint configuration. Jest loads Lucide's actual
+CommonJS components lazily, preserving its installed export names while avoiding
+the generated all-icons barrel during each isolated test suite.
 
-The 58 mobile acceptance scenarios now live in [qa/manifest.json](qa/manifest.json),
+The 72 mobile acceptance scenarios now live in [qa/manifest.json](qa/manifest.json),
 with the native flow at [qa/maestro/guest.yaml](qa/maestro/guest.yaml).
 Use the standalone E2E website to import branch snapshots, test and report.
 See [QA ownership and import instructions](qa/README.md).
@@ -155,8 +157,10 @@ schema changes or authentication bypasses are part of this UI update.
 
 The new `20260912000000_device_planner_sync.sql` migration is owned by
 `offtasks.com/supabase/migrations`. It adds owner-protected planner records and
-a transactional, retry-safe guest import RPC. It has **not been deployed** by
-this work. Test the migration, RLS, auth, import, and deletion against an isolated
+a transactional, retry-safe guest import RPC. Production inspection on October 4,
+2026 confirms `public.planner_items` and `public.import_device_items(jsonb)` are
+absent, so live Notes/Goals sync and guest import still require that deployment.
+Test the migration, RLS, auth, import, and deletion against an isolated
 Supabase environment before a separately authorized production rollout.
 
 See [the readiness report](docs/guest-first-readiness.md) for actual execution
@@ -199,7 +203,7 @@ The native client uses the shared Etlyn Apps identity and `@etlyn/etlyn-auth` na
 
 “Delete Offtasks data” calls the app-owned deletion function. It preserves the shared Etlyn identity and other applications’ data. Shared email/password and global account management are available at `https://etlyn.com/auth/account`. Native auth imports initialize secure randomness before creating a session.
 
-The managed-auth rollout passes TypeScript checks, secure-storage migration tests, and the 155-test native suite (including the corrected planner animation fixtures). Signed Release/device and distribution evidence is recorded separately in the live project brief; a main merge does not establish store publication.
+The October 4 source integration passes TypeScript checks and all 198 tests in 36 suites, including secure storage, native callbacks, guest import review, note-linked tasks and reminder scheduling. Both changed native units compile against the installed iPhone SDK and React Native frameworks. A complete new Release build and iPhone installation were not performed in this integration; the installed phone build remains at `dc52ed9`. Device and production acceptance evidence is recorded separately in the live project brief.
 
 The shared ESM auth SDK receives its import condition only within its Metro
 resolver scope. Other dependencies retain Metro's normal import/require
