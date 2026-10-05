@@ -111,7 +111,7 @@ Tips for iOS:
   to the separate guest workspace. Account tasks remain online-first, unlike
   guest tasks and the Notes/Goals outbox.
 - `App.tsx` wires navigation, auth state, and shared providers.
-- `src/lib/supabase.ts` configures the Supabase client with AsyncStorage.
+- `src/lib/supabase.ts` configures managed Supabase auth with full-value Keychain storage. Only SDK-owned legacy auth keys migrate from AsyncStorage, after a successful secure write; guest planner data stays in AsyncStorage.
 - `src/providers/` exposes auth + tasks contexts that mirror the web app behaviour.
 - `src/screens/LoginScreen.tsx` implements email/password auth, sign-up, and reset flows.
 - `src/screens/TasksScreen.tsx` renders the four task buckets (today, tomorrow, upcoming, closed).
@@ -183,3 +183,19 @@ existing Etlyn company; they do not create CMS tenants or change Supabase auth.
 After dependency installation, run `pod install` in `ios` to link secure UUID
 support. Validate on both platforms before a store release; deployment of the
 backend or committing these changes does not publish a mobile store update.
+
+### Unified Etlyn authentication
+
+The native client uses the shared Etlyn Apps identity and `@etlyn/etlyn-auth` native adapters. Sessions live in Keychain, PKCE callbacks use `offtasks://auth/callback` and `offtasks://auth/recovery`, and recovery completes with a confirmed new password followed by local sign-out. App lifecycle changes control token refresh; stale auth events cannot restore a signed-out session.
+
+“Delete Offtasks data” calls the app-owned deletion function. It preserves the shared Etlyn identity and other applications’ data. Shared email/password and global account management are available at `https://etlyn.com/auth/account`. Native auth imports initialize secure randomness before creating a session.
+
+The managed-auth rollout passes TypeScript checks, secure-storage migration tests, and the 155-test native suite (including the corrected planner animation fixtures). Signed Release/device and distribution evidence is recorded separately in the live project brief; a main merge does not establish store publication.
+
+The shared ESM auth SDK receives its import condition only within its Metro
+resolver scope. Other dependencies retain Metro's normal import/require
+selection, including the CommonJS Babel helpers used at native startup.
+After a Release bundle, verify the emitted JavaScript before Hermes compilation:
+`node scripts/verify-metro-bundle.cjs <Release-iphoneos/main.jsbundle>`.
+This checks the actual React Native bootstrap helper export shape; native
+installation and sustained main-app startup remain separate checks.

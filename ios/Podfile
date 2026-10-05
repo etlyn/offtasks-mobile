@@ -34,6 +34,13 @@ target 'OfftasksMobile' do
     )
 
     installer.pods_project.targets.each do |target|
+      # Resource/privacy pods must support the same SDK range as the app.
+      target.build_configurations.each do |build_config|
+        deployment = build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+        if deployment && Gem::Version.new(deployment) < Gem::Version.new(min_ios_version_supported)
+          build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = min_ios_version_supported
+        end
+      end
       next unless target.name == 'fmt'
 
       target.build_configurations.each do |build_config|
