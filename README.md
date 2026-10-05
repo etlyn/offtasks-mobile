@@ -191,3 +191,11 @@ The native client uses the shared Etlyn Apps identity and `@etlyn/etlyn-auth` na
 “Delete Offtasks data” calls the app-owned deletion function. It preserves the shared Etlyn identity and other applications’ data. Shared email/password and global account management are available at `https://etlyn.com/auth/account`. Native auth imports initialize secure randomness before creating a session.
 
 The managed-auth rollout passes TypeScript checks, secure-storage migration tests, and the 155-test native suite (including the corrected planner animation fixtures). Signed Release/device and distribution evidence is recorded separately in the live project brief; a main merge does not establish store publication.
+
+The shared ESM auth SDK receives its import condition only within its Metro
+resolver scope. Other dependencies retain Metro's normal import/require
+selection, including the CommonJS Babel helpers used at native startup.
+After a Release bundle, verify the emitted JavaScript before Hermes compilation:
+`node scripts/verify-metro-bundle.cjs <Release-iphoneos/main.jsbundle>`.
+This checks the actual React Native bootstrap helper export shape; native
+installation and sustained main-app startup remain separate checks.
