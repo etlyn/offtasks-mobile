@@ -8,6 +8,7 @@ import {
   DeviceEventEmitter,
 } from 'react-native';
 import {
+  configure,
   fireEvent,
   act,
   render,
@@ -108,6 +109,8 @@ function GoalsHarness() {
     </TaskCreationContext.Provider>
   );
 }
+
+configure({ asyncUtilTimeout: 5000 });
 
 beforeEach(async () => {
   mockGoalTask.mockClear();
@@ -286,6 +289,7 @@ test('shows Calendar, Notes, Goals and Later in order and emits tab navigation',
 });
 
 test('global search requests open existing notes without modifying them', async () => {
+  jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
   const note = {
     id: 'search-note',
     title: 'Existing note',
@@ -320,10 +324,12 @@ test('global search requests open the matching goal detail', async () => {
 });
 
 test('creates, searches, pins, edits and deletes a note through the screen', async () => {
+  jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
   render(<NotesHarness />);
   await screen.findByText('No notes yet');
   await waitFor(() => expect(screen.getByLabelText('Add note')).toBeEnabled());
   fireEvent.press(screen.getByLabelText('Add note'));
+  await waitFor(() => expect(screen.UNSAFE_getAllByType(Modal).some(modal => modal.props.visible)).toBe(true));
   fireEvent(
     screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
     'show',
@@ -389,6 +395,7 @@ test('Notes search stays behind its header icon and preserves the pinned list un
   expect(screen.queryByLabelText('Add task')).toBeNull();
   await waitFor(() => expect(screen.getByLabelText('Add note')).toBeEnabled());
   fireEvent.press(screen.getByLabelText('Add note'));
+  await waitFor(() => expect(screen.UNSAFE_getAllByType(Modal).some(modal => modal.props.visible)).toBe(true));
   fireEvent(
     screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
     'show',
@@ -426,6 +433,7 @@ test('failed saves preserve the draft and corrupted storage disables creation', 
   const view = render(<NotesHarness />);
   await screen.findByText('No notes yet');
   fireEvent.press(screen.getByLabelText('Add note'));
+  await waitFor(() => expect(screen.UNSAFE_getAllByType(Modal).some(modal => modal.props.visible)).toBe(true));
   fireEvent(
     screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
     'show',

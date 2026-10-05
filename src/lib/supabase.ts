@@ -1,6 +1,6 @@
 import 'react-native-url-polyfill/auto';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {authStorage} from './authStorage';
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@env';
 
@@ -32,7 +32,8 @@ if (!supabaseAnonKey) {
 
 export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: AsyncStorage,
+    storage: authStorage,
+    flowType: 'pkce',
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false,
@@ -265,6 +266,8 @@ export const deleteTask = async (taskId: string) => {
 
 interface DeleteAccountResponse {
   success?: boolean;
+  deleted?: "app-data";
+  identityRetained?: boolean;
   error?: string;
 }
 
@@ -305,7 +308,7 @@ export const deleteAccount = async (): Promise<void> => {
   const accessToken = sessionData.session?.access_token;
 
   if (!accessToken) {
-    throw new Error('You need to be signed in to delete your account.');
+    throw new Error('You need to be signed in to delete your Offtasks data.');
   }
 
   const { data, error } =
@@ -328,8 +331,8 @@ export const deleteAccount = async (): Promise<void> => {
     throw new Error(data.error);
   }
 
-  if (!data?.success) {
-    throw new Error('Account deletion did not complete.');
+  if (data?.deleted !== "app-data" || data.identityRetained !== true) {
+    throw new Error('Offtasks data deletion did not complete.');
   }
 };
 

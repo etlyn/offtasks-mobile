@@ -76,7 +76,7 @@ test('single sign-in row opens Account; statistics opens its destination; close 
   fireEvent.press(screen.getByRole('button', { name: 'Close menu' }));
   expect(navigation.navigate).not.toHaveBeenCalled();
   expect(navigation.closeDrawer).toHaveBeenCalledTimes(3);
-  expect(screen.queryByRole('button', { name: 'Delete account' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Delete Offtasks data' })).toBeNull();
 });
 
 test('drawer has only icon theme controls and a confirmed opt-in return to Later', () => {
@@ -132,13 +132,13 @@ test('signed-in account remains reachable and deletion still requires explicit d
   expect(navigation.navigate).toHaveBeenCalledWith('Dashboard', {
     screen: 'Account',
   });
-  fireEvent.press(screen.getByRole('button', { name: 'Delete account' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Delete Offtasks data' }));
   expect(alert).toHaveBeenCalledWith(
-    'Delete account',
-    expect.stringContaining('cannot be undone'),
+    'Delete Offtasks data',
+    expect.stringContaining('shared Etlyn sign-in and data in other apps are kept'),
     expect.arrayContaining([
       expect.objectContaining({ text: 'Cancel', style: 'cancel' }),
-      expect.objectContaining({ text: 'Delete Account', style: 'destructive' }),
+      expect.objectContaining({ text: 'Delete Offtasks Data', style: 'destructive' }),
     ]),
     { cancelable: true },
   );

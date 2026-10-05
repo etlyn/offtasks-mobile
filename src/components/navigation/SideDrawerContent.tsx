@@ -5,6 +5,7 @@ import {
   Animated,
   Easing,
   Keyboard,
+  Linking,
   Switch,
   Text,
   View,
@@ -223,7 +224,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
 
   const handleSignOut = React.useCallback(async () => {
     try {
-      const { error } = await supabaseClient.auth.signOut();
+      const { error } = await supabaseClient.auth.signOut({scope: 'local'});
       if (error) {
         throw error;
       }
@@ -261,10 +262,10 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
       navigation.closeDrawer();
     } catch (error) {
       Alert.alert(
-        'Delete account failed',
+        'Delete Offtasks data failed',
         error instanceof Error
           ? error.message
-          : 'Unable to delete account right now. Please try again.',
+          : 'Unable to delete Offtasks data right now. Please try again.',
       );
     } finally {
       setIsDeletingAccount(false);
@@ -277,12 +278,12 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
     }
 
     Alert.alert(
-      'Delete account',
-      'This permanently deletes your account and all synced tasks, notes and goals. Device guest items are kept. This cannot be undone.',
+      'Delete Offtasks data',
+      'This permanently deletes your Offtasks tasks, notes and goals. Your shared Etlyn sign-in and data in other apps are kept. Device guest items are kept. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete Account',
+          text: 'Delete Offtasks Data',
           style: 'destructive',
           onPress: performDeleteAccount,
         },
@@ -437,14 +438,23 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Delete account"
+                  accessibilityLabel="Manage shared Etlyn account"
+                  onPress={() => { void Linking.openURL('https://etlyn.com/auth/account'); }}
+                  style={styles.accountAction}
+                >
+                  <ChevronRight size={16} color={brand} />
+                  <Text style={styles.rowLabel}>Manage shared Etlyn account</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete Offtasks data"
                   disabled={isDeletingAccount}
                   onPress={handleDeleteAccount}
                   style={styles.accountAction}
                 >
                   <Trash2 size={16} strokeWidth={1.7} color={danger} />
                   <Text style={[styles.deleteLabel, { color: danger }]}>
-                    {isDeletingAccount ? 'Deleting account…' : 'Delete account'}
+                    {isDeletingAccount ? 'Deleting Offtasks data…' : 'Delete Offtasks data'}
                   </Text>
                 </Pressable>
               </View>
