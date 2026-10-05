@@ -32,6 +32,7 @@ import {
 import { useTaskRepository } from '@/lib/taskRepository';
 import { getToday } from '@/hooks/useDate';
 import { useTasks } from '@/providers/TasksProvider';
+import { useReminders } from '@/providers/RemindersProvider';
 import type { Task, TaskWithOverdueFlag } from '@/types/task';
 import { palette, useAppTheme } from '@/theme/colors';
 import { filterTasksForSearch, getTaskSearchContext } from '@/utils/taskSearch';
@@ -126,6 +127,7 @@ export const DashboardScreen = ({
     remove: deleteTask,
   } = useTaskRepository();
 
+  const { getReminder, setReminder } = useReminders();
   const { categories, addCategory, removeCategory } = useTaskCategories();
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -275,6 +277,9 @@ export const DashboardScreen = ({
       : initialDate,
   );
   const [selectedPriority, setSelectedPriority] = React.useState<number>(0);
+  const [selectedReminder, setSelectedReminder] = React.useState<string | null>(
+    null,
+  );
   const [categoryQuery, setCategoryQuery] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(
     initialCategory ?? null,
@@ -387,11 +392,12 @@ export const DashboardScreen = ({
       setNewTaskContent(task.content);
       setSelectedDate(task.date ?? getDefaultDateForGroup(groupOverride));
       setSelectedPriority(task.priority ?? 0);
+      setSelectedReminder(getReminder(task.id));
       setCategoryQuery('');
       setSelectedCategory(task.label ?? null);
       setComposerVisible(true);
     },
-    [activeGroup],
+    [activeGroup, getReminder],
   );
 
   const handledTaskRequest = React.useRef<number | null>(null);
@@ -444,6 +450,7 @@ export const DashboardScreen = ({
         : getDefaultDateForGroup(activeGroup),
     );
     setSelectedPriority(0);
+    setSelectedReminder(null);
     setCategoryQuery('');
     setSelectedCategory(goal ?? null);
     setComposerVisible(true);
@@ -456,6 +463,7 @@ export const DashboardScreen = ({
   const finishClosingComposer = React.useCallback(() => {
     setNewTaskContent('');
     setSelectedPriority(0);
+    setSelectedReminder(null);
     setSelectedDate(getDefaultDateForGroup(activeGroup));
     setCategoryQuery('');
     setSelectedCategory(null);
@@ -491,6 +499,21 @@ export const DashboardScreen = ({
     [addCategory],
   );
 
+  // The task itself is already saved, so a reminder problem is only reported.
+  const saveReminder = React.useCallback(
+    async (taskId: string, content: string) => {
+      try {
+        await setReminder(taskId, selectedReminder, content);
+      } catch {
+        Alert.alert(
+          'Reminder not saved',
+          'The task was saved, but its reminder could not be set.',
+        );
+      }
+    },
+    [selectedReminder, setReminder],
+  );
+
   const handleSubmitTask = React.useCallback(async () => {
     const trimmed = newTaskContent.trim();
     if (!trimmed || submitting) {
@@ -521,14 +544,18 @@ export const DashboardScreen = ({
           date: normalizedDate,
           label: resolvedCategory,
         });
+        await saveReminder(editingTask.id, trimmed);
       } else {
-        await createTask({
+        const createdId = await createTask({
           content: trimmed,
           target_group: effectiveGroup,
           date: normalizedDate,
           priority: selectedPriority,
           label: resolvedCategory,
         });
+        if (selectedReminder && createdId) {
+          await saveReminder(createdId, trimmed);
+        }
       }
       closeComposer();
       await refresh();
@@ -553,6 +580,8 @@ export const DashboardScreen = ({
     selectedPriority,
     createTask,
     updateTask,
+    saveReminder,
+    selectedReminder,
     submitting,
   ]);
 
@@ -672,6 +701,8 @@ export const DashboardScreen = ({
       mode={composerMode}
       selectedDate={selectedDate}
       onChangeDate={handleComposerDateChange}
+      selectedReminder={selectedReminder}
+      onChangeReminder={setSelectedReminder}
     />
   );
   if (composerOnly) return composer;

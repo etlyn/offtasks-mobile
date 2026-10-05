@@ -132,6 +132,17 @@ export const createStyles = (theme: AppTheme, calendar = false) =>
       lineHeight: 16,
       color: theme.colors.textSecondary,
     },
+    reminderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      marginTop: 4,
+    },
+    reminderText: {
+      fontSize: 12,
+      lineHeight: 16,
+      color: theme.colors.textSecondary,
+    },
     badgeRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',

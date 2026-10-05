@@ -46,6 +46,8 @@ interface TasksContextValue {
     >,
   ) => void;
   loading: boolean;
+  /** True once this workspace's tasks have been read at least once. */
+  loaded: boolean;
   error: string | null;
   refreshing: boolean;
 }
@@ -93,6 +95,7 @@ const TasksContext = createContext<TasksContextValue>({
   refresh: async () => undefined,
   applyTaskUpdate: () => undefined,
   loading: false,
+  loaded: false,
   error: null,
   refreshing: false,
 });
@@ -104,6 +107,7 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
   currentPolicy.current = { repository, movePastTasksToLater };
   const [tasks, setTasks] = useState<TasksByGroup>(emptyState);
   const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const lastDayRef = useRef(getToday());
@@ -200,6 +204,7 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
       tasksRef.current = nextState;
       if (mountedRef.current) {
         setTasks(nextState);
+        setLoaded(true);
       }
       syncWidgetSnapshot(nextState);
     },
@@ -404,10 +409,20 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
       refresh,
       applyTaskUpdate,
       loading,
+      loaded,
       error,
       refreshing,
     }),
-    [applyTaskUpdate, loading, error, refresh, refreshing, tasks, totals],
+    [
+      applyTaskUpdate,
+      loading,
+      loaded,
+      error,
+      refresh,
+      refreshing,
+      tasks,
+      totals,
+    ],
   );
 
   return (

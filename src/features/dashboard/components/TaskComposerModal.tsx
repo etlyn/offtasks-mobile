@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import {
   ArrowLeft,
+  Bell,
   CalendarDays,
   Check,
   Flag,
@@ -37,6 +38,8 @@ import { GlassSurface } from '@/components/GlassSurface';
 import { DetachedTaskSheet } from './DetachedTaskSheet';
 import { useCalendarTransition } from './useCalendarTransition';
 import { getToday } from '@/hooks/useDate';
+import { defaultReminderDate, formatReminder } from '@/lib/reminders';
+import { useReminders } from '@/providers/RemindersProvider';
 import { useAppTheme } from '@/theme/colors';
 
 const parseDateKey = (value: string) => {
@@ -57,7 +60,7 @@ const formatDate = (value: string) =>
       ? { year: 'numeric' as const }
       : {}),
   }).format(parseDateKey(value));
-type Panel = 'date' | 'priority' | 'goal' | null;
+type Panel = 'date' | 'reminder' | 'priority' | 'goal' | null;
 const priorityIcons = [Minus, SignalLow, SignalMedium, SignalHigh];
 
 // A quiet breathing mark indicates work without implying measured progress.
@@ -146,6 +149,8 @@ interface TaskComposerModalProps {
   mode?: 'create' | 'edit';
   selectedDate?: string | null;
   onChangeDate?: (value: string | null) => void;
+  selectedReminder?: string | null;
+  onChangeReminder?: (value: string | null) => void;
 }
 
 export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
@@ -175,6 +180,8 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
   mode,
   selectedDate,
   onChangeDate,
+  selectedReminder,
+  onChangeReminder,
 }) => {
   const theme = useAppTheme();
   const { reduceMotion } = useCalendarTransition();
@@ -213,7 +220,15 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
   const [draftDate, setDraftDate] = React.useState(() =>
     parseDateKey(getToday()),
   );
+  const { supported: remindersSupported, ensurePermission } = useReminders();
+  const reminderEnabled = remindersSupported && !!onChangeReminder;
+  const [draftReminder, setDraftReminder] = React.useState(() =>
+    defaultReminderDate(null),
+  );
+  const [confirmingReminder, setConfirmingReminder] = React.useState(false);
   const dateStep = panel === 'date' && Platform.OS === 'ios';
+  const reminderStep = panel === 'reminder' && reminderEnabled;
+  const pickerStep = dateStep || reminderStep;
   const busy = submitting || creatingGoal;
   const disableSubmit = !newTaskContent.trim() || busy;
   const editing = mode === 'edit';
@@ -242,6 +257,14 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
       setDraftDate(pickerDate);
       Keyboard.dismiss();
     }
+    if (next === 'reminder') {
+      setDraftReminder(
+        selectedReminder
+          ? new Date(selectedReminder)
+          : defaultReminderDate(selectedDate),
+      );
+      Keyboard.dismiss();
+    }
     setPanel(current => (current === next ? null : next));
     onCategoryQueryChange('');
   };
@@ -261,6 +284,24 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
     }
     onChangeDate?.(toDateKey(value));
     returnToTask();
+  };
+  const confirmReminder = async () => {
+    if (busy || confirmingReminder) return;
+    if (draftReminder.getTime() <= Date.now()) {
+      Alert.alert(
+        'Choose a later time',
+        'Reminders need a time in the future.',
+      );
+      return;
+    }
+    setConfirmingReminder(true);
+    try {
+      if (!(await ensurePermission())) return;
+      onChangeReminder?.(draftReminder.toISOString());
+      returnToTask();
+    } finally {
+      setConfirmingReminder(false);
+    }
   };
   const selectGoal = (goal: string | null) => {
     if (busy) return;
@@ -298,6 +339,8 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
       accessibilityHint={
         key === 'date'
           ? 'Choose a date or leave this task unscheduled'
+          : key === 'reminder'
+          ? 'Choose a time to be notified'
           : 'Optional'
       }
       accessibilityState={{ expanded: panel === key }}
@@ -346,34 +389,42 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={dateStep ? 'Back to task' : 'Cancel task'}
-          onPress={dateStep ? returnToTask : closeComposer}
+          accessibilityLabel={pickerStep ? 'Back to task' : 'Cancel task'}
+          onPress={pickerStep ? returnToTask : closeComposer}
           disabled={busy}
           style={styles.closeAction}
         >
           <View style={styles.closeSurface}>
-            {dateStep ? (
+            {pickerStep ? (
               <ArrowLeft size={18} strokeWidth={1.7} color={brand} />
             ) : (
               <X size={18} strokeWidth={1.7} color={brand} />
             )}
           </View>
         </Pressable>
-        {dateStep ? (
+        {pickerStep ? (
           <Text accessibilityRole="header" style={styles.panelTitle}>
-            Date
+            {reminderStep ? 'Reminder' : 'Date'}
           </Text>
         ) : null}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={dateStep ? 'Set task date' : 'Save task'}
+          accessibilityLabel={
+            reminderStep
+              ? 'Set reminder'
+              : dateStep
+              ? 'Set task date'
+              : 'Save task'
+          }
           accessibilityState={{
             busy,
-            disabled: dateStep ? busy : disableSubmit,
+            disabled: pickerStep ? busy || confirmingReminder : disableSubmit,
           }}
-          disabled={dateStep ? busy : disableSubmit}
+          disabled={pickerStep ? busy || confirmingReminder : disableSubmit}
           onPress={() => {
-            if (dateStep) {
+            if (reminderStep) {
+              confirmReminder();
+            } else if (dateStep) {
               onChangeDate?.(toDateKey(draftDate));
               returnToTask();
             } else if (!disableSubmit) onSubmit();
@@ -385,7 +436,7 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
               <SavingPulse color={inverse} reduceMotion={reduceMotion} />
             ) : (
               <Text style={styles.submitText}>
-                {dateStep ? 'Done' : editing ? 'Save' : 'Add'}
+                {pickerStep ? 'Done' : editing ? 'Save' : 'Add'}
               </Text>
             )}
           </View>
@@ -408,7 +459,35 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
             resizeContent(layout.width, layout.height)
           }
         >
-          {dateStep ? (
+          {reminderStep ? (
+            <View testID="task-reminder-step">
+              <DateTimePicker
+                testID="task-reminder-wheel"
+                value={draftReminder}
+                mode="datetime"
+                display="spinner"
+                minimumDate={new Date()}
+                onChange={(event, value) => {
+                  if (event.type === 'set' && value) setDraftReminder(value);
+                }}
+                style={styles.dateWheel}
+                textColor={brand}
+                themeVariant={theme.isDark ? 'dark' : 'light'}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="No reminder"
+                style={styles.noDate}
+                onPress={() => {
+                  onChangeReminder?.(null);
+                  returnToTask();
+                }}
+              >
+                <Minus size={16} color={brand} />
+                <Text style={styles.chipTextSelected}>No reminder</Text>
+              </Pressable>
+            </View>
+          ) : dateStep ? (
             <View testID="task-date-step">
               <DateTimePicker
                 testID="task-date-wheel"
@@ -466,6 +545,18 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
                   !!selectedDate,
                   panel === 'date' ? 'Hide date picker' : 'Choose task date',
                 )}
+                {reminderEnabled &&
+                  chip(
+                    'reminder',
+                    Bell,
+                    selectedReminder
+                      ? formatReminder(selectedReminder)
+                      : 'Remind me',
+                    !!selectedReminder,
+                    panel === 'reminder'
+                      ? 'Hide reminder picker'
+                      : 'Choose task reminder',
+                  )}
                 {goalMode &&
                   chip(
                     'priority',
@@ -484,7 +575,7 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
                     'Choose task goal',
                   )}
               </View>
-              {panel && panel !== 'date' ? (
+              {panel && panel !== 'date' && panel !== 'reminder' ? (
                 <View style={styles.panel} testID="task-options-panel">
                   <View style={styles.panelHeader}>
                     <Text accessibilityRole="header" style={styles.panelTitle}>

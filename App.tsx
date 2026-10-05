@@ -9,6 +9,7 @@ import { enableScreens } from 'react-native-screens';
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { PreferencesProvider } from '@/providers/PreferencesProvider';
 import { TasksProvider } from '@/providers/TasksProvider';
+import { RemindersProvider } from '@/providers/RemindersProvider';
 import { SplashScreen } from '@/components/SplashScreen';
 import { useAppTheme } from '@/theme/colors';
 import { OfftasksLoader } from '@/components/OfftasksLoader';
@@ -43,7 +44,9 @@ const RootNavigator = () => {
         backgroundColor="transparent"
       />
       <TasksProvider key={session?.user.id || GUEST_ID}>
-        <AppNavigator />
+        <RemindersProvider>
+          <AppNavigator />
+        </RemindersProvider>
       </TasksProvider>
     </NavigationContainer>
   );

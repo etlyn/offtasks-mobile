@@ -110,7 +110,7 @@ export const createTask = async (params: {
   date?: string | null;
   priority?: number;
   label?: string | null;
-}) => {
+}): Promise<string | null> => {
   const { content, target_group, userId, date, priority = 0, label } = params;
 
   const payload: Record<string, unknown> = {
@@ -131,12 +131,12 @@ export const createTask = async (params: {
     }
   }
   const insertTask = async (data: Record<string, unknown>) =>
-    supabaseClient.from('tasks').insert([data]);
+    supabaseClient.from('tasks').insert([data]).select('id').maybeSingle();
 
   let attempt = await insertTask(payload);
 
   if (!attempt.error) {
-    return;
+    return attempt.data?.id == null ? null : String(attempt.data.id);
   }
 
   const message = attempt.error.message?.toLowerCase() ?? '';
@@ -169,6 +169,8 @@ export const createTask = async (params: {
     console.error('Error creating task', attempt.error);
     throw attempt.error;
   }
+
+  return attempt.data?.id == null ? null : String(attempt.data.id);
 };
 
 export const updateTask = async (

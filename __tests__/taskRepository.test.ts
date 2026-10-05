@@ -33,3 +33,17 @@ test('guest uses the full task contract without auth or cloud and account routes
   await guest.remove(task.id);
   expect(await guest.read()).toEqual([]);
 });
+
+test('create reports the new task id so follow-up data can attach to it', async () => {
+  await AsyncStorage.clear();
+  const guest = taskRepository();
+  const id = await guest.create({ content: 'Id me', target_group: 'today' });
+  expect((await guest.read())[0].id).toBe(id);
+  (cloud.createTask as jest.Mock).mockResolvedValueOnce('cloud-id');
+  expect(
+    await taskRepository('test-account').create({
+      content: 'Cloud',
+      target_group: 'today',
+    }),
+  ).toBe('cloud-id');
+});

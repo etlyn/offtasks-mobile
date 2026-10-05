@@ -8,6 +8,7 @@ The September 12 refinement uses the Etlyn preference lens: a quiet, glass-backe
 - Goal selection uses a searchable list with selected checkmarks. Goal creation requires an explicit Create action; task saving never turns a search query into a new goal. Goal deletion is not part of this focused composer flow and remains on Goals.
 - Keep the native page sheet, keyboard avoidance, 44-point interaction targets, short labels, adaptive row heights, and Reduce Motion support. No mandatory metadata step or extra onboarding copy.
 - Cancel guards actual draft edits, but searching/browsing options alone is not a draft change. Disable editing, options, cancellation, and repeat saves while submitting or creating a goal. Creation failures stay in the picker with an error.
+- Reminder is an optional chip beside the date, shown on iOS where local notifications are supported. It opens a date-and-time step like Date. See [reminders.md](reminders.md).
 
 Validation of the initial pass: 96 automated tests passed, including compact defaults, optional selection/clearing, schedule preservation, draft guards, explicit goal creation, and disabled controls. Simulator checks used unsaved drafts only; existing task data was not changed. Android, large Dynamic Type, and dark-mode visual QA are not claimed by this pass.
 

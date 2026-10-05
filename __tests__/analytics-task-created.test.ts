@@ -10,7 +10,7 @@ beforeEach(() => jest.clearAllMocks());
 test.each([undefined, 'account-id'])('task creation emits once after a confirmed write (%s)', async user => {
  let finish!: () => void;
  const write = user ? cloud.createTask : local.createLocalTask;
- (write as jest.Mock).mockImplementation(() => new Promise<void>(resolve => {finish=resolve;}));
+ (write as jest.Mock).mockImplementation(() => new Promise(resolve => {finish=() => resolve({id:'created-id'});}));
  const action=taskRepository(user).create({content:'private task text', target_group:'today'});
  expect(trackTaskCreated).not.toHaveBeenCalled(); finish(); await action;
  expect(trackTaskCreated).toHaveBeenCalledTimes(1); expect(trackTaskCreated).toHaveBeenCalledWith();

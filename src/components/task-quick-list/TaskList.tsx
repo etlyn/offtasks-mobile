@@ -3,10 +3,13 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
 import Feather from 'react-native-vector-icons/Feather';
 import { Swipeable } from 'react-native-gesture-handler';
+import { Bell } from 'lucide-react-native';
 
 import type { Task, TaskWithOverdueFlag } from '@/types/task';
 import { palette, useAppTheme } from '@/theme/colors';
 import { getCategoryBadgeColors } from '@/utils/categoryColors';
+import { formatReminder } from '@/lib/reminders';
+import { useReminders } from '@/providers/RemindersProvider';
 
 import { createStyles } from './TaskQuickList.styles';
 import { OfftasksLoader } from '@/components/OfftasksLoader';
@@ -175,6 +178,7 @@ const TaskListRow = ({
     : null;
   const priorityMeta = PRIORITY_META[task.priority ?? 0] ?? PRIORITY_META[0];
   const secondaryText = getSecondaryText?.(task);
+  const reminderAt = useReminders().getReminder(task.id);
 
   const closeSwipeable = React.useCallback(() => {
     swipeableRef.current?.close();
@@ -308,6 +312,24 @@ const TaskListRow = ({
 
           {secondaryText ? (
             <Text style={styles.rowMeta}>{secondaryText}</Text>
+          ) : null}
+
+          {reminderAt && !task.isComplete ? (
+            <View
+              testID={`task-reminder-${task.id}`}
+              accessible
+              accessibilityLabel={`Reminder ${formatReminder(reminderAt)}`}
+              style={styles.reminderRow}
+            >
+              <Bell
+                size={12}
+                strokeWidth={1.7}
+                color={theme.colors.textSecondary}
+              />
+              <Text style={styles.reminderText}>
+                {formatReminder(reminderAt)}
+              </Text>
+            </View>
           ) : null}
 
           {showBadges && (hasCategory || task.priority) ? (

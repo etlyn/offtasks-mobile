@@ -18,16 +18,20 @@ export function taskRepository(userId?: string) {
       userId ? cloud.fetchAllUserTasks(userId) : readLocalTasks(owner),
     create: async (
       values: Omit<Parameters<typeof cloud.createTask>[0], 'userId'>,
-    ) => {
-      if (userId) await cloud.createTask({ ...values, userId });
+    ): Promise<string | null> => {
+      let id: string | null;
+      if (userId) id = (await cloud.createTask({ ...values, userId })) ?? null;
       else
-        await createLocalTask(owner, {
-          ...values,
-          date: values.date ?? null,
-          priority: values.priority ?? 0,
-          isComplete: false,
-        });
+        id = (
+          await createLocalTask(owner, {
+            ...values,
+            date: values.date ?? null,
+            priority: values.priority ?? 0,
+            isComplete: false,
+          })
+        ).id;
       trackTaskCreated();
+      return id;
     },
     update: async (
       id: string,
