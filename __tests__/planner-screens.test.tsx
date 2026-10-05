@@ -110,6 +110,9 @@ function GoalsHarness() {
   );
 }
 
+// Multi-step screen journeys retain five-second assertion deadlines, while
+// allowing their combined work to finish on a busy native-build host.
+jest.setTimeout(15000);
 configure({ asyncUtilTimeout: 5000 });
 
 beforeEach(async () => {
