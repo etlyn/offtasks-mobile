@@ -12,6 +12,22 @@ Shared database migrations and Edge Functions remain in
 [offtasks.com/supabase](https://github.com/etlyn/offtasks.com/tree/main/supabase).
 No sibling checkout is required to install or run this app.
 
+### Codex integration (local implementation; backend setup pending)
+
+Signed-in goal details now have compact Tasks / Brief / Plan controls, a Codex
+filter, revision-checked requirements and task execution-intent/history controls.
+Codex assignment never starts an agent or changes task completion. Guest planning
+is unchanged; cloud controls require sign-in and the integration database RPCs.
+Protected feature briefs are edited through Goals, not the ordinary Notes outbox.
+
+The shared migrations, private MCP package, widget and connection runbook are
+owned by [offtasks.com](https://github.com/etlyn/offtasks.com), under
+`integrations/codex/README.md`. They are not native dependencies. No OpenAI model
+API key or service-role key belongs in this app. Hosted schema/OAuth and real
+cross-client acceptance remain pending; local tests do not deploy them. Keep the
+existing production-only device build policy below; this work does not change
+native environment values or install a new Release on a phone.
+
 ### 1. Prerequisites
 
 - React Native CLI environment set up (Xcode, Android Studio, simulators/emulators).

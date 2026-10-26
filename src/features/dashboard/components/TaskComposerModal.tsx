@@ -151,6 +151,7 @@ interface TaskComposerModalProps {
   onChangeDate?: (value: string | null) => void;
   selectedReminder?: string | null;
   onChangeReminder?: (value: string | null) => void;
+  integrationControls?: React.ReactNode;
 }
 
 export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
@@ -182,6 +183,7 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
   onChangeDate,
   selectedReminder,
   onChangeReminder,
+  integrationControls,
 }) => {
   const theme = useAppTheme();
   const { reduceMotion } = useCalendarTransition();
@@ -575,6 +577,7 @@ export const TaskComposerModal: React.FC<TaskComposerModalProps> = ({
                     'Choose task goal',
                   )}
               </View>
+              {integrationControls}
               {panel && panel !== 'date' && panel !== 'reminder' ? (
                 <View style={styles.panel} testID="task-options-panel">
                   <View style={styles.panelHeader}>

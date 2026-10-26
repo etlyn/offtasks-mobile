@@ -1,4 +1,5 @@
 import type { Task, TaskGroup } from '@/types/task';
+import type { ReactNode } from 'react';
 
 export type DashboardGroup = Exclude<TaskGroup, 'close'>;
 
@@ -11,6 +12,9 @@ export interface DashboardScreenRouteParams {
 }
 
 export interface DashboardScreenProps {
+  goalToolbar?: ReactNode;
+  goalPanel?: ReactNode;
+  codexOnly?: boolean;
   composerOnly?: boolean;
   initialDate?: string | null;
   initialCategory?: string;

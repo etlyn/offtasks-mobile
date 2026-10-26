@@ -33,7 +33,7 @@ import {
 } from '@/hooks/useTaskCategories';
 import { goalSummaries } from '@/utils/planner';
 import { useAppTheme } from '@/theme/colors';
-import { DashboardScreen } from '@/features/dashboard/Dashboard.screen';
+import { GoalWorkspace } from './GoalWorkspace';
 import { GoalRow } from './GoalRow';
 import { GoalAvatar } from './GoalAvatar';
 import { GoalAppearanceSheet } from './GoalAppearanceSheet';
@@ -61,6 +61,7 @@ export const GoalsScreen = ({
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
+  const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const detail = useSearchTransition(detailVisible, reduceMotion, () =>
     setSelected(null),
   );
@@ -76,7 +77,7 @@ export const GoalsScreen = ({
     React.useCallback(() => {
       const back = BackHandler.addEventListener('hardwareBackPress', () => {
         if (detailVisible) {
-          setDetailVisible(false);
+          if (!workspaceBusy) setDetailVisible(false);
           return true;
         }
         if (searchVisible) {
@@ -86,7 +87,7 @@ export const GoalsScreen = ({
         return false;
       });
       return () => back.remove();
-    }, [detailVisible, searchVisible, closeSearch]),
+    }, [detailVisible, workspaceBusy, searchVisible, closeSearch]),
   );
   const nameInput = useRef<TextInput>(null);
   const [creating, setCreating] = useState(false);
@@ -99,7 +100,13 @@ export const GoalsScreen = ({
   React.useEffect(() => {
     setGoalAction?.({
       label: detail.mounted ? 'Add task' : 'Add goal',
-      disabled: loading || !!error || saving || creating || !!customizing,
+      disabled:
+        loading ||
+        !!error ||
+        saving ||
+        creating ||
+        !!customizing ||
+        workspaceBusy,
       onPress: () => {
         Keyboard.dismiss();
         if (detail.mounted && selected) {
@@ -120,6 +127,7 @@ export const GoalsScreen = ({
     creating,
     customizing,
     detail.mounted,
+    workspaceBusy,
     selected,
   ]);
   const goals = goalSummaries(Object.values(tasks).flat(), categories);
@@ -432,11 +440,10 @@ export const GoalsScreen = ({
           ]}
         >
           <HeaderLayer.Provider value={10}>
-            <DashboardScreen
+            <GoalWorkspace
               key={selected}
-              route={{
-                params: { view: 'goal', category: selected, group: 'upcoming' },
-              }}
+              name={selected}
+              onBusyChange={setWorkspaceBusy}
               onBack={() => setDetailVisible(false)}
             />
           </HeaderLayer.Provider>

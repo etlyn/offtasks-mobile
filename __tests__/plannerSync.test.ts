@@ -64,6 +64,76 @@ test('fresh account cache does not upload defaults over server deletions', async
   expect(await readPlanner('new-device-account', 'goal')).toEqual([]);
 });
 
+test('feature PRDs stay out of Notes and ordinary saves cannot remove or overwrite them', async () => {
+  const brief = {
+    id: 'offtask-prd:protected',
+    title: 'Goal PRD',
+    body: 'Requirements',
+    pinned: false,
+    updatedAt: '2026-10-26T00:00:00Z',
+  };
+  const note = {
+    id: 'ordinary-note',
+    title: 'Note',
+    body: 'Prose',
+    pinned: false,
+    updatedAt: '2026-10-26T00:00:00Z',
+  };
+  await AsyncStorage.setItem(
+    plannerKey('brief-owner', 'note'),
+    JSON.stringify({
+      version: 1,
+      items: [{ id: brief.id, value: brief, deleted: false, dirty: false }],
+    }),
+  );
+  expect(await readPlanner('brief-owner', 'note')).toEqual([]);
+  await writePlanner('brief-owner', 'note', [note]);
+  const state = JSON.parse(
+    (await AsyncStorage.getItem(plannerKey('brief-owner', 'note')))!,
+  );
+  expect(
+    state.items.find((item: { id: string }) => item.id === brief.id),
+  ).toEqual({ id: brief.id, value: brief, deleted: false, dirty: false });
+  await expect(
+    writePlanner('brief-owner', 'note', [{ ...brief, body: 'Blind edit' }]),
+  ).rejects.toThrow(/Goals/);
+});
+
+test('a retained dirty PRD is not uploaded and cannot cause endless outbox resync', async () => {
+  const brief = {
+    id: 'offtask-prd:old-draft',
+    title: 'Goal PRD',
+    body: 'Local draft retained',
+    pinned: false,
+    updatedAt: '2026-10-26T00:00:00Z',
+  };
+  await AsyncStorage.setItem(
+    plannerKey('dirty-brief-owner', 'note'),
+    JSON.stringify({
+      version: 1,
+      items: [{ id: brief.id, value: brief, deleted: false, dirty: true }],
+    }),
+  );
+  const query = {
+    select: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    order: jest.fn().mockReturnThis(),
+    range: jest.fn().mockReturnThis(),
+    abortSignal: jest.fn().mockResolvedValue({ data: [], error: null }),
+    upsert: jest.fn(),
+  };
+  (supabaseClient.from as jest.Mock).mockReturnValue(query);
+  await syncPlanner('dirty-brief-owner', 'note');
+  expect(query.upsert).not.toHaveBeenCalled();
+  expect(query.abortSignal).toHaveBeenCalledTimes(1);
+  const state = JSON.parse(
+    (await AsyncStorage.getItem(plannerKey('dirty-brief-owner', 'note')))!,
+  );
+  expect(state.items[0].value.body).toBe('Local draft retained');
+  expect(state.items[0].dirty).toBe(true);
+  expect(await readPlanner('dirty-brief-owner', 'note')).toEqual([]);
+});
+
 test('account sync sends owned rows, merges remote records and retains deletion tombstones', async () => {
   let remote: Array<Record<string, unknown>> = [];
   const uploaded: Array<Record<string, unknown>> = [];

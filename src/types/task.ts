@@ -13,6 +13,9 @@ export interface Task {
   label?: string | null;
   completed_at?: string | null;
   inserted_at?: string;
+  /** Optional cloud execution intent; never starts a run. */
+  execution_target?: 'codex' | null;
+  revision?: string;
 }
 
 /**

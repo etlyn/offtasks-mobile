@@ -50,6 +50,7 @@ import type {
   PriorityOption,
 } from './Dashboard.types';
 import { GoalProgress } from '@/features/planner/GoalProgress';
+import { TaskExecutionControls } from '@/features/planner/TaskExecutionControls';
 import { Layout } from './components/Layout';
 import { TaskComposerModal } from './components/TaskComposerModal';
 import { useTaskCreation } from '@/navigation/TaskCreationContext';
@@ -118,6 +119,9 @@ export const DashboardScreen = ({
   initialDate,
   initialCategory,
   onComposerClose,
+  goalToolbar,
+  goalPanel,
+  codexOnly = false,
 }: DashboardScreenProps) => {
   const { tasks, loading, error, refreshing, refresh, applyTaskUpdate } =
     useTasks();
@@ -132,6 +136,7 @@ export const DashboardScreen = ({
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   const [searchDockVisible, setSearchDockVisible] = React.useState(false);
+  const [integrationBusy, setIntegrationBusy] = React.useState(false);
   const searchRequest = route?.params?.searchToggleRequestId;
   React.useEffect(() => {
     if (searchRequest) setSearchDockVisible(true);
@@ -234,7 +239,13 @@ export const DashboardScreen = ({
   >(null);
 
   const advancedMode = !!goal;
-  const filteredTasks = baseTasks;
+  const filteredTasks = React.useMemo(
+    () =>
+      codexOnly
+        ? baseTasks.filter(task => task.execution_target === 'codex')
+        : baseTasks,
+    [baseTasks, codexOnly],
+  );
 
   const sortedTasks = React.useMemo(() => {
     if (!advancedMode || !prioritySortDirection) {
@@ -686,7 +697,7 @@ export const DashboardScreen = ({
       selectedPriority={selectedPriority}
       selectedCategory={selectedCategory}
       onClearCategory={handleClearCategory}
-      submitting={submitting}
+      submitting={submitting || integrationBusy}
       onSubmit={handleSubmitTask}
       categoryQuery={categoryQuery}
       onCategoryQueryChange={setCategoryQuery}
@@ -703,6 +714,17 @@ export const DashboardScreen = ({
       onChangeDate={handleComposerDateChange}
       selectedReminder={selectedReminder}
       onChangeReminder={setSelectedReminder}
+      integrationControls={
+        editingTask && (!!goal || !!initialCategory) ? (
+          <TaskExecutionControls
+            taskId={editingTask.id}
+            onChanged={() => {
+              void refresh();
+            }}
+            onBusyChange={setIntegrationBusy}
+          />
+        ) : undefined
+      }
     />
   );
   if (composerOnly) return composer;
@@ -758,7 +780,9 @@ export const DashboardScreen = ({
           />
         )}
 
+        {!searchPage ? goalToolbar : null}
         <Layout
+          replacement={!searchPage ? goalPanel : undefined}
           bottomInset={insets.bottom}
           refreshing={refreshing}
           onRefresh={handleRefresh}

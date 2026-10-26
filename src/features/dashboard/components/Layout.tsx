@@ -25,6 +25,7 @@ export interface LayoutProps {
   onScrollUp?: () => void;
   filterBar?: React.ReactNode;
   children: React.ReactNode;
+  replacement?: React.ReactNode;
 }
 
 export const Layout = ({
@@ -39,11 +40,14 @@ export const Layout = ({
   onScrollUp,
   filterBar,
   children,
+  replacement,
 }: LayoutProps) => {
   const theme = useAppTheme();
   const scrollRef = React.useRef<ScrollView>(null);
   const dragStart = React.useRef<number | null>(null);
   const touchStart = React.useRef<{ x: number; y: number } | null>(null);
+
+  if (replacement) return <>{replacement}</>;
 
   return (
     <Animated.View

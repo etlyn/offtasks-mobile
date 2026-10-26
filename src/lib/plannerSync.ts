@@ -5,6 +5,8 @@ import { GUEST_ID } from './localTasks';
 import { notesStorageKey, parseNotes, type Note } from './notes';
 
 export type Collection = 'note' | 'goal';
+/** Feature briefs use revision-checked RPCs, never the ordinary note outbox. */
+export const isFeatureBriefId = (id: string) => id.startsWith('offtask-prd:');
 type Item = {
   id: string;
   value: Note | string;
@@ -101,7 +103,9 @@ export async function readPlanner<Kind extends Collection>(
 ): Promise<Kind extends 'note' ? Note[] : string[]> {
   const state = await readState(owner, kind);
   return state.items
-    .filter(item => !item.deleted)
+    .filter(
+      item => !item.deleted && !(kind === 'note' && isFeatureBriefId(item.id)),
+    )
     .map(item => item.value) as Kind extends 'note' ? Note[] : string[];
 }
 
@@ -112,14 +116,36 @@ export async function writePlanner(
   baseline?: Note[] | string[],
 ) {
   const key = plannerKey(owner, kind);
+  if (
+    kind === 'note' &&
+    values.some(
+      value => typeof value !== 'string' && isFeatureBriefId(value.id),
+    )
+  )
+    throw new Error(
+      'Edit feature briefs from Goals to preserve their revisions.',
+    );
   await serial(key, async () => {
     const state = await readState(owner, kind);
     const itemId = (value: Note | string) =>
       typeof value === 'string' ? value.toLocaleLowerCase() : value.id;
     const before =
       baseline ??
-      state.items.filter(item => !item.deleted).map(item => item.value);
+      state.items
+        .filter(
+          item =>
+            !item.deleted && !(kind === 'note' && isFeatureBriefId(item.id)),
+        )
+        .map(item => item.value);
     const removed = before
+      .filter(
+        value =>
+          !(
+            kind === 'note' &&
+            typeof value !== 'string' &&
+            isFeatureBriefId(value.id)
+          ),
+      )
       .filter(value => !values.some(next => itemId(next) === itemId(value)))
       .map(itemId);
     const changed = values.filter(
@@ -158,7 +184,9 @@ export function syncPlanner(owner: string, kind: Collection): Promise<void> {
   const timeout = setTimeout(() => controller.abort(), 12000);
   const operation = (async () => {
     const snapshot = await readState(owner, kind);
-    const pending = snapshot.items.filter(item => item.dirty);
+    const pending = snapshot.items.filter(
+      item => item.dirty && !(kind === 'note' && isFeatureBriefId(item.id)),
+    );
     if (pending.length) {
       const { error } = await supabaseClient
         .from('planner_items')
@@ -228,7 +256,9 @@ export function syncPlanner(owner: string, kind: Collection): Promise<void> {
       emit();
       if (
         !problems.has(key) &&
-        (await readState(owner, kind)).items.some(item => item.dirty)
+        (await readState(owner, kind)).items.some(
+          item => item.dirty && !(kind === 'note' && isFeatureBriefId(item.id)),
+        )
       )
         await syncPlanner(owner, kind);
     });
