@@ -36,6 +36,8 @@ import { useCalendarTransition } from '@/features/dashboard/components/useCalend
 import { completeWelcome } from '@/lib/onboarding';
 import { useAuth } from '@/providers/AuthProvider';
 import { shouldReviewGuestItems } from '@/lib/guestImportReview';
+import { startGoogleSignIn } from '@/lib/googleSignIn';
+import { GoogleMark } from '@/components/GoogleMark';
 
 type AuthMode = 'signIn' | 'signUp' | 'reset';
 export const LoginScreen = () => {
@@ -44,7 +46,12 @@ export const LoginScreen = () => {
   const initialMode = (route.params as { initialMode?: AuthMode } | undefined)
     ?.initialMode;
   const theme = useAppTheme();
-  const { reviewGuestImport, finishGuestImportReview } = useAuth();
+  const {
+    reviewGuestImport,
+    finishGuestImportReview,
+    callbackError,
+    clearCallbackError,
+  } = useAuth();
   const insets = useSafeAreaInsets();
   const { animateLayout } = useCalendarTransition();
   const brand = theme.isDark ? '#D8F3E5' : '#152D25';
@@ -60,12 +67,12 @@ export const LoginScreen = () => {
   const lock = React.useRef(false);
   const mounted = React.useRef(true);
   const passwordInput = React.useRef<TextInput>(null);
-  React.useEffect(
-    () => () => {
+  React.useEffect(() => {
+    mounted.current = true;
+    return () => {
       mounted.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
   const back = () =>
     navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home');
   const changeMode = (next: AuthMode) => {
@@ -73,6 +80,7 @@ export const LoginScreen = () => {
     animateLayout();
     setMode(next);
     setError('');
+    clearCallbackError?.();
     setSent(false);
     setPassword('');
     setVisible(false);
@@ -95,6 +103,7 @@ export const LoginScreen = () => {
     lock.current = true;
     setBusy(true);
     setError('');
+    clearCallbackError?.();
     try {
       // Finish welcome before auth can remount the account-scoped workspace.
       try {
@@ -107,8 +116,7 @@ export const LoginScreen = () => {
           normalizedEmail,
           {
             redirectTo:
-              SUPABASE_RESET_REDIRECT_URL ||
-              'offtasks://auth/recovery',
+              SUPABASE_RESET_REDIRECT_URL || 'offtasks://auth/recovery',
           },
         );
         if (result.error) throw result.error;
@@ -145,6 +153,30 @@ export const LoginScreen = () => {
         animateLayout();
         setError(authErrorMessage(reason));
       }
+    } finally {
+      lock.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  };
+  const google = async () => {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setError('');
+    clearCallbackError?.();
+    try {
+      try {
+        await completeWelcome();
+      } catch {
+        /* Sign-in remains available. */
+      }
+      finishGuestImportReview?.();
+      if (await shouldReviewGuestItems()) reviewGuestImport?.();
+      const result = await startGoogleSignIn();
+      if (result === 'canceled') finishGuestImportReview?.();
+    } catch (reason) {
+      finishGuestImportReview?.();
+      if (mounted.current) setError(authErrorMessage(reason));
     } finally {
       lock.current = false;
       if (mounted.current) setBusy(false);
@@ -259,6 +291,32 @@ export const LoginScreen = () => {
           </>
         ) : (
           <>
+            {mode !== 'reset' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Continue with Google"
+                accessibilityState={{ busy, disabled: busy }}
+                disabled={busy}
+                onPress={google}
+                style={[
+                  styles.google,
+                  {
+                    backgroundColor: theme.isDark ? '#131314' : '#FFFFFF',
+                    borderColor: theme.isDark ? '#8E918F' : '#747775',
+                  },
+                ]}
+              >
+                <GoogleMark />
+                <Text
+                  style={[
+                    styles.googleText,
+                    { color: theme.isDark ? '#E3E3E3' : '#1F1F1F' },
+                  ]}
+                >
+                  Continue with Google
+                </Text>
+              </Pressable>
+            ) : null}
             <Text style={[styles.label, secondary]}>Email</Text>
             <TextInput
               accessibilityLabel="Email"
@@ -347,7 +405,7 @@ export const LoginScreen = () => {
                 </Text>
               </Pressable>
             ) : null}
-            {error ? (
+            {error || callbackError ? (
               <Text
                 accessibilityRole="alert"
                 accessibilityLiveRegion="polite"
@@ -356,7 +414,7 @@ export const LoginScreen = () => {
                   { color: theme.isDark ? '#F3B8A7' : '#943F2B' },
                 ]}
               >
-                {error}
+                {error || callbackError}
               </Text>
             ) : null}
             <Pressable
@@ -436,6 +494,18 @@ export const LoginScreen = () => {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  google: {
+    minHeight: 50,
+    borderWidth: 1,
+    borderRadius: 17,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  googleText: { fontSize: 15, fontWeight: '500' },
   header: {
     paddingHorizontal: 16,
     flexDirection: 'row',

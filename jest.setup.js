@@ -14,6 +14,10 @@ jest.mock('react-native-screens', () => ({
   enableScreens: jest.fn(),
 }));
 
+jest.mock('react-native-inappbrowser-reborn', () => ({
+  InAppBrowser: {isAvailable: jest.fn().mockResolvedValue(true), openAuth: jest.fn().mockResolvedValue({type: 'cancel'})},
+}));
+
 jest.mock('react-native-device-info', () => ({
   __esModule: true,
   default: {

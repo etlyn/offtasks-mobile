@@ -30,6 +30,7 @@ if (!supabaseAnonKey) {
   throw new Error('Missing SUPABASE_ANON_KEY. Add it to OfftasksMobile/.env.');
 }
 
+export const supabaseOrigin = supabaseUrl;
 export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: authStorage,

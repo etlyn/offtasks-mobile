@@ -2613,6 +2613,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - RNInAppBrowser (3.7.0):
+    - React-Core
   - RNKeychain (10.0.0):
     - boost
     - DoubleConversion
@@ -3051,6 +3053,7 @@ DEPENDENCIES:
   - "RNDateTimePicker (from `../node_modules/@react-native-community/datetimepicker`)"
   - RNDeviceInfo (from `../node_modules/react-native-device-info`)
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
+  - RNInAppBrowser (from `../node_modules/react-native-inappbrowser-reborn`)
   - RNKeychain (from `../node_modules/react-native-keychain`)
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
@@ -3227,6 +3230,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-device-info"
   RNGestureHandler:
     :path: "../node_modules/react-native-gesture-handler"
+  RNInAppBrowser:
+    :path: "../node_modules/react-native-inappbrowser-reborn"
   RNKeychain:
     :path: "../node_modules/react-native-keychain"
   RNReanimated:
@@ -3324,6 +3329,7 @@ SPEC CHECKSUMS:
   RNDateTimePicker: bfb315bc0439c9aeb649fbf7944475a7f268f9f6
   RNDeviceInfo: 4c852998208b60dc192ae3529e5867817719ad1e
   RNGestureHandler: e1cc4de7646eb557ad62d1271d8eac73c304a896
+  RNInAppBrowser: 6d3eb68d471b9834335c664704719b8be1bfdb20
   RNKeychain: 76d042fc1dfba47f3945920bc82e0bce9ad1ff55
   RNReanimated: 8f0185df21f0dea34ee8c9611ba88c17a290ed9a
   RNScreens: ccfcc2f7d9c0d458b7fc41b3f4f0bea054602b3a

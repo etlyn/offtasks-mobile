@@ -1,4 +1,4 @@
-import {RecoveryPasswordModal} from './RecoveryPasswordModal';
+import { RecoveryPasswordModal } from './RecoveryPasswordModal';
 import React, {
   createContext,
   useContext,
@@ -6,8 +6,8 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import {AppState, Linking} from 'react-native';
-import {createDeepLinkHandler} from '@etlyn/etlyn-auth/react-native';
+import { AppState, Linking } from 'react-native';
+import { completeNativeSignIn } from '@/lib/googleSignIn';
 import type { Session } from '@supabase/supabase-js';
 
 import { supabaseClient } from '@/lib/supabase';
@@ -18,6 +18,8 @@ interface AuthContextValue {
   pendingGuestImport: boolean;
   reviewGuestImport: () => void;
   finishGuestImportReview: () => void;
+  callbackError: string;
+  clearCallbackError: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -26,6 +28,8 @@ const AuthContext = createContext<AuthContextValue>({
   pendingGuestImport: false,
   reviewGuestImport: () => {},
   finishGuestImportReview: () => {},
+  callbackError: '',
+  clearCallbackError: () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -33,6 +37,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [recovering, setRecovering] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pendingGuestImport, setPendingGuestImport] = useState(false);
+  const [callbackError, setCallbackError] = useState('');
+  const clearCallbackError = React.useCallback(() => setCallbackError(''), []);
   const reviewGuestImport = React.useCallback(
     () => setPendingGuestImport(true),
     [],
@@ -46,16 +52,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     let active = true;
     let revision = 0;
     const restoredRevision = revision;
-    const deepLink = createDeepLinkHandler({supabase: supabaseClient,
-      validateUrl: url => /^offtasks:\/\/auth\/(?:callback|recovery)(?:[?#]|$)/.test(url.toString())});
-    const onUrl = (url: string) => { void deepLink(url).then(handled => {if (handled && /^offtasks:\/\/auth\/recovery(?:[?#]|$)/.test(url)) setRecovering(true);}).catch(() => undefined); };
-    void Linking.getInitialURL().then(url => { if (url) onUrl(url); });
-    const linking = Linking.addEventListener('url', ({url}) => onUrl(url));
+    const onUrl = (url: string) => {
+      void completeNativeSignIn(url)
+        .then(handled => {
+          if (!active || !handled) return;
+          setCallbackError('');
+          if (/^offtasks:\/\/auth\/recovery(?:[?#]|$)/.test(url))
+            setRecovering(true);
+        })
+        .catch(() => {
+          if (active)
+            setCallbackError(
+              'The sign-in link is invalid or expired. Please try signing in again.',
+            );
+        });
+    };
+    void Linking.getInitialURL().then(url => {
+      if (url) onUrl(url);
+    });
+    const linking = Linking.addEventListener('url', ({ url }) => onUrl(url));
     const lifecycle = AppState.addEventListener('change', state => {
       if (state === 'active') supabaseClient.auth.startAutoRefresh();
       else supabaseClient.auth.stopAutoRefresh();
     });
-    if (AppState.currentState === 'active') supabaseClient.auth.startAutoRefresh();
+    if (AppState.currentState === 'active')
+      supabaseClient.auth.startAutoRefresh();
 
     const hydrate = async () => {
       try {
@@ -102,6 +123,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       pendingGuestImport,
       reviewGuestImport,
       finishGuestImportReview,
+      callbackError,
+      clearCallbackError,
     }),
     [
       session,
@@ -109,10 +132,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       pendingGuestImport,
       reviewGuestImport,
       finishGuestImportReview,
+      callbackError,
+      clearCallbackError,
     ],
   );
 
-  return <AuthContext.Provider value={value}>{children}<RecoveryPasswordModal visible={recovering} onComplete={() => setRecovering(false)} /></AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <RecoveryPasswordModal
+        visible={recovering}
+        onComplete={() => setRecovering(false)}
+      />
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => useContext(AuthContext);

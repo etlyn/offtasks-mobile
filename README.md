@@ -215,6 +215,14 @@ backend or committing these changes does not publish a mobile store update.
 
 ### Unified Etlyn authentication
 
+Sign-in and registration offer Continue with Google alongside email/password,
+without an MFA login step. Google uses the system authentication browser
+(`react-native-inappbrowser-reborn`) and the existing exact
+`offtasks://auth/callback` redirect. Its session and OS-link delivery share one
+bounded, memory-only callback exchange; session/verifier storage remains in
+Keychain. Cancellation leaves the guest workspace intact. Guest import remains
+an explicit review, and this provider connection grants no Platform access.
+
 The native client uses the shared Etlyn Apps identity and `@etlyn/etlyn-auth` native adapters. Sessions live in Keychain, PKCE callbacks use `offtasks://auth/callback` and `offtasks://auth/recovery`, and recovery completes with a confirmed new password followed by local sign-out. App lifecycle changes control token refresh; stale auth events cannot restore a signed-out session.
 
 “Delete Offtasks data” calls the app-owned deletion function. It preserves the shared Etlyn identity and other applications’ data. Shared email/password and global account management are available at `https://etlyn.com/auth/account`. Native auth imports initialize secure randomness before creating a session.
