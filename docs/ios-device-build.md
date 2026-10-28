@@ -41,6 +41,7 @@ List devices and use the intended physical device's identifier:
 xcrun devicectl list devices
 export DEVICE_ID='your-paired-iphone-identifier'
 export NODE_ENV=production
+export EXTRA_PACKAGER_ARGS='--max-workers 2'
 node scripts/verify-production.mjs &&
 xcodebuild \
   -workspace ios/OfftasksMobile.xcworkspace \
@@ -59,6 +60,8 @@ xcrun devicectl device process launch --device "$DEVICE_ID" \
 
 When the repository lives on the SSD, the explicit DerivedData path keeps native
 build output there too. Two build workers limit concurrent compiler memory use.
+Metro also uses two workers and excludes generated native build directories from
+its module scan, retaining its default exclusions and the auth-only ESM resolver.
 The Xcode JavaScript bundle phase passes both script paths as quoted arguments,
 so a volume name containing spaces (such as `Etlyn Dev`) is supported.
 The Release app includes its JavaScript bundle and does not need Metro.
