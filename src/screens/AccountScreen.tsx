@@ -25,6 +25,7 @@ import {
 } from '@/components/ProductUI';
 import { LoginScreen } from './LoginScreen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChatGPTConnection } from '@/components/ChatGPTConnection';
 
 export async function importGuestItems() {
   const [tasks, notes, goals] = await Promise.all([
@@ -158,6 +159,7 @@ export const AccountScreen = () => {
           <Feather name="upload" size={18} color={theme.colors.textPrimary} />
           <Text style={styles.body}>Import device items</Text>
         </Pressable>
+        <ChatGPTConnection key={session.user.id} owner={session.user.id} />
         {pendingGuestImport ? (
           <Pressable
             accessibilityRole="button"
