@@ -72,7 +72,6 @@ export const createStyles = (theme: AppTheme) => {
     sectionDivider: {
       height: StyleSheet.hairlineWidth,
       backgroundColor: divider,
-      marginVertical: 4,
     },
     switchTarget: {
       width: 44,

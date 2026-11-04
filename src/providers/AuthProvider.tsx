@@ -14,6 +14,7 @@ import { supabaseClient } from '@/lib/supabase';
 interface AuthContextValue {
   recovering: boolean;
   recoveryOwner: string | null;
+  requestOnlyRecovery: boolean;
   finishRecovery: () => void;
   session: Session | null;
   loading: boolean;
@@ -27,6 +28,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue>({
   recovering: false,
   recoveryOwner: null,
+  requestOnlyRecovery: false,
   finishRecovery: () => {},
   session: null,
   loading: true,
@@ -40,11 +42,15 @@ const AuthContext = createContext<AuthContextValue>({
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [recoveryOwner, setRecoveryOwner] = useState<string | null>(null);
+  const [requestOnlyRecovery, setRequestOnlyRecovery] = useState(false);
   const recoveryIdentity = React.useRef<string | null>(null);
-  const recovering = recoveryOwner !== null;
+  const recoveryAttempt = React.useRef(0);
+  const recovering = recoveryOwner !== null || requestOnlyRecovery;
   const finishRecovery = React.useCallback(() => {
+    ++recoveryAttempt.current;
     recoveryIdentity.current = null;
     setRecoveryOwner(null);
+    setRequestOnlyRecovery(false);
   }, []);
   const [loading, setLoading] = useState(true);
   const [pendingGuestImport, setPendingGuestImport] = useState(false);
@@ -65,31 +71,54 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const restoredRevision = revision;
     const recoveryLinks = new Set<string>();
     const onUrl = (url: string) => {
-      if (/^offtasks:\/\/auth\/recovery(?:[?#]|$)/.test(url)) {
+      const isRecovery = /^offtasks:\/\/auth\/recovery(?:[?#]|$)/.test(url);
+      let attempt = recoveryAttempt.current;
+      if (isRecovery) {
         // OS linking may redeliver a handled URL after a later account switch.
         if (recoveryLinks.has(url)) return;
         recoveryLinks.add(url);
+        attempt = ++recoveryAttempt.current;
+        recoveryIdentity.current = null;
+        setRecoveryOwner(null);
+        setRequestOnlyRecovery(false);
       }
+      const current = () =>
+        active && (!isRecovery || attempt === recoveryAttempt.current);
       void completeNativeSignIn(url)
         .then(async handled => {
-          if (!active || !handled) return;
+          if (!current()) return;
+          if (!handled) {
+            if (isRecovery)
+              throw new Error('Recovery link could not be opened.');
+            return;
+          }
           setCallbackError('');
-          if (/^offtasks:\/\/auth\/recovery(?:[?#]|$)/.test(url)) {
+          if (isRecovery) {
             const recoveryRevision = revision;
             const { data, error } = await supabaseClient.auth.getSession();
-            if (!active || revision !== recoveryRevision || error) return;
+            if (!current() || revision !== recoveryRevision) return;
             const owner = data.session?.user.id;
-            if (owner) {
-              recoveryIdentity.current = owner;
-              setRecoveryOwner(owner);
-            }
+            if (error || !owner)
+              throw new Error('Recovery session unavailable.');
+            recoveryIdentity.current = owner;
+            setRequestOnlyRecovery(false);
+            setRecoveryOwner(owner);
           }
         })
         .catch(() => {
-          if (active)
+          if (!current()) return;
+          if (isRecovery) {
+            // A failed exchange proves no recovery identity. Show recovery help
+            // without borrowing the account that happens to be signed in.
+            recoveryIdentity.current = null;
+            setRecoveryOwner(null);
+            setRequestOnlyRecovery(true);
+            setCallbackError('');
+          } else {
             setCallbackError(
               'The sign-in link is invalid or expired. Please try signing in again.',
             );
+          }
         });
     };
     void Linking.getInitialURL().then(url => {
@@ -152,6 +181,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     () => ({
       recovering,
       recoveryOwner,
+      requestOnlyRecovery,
       finishRecovery,
       session,
       loading,
@@ -164,6 +194,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [
       recovering,
       recoveryOwner,
+      requestOnlyRecovery,
       finishRecovery,
       session,
       loading,

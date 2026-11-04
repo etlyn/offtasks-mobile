@@ -59,7 +59,13 @@ const RootNavigator = ({
 };
 
 const AccountWorkspace = () => {
-  const { session, recovering, recoveryOwner, finishRecovery } = useAuth();
+  const {
+    session,
+    recovering,
+    recoveryOwner,
+    requestOnlyRecovery,
+    finishRecovery,
+  } = useAuth();
   // Account changes remount preferences, not the launch experience.
   const [showSplash, setShowSplash] = React.useState(true);
   const finishSplash = React.useCallback(() => setShowSplash(false), []);
@@ -69,6 +75,7 @@ const AccountWorkspace = () => {
       <RecoveryPasswordModal
         visible={recovering}
         expectedOwner={recoveryOwner ?? undefined}
+        requestOnly={requestOnlyRecovery}
         onComplete={finishRecovery}
       />
     </PreferencesProvider>

@@ -319,3 +319,39 @@ test('without a callback owner, recovery freezes the opening session instead of 
   expect(supabaseClient.auth.updateUser).not.toHaveBeenCalled();
   expect(supabaseClient.auth.signOut).not.toHaveBeenCalled();
 });
+
+test('switching a visible Ready presentation to request-only invalidates its pending password operation', async () => {
+  let resolveUpdate: (value: { error: null }) => void = () => {};
+  (supabaseClient.auth.updateUser as jest.Mock).mockImplementation(
+    () =>
+      new Promise(resolve => {
+        resolveUpdate = resolve;
+      }),
+  );
+  const screen = render(
+    <RecoveryPasswordModal
+      visible
+      expectedOwner="recovering-user"
+      onComplete={jest.fn()}
+    />,
+  );
+  fillPassword(screen);
+  fireEvent.press(screen.getByLabelText('Save password'));
+  await waitFor(() =>
+    expect(supabaseClient.auth.updateUser).toHaveBeenCalledTimes(1),
+  );
+  const readsBeforeFailure = (supabaseClient.auth.getSession as jest.Mock).mock
+    .calls.length;
+  screen.rerender(
+    <RecoveryPasswordModal visible requestOnly onComplete={jest.fn()} />,
+  );
+  await act(async () => {
+    resolveUpdate({ error: null });
+  });
+  expect(screen.getByText('This link couldn’t be opened')).toBeTruthy();
+  expect(screen.queryByLabelText('New password')).toBeNull();
+  expect(supabaseClient.auth.getSession).toHaveBeenCalledTimes(
+    readsBeforeFailure,
+  );
+  expect(supabaseClient.auth.signOut).not.toHaveBeenCalled();
+});

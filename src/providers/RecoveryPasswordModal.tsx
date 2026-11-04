@@ -43,10 +43,12 @@ export function RecoveryPasswordModal({
   visible,
   onComplete,
   expectedOwner,
+  requestOnly = false,
 }: {
   visible: boolean;
   onComplete: () => void;
   expectedOwner?: string;
+  requestOnly?: boolean;
 }) {
   const palette = useDrawerPalette();
   const theme = useAppTheme();
@@ -84,7 +86,7 @@ export function RecoveryPasswordModal({
     setSaved(false);
     setIdentityChanged(false);
     recoveryOwner.current = Promise.resolve(null);
-    if (visible) {
+    if (visible && !requestOnly) {
       // Freeze this presentation to the callback owner (or the opening session).
       // Later session reads verify that identity; they never choose a new owner.
       recoveryOwner.current = supabaseClient.auth
@@ -103,7 +105,7 @@ export function RecoveryPasswordModal({
     return () => {
       active.current = false;
     };
-  }, [visible, expectedOwner]);
+  }, [visible, expectedOwner, requestOnly]);
 
   const currentAttempt = () => {
     const attempt = generation.current;
@@ -129,7 +131,7 @@ export function RecoveryPasswordModal({
     return true;
   };
   const finish = async () => {
-    if (lock.current || !visible || identityChanged) return;
+    if (lock.current || !visible || identityChanged || requestOnly) return;
     if (!saved && (password.length < 10 || password !== confirmation)) {
       setError(
         password.length < 10
@@ -288,7 +290,7 @@ export function RecoveryPasswordModal({
                   style={input}
                 />
               </>
-            ) : !saved ? (
+            ) : !saved && !requestOnly ? (
               <>
                 <Text style={label}>New password</Text>
                 <TextInput
@@ -335,6 +337,12 @@ export function RecoveryPasswordModal({
                 </Text>
               </>
             ) : null}
+            {requestOnly && !requesting ? (
+              <FlowNotice title="This link couldn’t be opened">
+                Request a fresh link to reset your password. Your current
+                account is unchanged.
+              </FlowNotice>
+            ) : null}
             {expired && !requesting ? (
               <FlowNotice title="This link has expired">
                 Request a fresh link to reset your password.
@@ -366,7 +374,7 @@ export function RecoveryPasswordModal({
                       : 'Saving…'
                     : requesting
                     ? 'Send reset link'
-                    : expired || identityChanged
+                    : expired || identityChanged || requestOnly
                     ? 'Request new link'
                     : saved
                     ? 'Finish sign-out'
@@ -377,11 +385,12 @@ export function RecoveryPasswordModal({
                   (!requesting &&
                     !expired &&
                     !identityChanged &&
+                    !requestOnly &&
                     !saved &&
                     (password.length < 10 || password !== confirmation))
                 }
                 onPress={() => {
-                  void (expired || identityChanged || requesting
+                  void (expired || identityChanged || requestOnly || requesting
                     ? requestLink()
                     : finish());
                 }}

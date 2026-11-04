@@ -21,6 +21,7 @@ This supersedes the older drawer geometry above; planner header, dock and Notes 
 - Guest/Signed Off, On and Confirm are owner-scoped Return to Later states; native Enable/Cancel consent explains permanent date removal. Sign-out failure stays inline. Guest Cleanup retries local cleanup only.
 - Privacy Off/On/Error uses the real analytics SDK, truthful collection/retention disclosure, and retryable persistence. A failed opt-out save still stops collection for the session.
 - Recovery Ready/Expired uses matching password validation, a real reset-link request, and account-bound password update/sign-out. A saved password is never resubmitted when only sign-out needs retrying.
+- A recovery link that fails before session exchange opens request-only help, including while already signed in. It cannot borrow the current account identity or update/sign out that account; the reset email must be entered explicitly.
 - Account Idle/Syncing/SyncError, Importing/Imported/ImportError, Deleting/DeleteError and native import/delete confirmations use real services. A successful import followed by a refresh failure remains an imported result. Device guest data is never removed by import or account deletion.
 - Auth SignIn/Create/ResetLink, SignInBusy/SignInError, CreateBusy/Inbox/ResetSent share a compact form with inline feedback. Existing Google sign-in and ChatGPT connected-app controls remain accessible.
 
