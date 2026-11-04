@@ -18,7 +18,7 @@ import {
   RefreshCw,
   Settings,
   Sun,
-  UserRound,
+  User,
   X,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -281,7 +281,12 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
               { paddingBottom: Math.max(insets.bottom, 16) + 16 },
             ]}
           >
-            <View style={styles.controlsSurface}>
+            <View
+              style={[
+                styles.controlsSurface,
+                (guestCleanup || signoutError) && styles.noticeSpace,
+              ]}
+            >
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Statistics"
@@ -336,7 +341,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
                 <>
                   <View style={styles.sectionDivider} />
                   {utility(
-                    UserRound,
+                    User,
                     'Account & sync',
                     () => open('account'),
                     'Account and sync',
@@ -350,14 +355,19 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
                   Your Etlyn account is kept. Retry only device cleanup; don’t
                   submit deletion again.
                 </FlowNotice>
-                <FlowButton
-                  title={cleanup.busy ? 'Cleaning up…' : 'Retry device cleanup'}
-                  secondary
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry device cleanup"
                   disabled={cleanup.busy}
+                  style={styles.cleanupRetry}
                   onPress={() => {
                     void cleanup.retry().catch(() => undefined);
                   }}
-                />
+                >
+                  <Text style={styles.cleanupRetryLabel}>
+                    {cleanup.busy ? 'Cleaning up…' : 'Retry device cleanup'}
+                  </Text>
+                </Pressable>
               </View>
             ) : signoutError ? (
               <View style={styles.feedback}>

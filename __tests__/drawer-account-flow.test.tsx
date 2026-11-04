@@ -240,3 +240,80 @@ test('device status read failure has a read-only retry and enables deletion agai
   expect(retryPendingAccountCleanup).not.toHaveBeenCalled();
   expect(clearRequestedAccountDeletion).not.toHaveBeenCalled();
 });
+
+test('a confirmed cleanup for another account blocks new deletion and finishes only the previous local cleanup', async () => {
+  mockSession = {
+    access_token: 'token-b',
+    user: { id: 'account-b', email: 'b@example.com' },
+  };
+  mockCleanup.owner = 'account-a';
+  mockCleanup.phase = 'confirmed';
+  const onBack = jest.fn();
+  const view = render(<AccountScreen onBack={onBack} />);
+  expect(
+    screen.getByText('Previous account needs device cleanup'),
+  ).toBeOnTheScreen();
+  expect(screen.getByLabelText('Delete Offtasks data')).toBeDisabled();
+  expect(screen.getByLabelText('Sync now')).not.toBeDisabled();
+  expect(screen.getByLabelText('Import device items')).not.toBeDisabled();
+  fireEvent.press(screen.getByLabelText('Delete Offtasks data'));
+  expect(alert).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByLabelText('Sync now'));
+  await waitFor(() =>
+    expect(mockRefresh).toHaveBeenCalledWith({ throwOnError: true }),
+  );
+  (retryPendingAccountCleanup as jest.Mock).mockImplementationOnce(async () => {
+    mockCleanup.owner = null;
+    mockCleanup.phase = null;
+  });
+  fireEvent.press(screen.getByLabelText('Finish previous device cleanup'));
+  await waitFor(() =>
+    expect(retryPendingAccountCleanup).toHaveBeenCalledTimes(1),
+  );
+  view.rerender(<AccountScreen onBack={onBack} />);
+  await waitFor(() =>
+    expect(screen.getByLabelText('Delete Offtasks data')).not.toBeDisabled(),
+  );
+  expect(deleteAccount).not.toHaveBeenCalled();
+  expect(beginAccountDataDeletion).not.toHaveBeenCalled();
+  expect(clearRequestedAccountDeletion).not.toHaveBeenCalled();
+  expect(onBack).not.toHaveBeenCalled();
+});
+
+test('an unconfirmed deletion for another account requires that account to review and cannot be cleared by the current account', () => {
+  mockSession = {
+    access_token: 'token-b',
+    user: { id: 'account-b', email: 'b@example.com' },
+  };
+  mockCleanup.owner = 'account-a';
+  mockCleanup.phase = 'requested';
+  render(<AccountScreen />);
+  expect(screen.getByText('Previous deletion needs review')).toBeOnTheScreen();
+  expect(
+    screen.getByText(
+      'Sign in to the previous account to review its unconfirmed deletion. No deletion has been submitted for this account.',
+    ),
+  ).toBeOnTheScreen();
+  expect(screen.getByLabelText('Delete Offtasks data')).toBeDisabled();
+  expect(screen.getByLabelText('Sync now')).not.toBeDisabled();
+  expect(screen.getByLabelText('Import device items')).not.toBeDisabled();
+  expect(screen.queryByLabelText('Review deletion')).toBeNull();
+  expect(screen.queryByLabelText('Finish previous device cleanup')).toBeNull();
+  fireEvent.press(screen.getByLabelText('Delete Offtasks data'));
+  expect(alert).not.toHaveBeenCalled();
+  expect(deleteAccount).not.toHaveBeenCalled();
+  expect(retryPendingAccountCleanup).not.toHaveBeenCalled();
+  expect(clearRequestedAccountDeletion).not.toHaveBeenCalled();
+});
+
+test('a native deletion confirmation cannot clean up a different account marker that appeared while it was open', async () => {
+  const view = render(<AccountScreen />);
+  fireEvent.press(screen.getByLabelText('Delete Offtasks data'));
+  mockCleanup.owner = 'other-account';
+  mockCleanup.phase = 'confirmed';
+  view.rerender(<AccountScreen />);
+  await submitAlert('Delete');
+  expect(deleteAccount).not.toHaveBeenCalled();
+  expect(beginAccountDataDeletion).not.toHaveBeenCalled();
+  expect(retryPendingAccountCleanup).not.toHaveBeenCalled();
+});

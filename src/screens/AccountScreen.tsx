@@ -97,11 +97,15 @@ export const AccountScreen = ({
   const colors = useDrawerPalette();
   const { animateLayout } = useCalendarTransition();
   const cleanup = usePendingAccountCleanup();
+  const cleanupState = React.useRef(cleanup);
+  cleanupState.current = cleanup;
   const [activity, setActivity] = React.useState<Activity>('idle');
   const [notice, setNotice] = React.useState<Notice | null>(null);
   const [checked, setChecked] = React.useState(false);
   const [appsExpanded, setAppsExpanded] = React.useState(false);
   const [checkingDeviceStatus, setCheckingDeviceStatus] = React.useState(false);
+  const [finishingPreviousCleanup, setFinishingPreviousCleanup] =
+    React.useState(false);
   const [, redraw] = React.useReducer(value => value + 1, 0);
   const owner = session?.user.id;
   const identity = React.useRef(owner);
@@ -216,6 +220,10 @@ export const AccountScreen = ({
 
   const removeData = async (expectedOwner: string) => {
     if (!current(expectedOwner) || lock.current) return;
+    const pendingCleanup = cleanupState.current;
+    // A stale native confirmation must never turn another account’s cleanup
+    // into an apparent deletion of the account currently being reviewed.
+    if (pendingCleanup.owner && pendingCleanup.owner !== expectedOwner) return;
     lock.current = true;
     setActivity('deleting');
     showNotice({
@@ -225,7 +233,10 @@ export const AccountScreen = ({
     try {
       if (
         deletedOwner.current !== expectedOwner &&
-        cleanup.phase !== 'confirmed'
+        !(
+          pendingCleanup.owner === expectedOwner &&
+          pendingCleanup.phase === 'confirmed'
+        )
       ) {
         await beginAccountDataDeletion(expectedOwner);
         await deleteAccount(expectedOwner);
@@ -296,7 +307,8 @@ export const AccountScreen = ({
     );
   };
   const confirmDelete = () => {
-    if (!owner || lock.current) return;
+    if (!owner || lock.current || (cleanup.owner && cleanup.owner !== owner))
+      return;
     const expectedOwner = owner;
     if (
       deletedOwner.current === expectedOwner ||
@@ -363,10 +375,26 @@ export const AccountScreen = ({
     (cleanup.owner === owner && cleanup.phase === 'confirmed');
   const deletionUncertain =
     cleanup.owner === owner && cleanup.phase === 'requested' && !cleanupNeeded;
+  const previousAccountCleanup = Boolean(
+    cleanup.owner && cleanup.owner !== owner,
+  );
   const syncError = taskError || plannerSyncProblem(session.user.id);
   const visibleNotice =
     !cleanup.ready && cleanup.error
       ? { title: 'Device status unavailable', detail: cleanup.error }
+      : previousAccountCleanup
+      ? cleanup.phase === 'confirmed'
+        ? {
+            title: 'Previous account needs device cleanup',
+            detail:
+              cleanup.error ||
+              'Offtasks data for a previous account was deleted. Finish only that account’s device cleanup. This account stays signed in.',
+          }
+        : {
+            title: 'Previous deletion needs review',
+            detail:
+              'Sign in to the previous account to review its unconfirmed deletion. No deletion has been submitted for this account.',
+          }
       : notice ??
         (cleanupNeeded
           ? {
@@ -413,7 +441,7 @@ export const AccountScreen = ({
                 : 'Delete Offtasks data'
             }
             danger={!cleanupNeeded}
-            disabled={busy || !cleanup.ready}
+            disabled={busy || !cleanup.ready || previousAccountCleanup}
             onPress={confirmDelete}
           />
           <Text style={[styles.meta, { color: colors.secondary }]}>
@@ -486,6 +514,31 @@ export const AccountScreen = ({
             Device tasks, notes and goals stay separate until you import them.
           </Text>
         )}
+        {previousAccountCleanup && cleanup.phase === 'confirmed' ? (
+          <FlowButton
+            title={
+              finishingPreviousCleanup
+                ? 'Finishing previous device cleanup…'
+                : 'Finish previous device cleanup'
+            }
+            accessibilityLabel="Finish previous device cleanup"
+            secondary
+            disabled={finishingPreviousCleanup || cleanup.busy}
+            onPress={() => {
+              if (finishingPreviousCleanup || cleanup.busy) return;
+              const expectedOwner = owner;
+              setFinishingPreviousCleanup(true);
+              retryPendingAccountCleanup()
+                .then(() => {
+                  if (expectedOwner && current(expectedOwner)) setNotice(null);
+                })
+                .catch(() => undefined)
+                .finally(() => {
+                  if (mounted.current) setFinishingPreviousCleanup(false);
+                });
+            }}
+          />
+        ) : null}
         {!cleanup.ready && cleanup.error ? (
           <FlowButton
             title={

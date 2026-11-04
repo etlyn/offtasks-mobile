@@ -108,7 +108,20 @@ export const createStyles = (theme: AppTheme) => {
         ? 'rgba(216,243,229,0.13)'
         : 'rgba(255,255,255,0.65)',
     },
-    feedback: { paddingTop: 104 },
+    noticeSpace: { minHeight: 374 },
+    feedback: { gap: 8 },
+    cleanupRetry: {
+      width: 280,
+      maxWidth: '100%',
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cleanupRetryLabel: {
+      fontSize: 13,
+      lineHeight: 20,
+      color: theme.colors.textSecondary,
+    },
     footer: { marginTop: 'auto', paddingTop: 32 },
     accountSection: {
       borderTopWidth: StyleSheet.hairlineWidth,
