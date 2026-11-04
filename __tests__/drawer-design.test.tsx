@@ -7,181 +7,216 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import { SideDrawerContent } from '../src/components/navigation/SideDrawerContent';
-import { createStyles } from '../src/components/navigation/SideDrawerContent.styles';
-import { getAppTheme } from '../src/theme/colors';
-import { deleteAccount, supabaseClient } from '../src/lib/supabase';
+import { supabaseClient } from '../src/lib/supabase';
 
 let mockSession: any = null;
-let mockTotals = { all: 5, completed: 1 };
+let mockDrawerStatus = 'open';
 const mockPreferences = {
   themeMode: 'Light',
-  hideCompleted: false,
-  advancedMode: false,
-  autoArrange: false,
   movePastTasksToLater: false,
   setMovePastTasksToLater: jest.fn(),
   toggleTheme: jest.fn(),
-  setHideCompleted: jest.fn(),
-  setAdvancedMode: jest.fn(),
-  setAutoArrange: jest.fn(),
 };
+const mockCleanup = {
+  phase: null as string | null,
+  busy: false,
+  retry: jest.fn(),
+};
+jest.mock('../src/lib/accountDataCleanup', () => ({
+  usePendingAccountCleanup: () => mockCleanup,
+}));
 jest.mock('../src/providers/AuthProvider', () => ({
   useAuth: () => ({ session: mockSession }),
 }));
 jest.mock('../src/providers/TasksProvider', () => ({
-  useTasks: () => ({ totals: mockTotals }),
+  useTasks: () => ({ totals: { all: 5, completed: 1 } }),
 }));
 jest.mock('../src/providers/PreferencesProvider', () => ({
   usePreferences: () => mockPreferences,
 }));
 jest.mock('../src/lib/supabase', () => ({
-  deleteAccount: jest.fn(),
-  supabaseClient: { auth: { signOut: jest.fn() } },
+  supabaseClient: { auth: { signOut: jest.fn(), getSession: jest.fn() } },
 }));
-jest.mock('../src/lib/plannerSync', () => ({ clearPlanner: jest.fn() }));
 jest.mock('../src/features/dashboard/components/useCalendarTransition', () => ({
   useCalendarTransition: () => ({ reduceMotion: true }),
 }));
 jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 48, bottom: 34, left: 0, right: 0 }),
+  useSafeAreaInsets: () => ({ top: 62, bottom: 34, left: 0, right: 0 }),
 }));
 jest.mock('@react-navigation/drawer', () => ({
-  DrawerContentScrollView: require('react-native').ScrollView,
+  useDrawerStatus: () => mockDrawerStatus,
 }));
-
+jest.mock('../src/screens/AccountScreen', () => {
+  const { Pressable, Text } = require('react-native');
+  return {
+    AccountScreen: ({ onBack }: { onBack: () => void }) => (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Back from account"
+        onPress={onBack}
+      >
+        <Text>Account destination</Text>
+      </Pressable>
+    ),
+  };
+});
+jest.mock('../src/analytics/AnalyticsPreferences', () => {
+  const { Pressable, Text } = require('react-native');
+  return {
+    PrivacyScreen: ({ onBack }: { onBack: () => void }) => (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Back from privacy"
+        onPress={onBack}
+      >
+        <Text>Privacy destination</Text>
+      </Pressable>
+    ),
+  };
+});
 const navigation = { navigate: jest.fn(), closeDrawer: jest.fn() };
 const props = { navigation, state: {}, descriptors: {} } as any;
 beforeEach(() => {
   jest.clearAllMocks();
   mockSession = null;
-  mockTotals = { all: 5, completed: 1 };
+  mockDrawerStatus = 'open';
   mockPreferences.themeMode = 'Light';
+  mockCleanup.phase = null;
 });
 
-test('single sign-in row opens Account; statistics opens its destination; close preserves the page', () => {
+test('account and privacy stay local to the drawer; back retains the menu', () => {
   render(<SideDrawerContent {...props} />);
+  expect(screen.getByText('On this device')).toBeOnTheScreen();
   fireEvent.press(screen.getByRole('button', { name: 'Sign in for sync' }));
-  expect(navigation.navigate).toHaveBeenLastCalledWith('Account');
-  expect(
-    screen.getAllByRole('button', { name: 'Sign in for sync' }),
-  ).toHaveLength(1);
+  expect(screen.getByText('Account destination')).toBeOnTheScreen();
+  expect(navigation.navigate).not.toHaveBeenCalled();
+  expect(navigation.closeDrawer).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByLabelText('Back from account'));
+  fireEvent.press(screen.getByRole('button', { name: 'Privacy & analytics' }));
+  expect(screen.getByText('Privacy destination')).toBeOnTheScreen();
+  fireEvent.press(screen.getByLabelText('Back from privacy'));
   fireEvent.press(screen.getByRole('button', { name: 'Statistics' }));
-  expect(navigation.navigate).toHaveBeenLastCalledWith('Dashboard', {
+  expect(navigation.navigate).toHaveBeenCalledWith('Dashboard', {
     screen: 'Statistics',
   });
-  expect(screen.getByText('1/5')).toBeOnTheScreen();
-  navigation.navigate.mockClear();
-  fireEvent.press(screen.getByRole('button', { name: 'Close menu' }));
-  expect(navigation.navigate).not.toHaveBeenCalled();
-  expect(navigation.closeDrawer).toHaveBeenCalledTimes(3);
-  expect(screen.queryByRole('button', { name: 'Delete Offtasks data' })).toBeNull();
+  fireEvent.press(screen.getByLabelText('Close menu'));
+  expect(navigation.closeDrawer).toHaveBeenCalledTimes(2);
 });
 
-test('drawer has only icon theme controls and a confirmed opt-in return to Later', () => {
+test('return to Later consent stays off when canceled and cannot apply to another owner', () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  render(<SideDrawerContent {...props} />);
-  for (const label of [
-    'Hide completed',
-    'Advanced mode',
-    'Auto-move due tasks',
-  ])
-    expect(screen.queryByText(label)).toBeNull();
-  expect(screen.queryByText('Dark mode')).toBeNull();
-  fireEvent.press(screen.getByLabelText('Dark mode'));
-  expect(mockPreferences.toggleTheme).toHaveBeenCalledTimes(1);
+  const view = render(<SideDrawerContent {...props} />);
   fireEvent(
     screen.getByLabelText('Automatically return past tasks to Later'),
     'valueChange',
     true,
   );
   expect(mockPreferences.setMovePastTasksToLater).not.toHaveBeenCalled();
-  alert.mock.calls[0][2]?.find(button => button.text === 'Enable')?.onPress?.();
+  const buttons = alert.mock.calls[0][2];
+  expect(alert.mock.calls[0][1]).toContain(
+    'Turning this off won’t restore those dates',
+  );
+  buttons?.find(button => button.text === 'Cancel')?.onPress?.();
+  expect(mockPreferences.setMovePastTasksToLater).not.toHaveBeenCalled();
+  mockSession = { user: { id: 'new-owner', email: 'new@example.com' } };
+  view.rerender(<SideDrawerContent {...props} />);
+  buttons?.find(button => button.text === 'Enable')?.onPress?.();
+  expect(mockPreferences.setMovePastTasksToLater).not.toHaveBeenCalled();
+  fireEvent(
+    screen.getByLabelText('Automatically return past tasks to Later'),
+    'valueChange',
+    true,
+  );
+  alert.mock.calls[1][2]?.find(button => button.text === 'Enable')?.onPress?.();
   expect(mockPreferences.setMovePastTasksToLater).toHaveBeenCalledWith(true);
   alert.mockRestore();
 });
 
-test('dark mode uses the approved brand and empty statistics do not display a misleading fraction', () => {
-  mockPreferences.themeMode = 'Dark';
-  mockTotals = { all: 0, completed: 0 };
-  render(<SideDrawerContent {...props} />);
-  expect(
-    screen.getByLabelText('Dark mode').props.accessibilityState.checked,
-  ).toBe(true);
-  expect(screen.queryByText('0/0')).toBeNull();
-  const styles = createStyles(getAppTheme('Dark'));
-  expect(styles.rowLabel.fontSize).toBe(15);
-  expect(styles.closeTarget).toMatchObject({ width: 44, height: 44 });
-  expect(styles.rowBody).not.toHaveProperty('height');
-  expect(styles.controlsSurface).not.toHaveProperty('backgroundColor');
-});
-
-test('signed-in account remains reachable and deletion still requires explicit destructive confirmation', () => {
+test('appearance offers explicit light and dark selection; deletion lives inside account', () => {
   mockSession = {
     user: {
-      id: 'test-user',
-      email: 'test@example.com',
-      user_metadata: { full_name: 'Test User' },
+      id: 'owner',
+      email: 'person@example.com',
+      user_metadata: { full_name: 'Person' },
     },
   };
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   render(<SideDrawerContent {...props} />);
-  expect(screen.getByText('Test User')).toBeOnTheScreen();
-  fireEvent.press(screen.getByRole('button', { name: 'Account and sync' }));
-  expect(navigation.navigate).toHaveBeenCalledWith('Account');
-  fireEvent.press(screen.getByRole('button', { name: 'Delete Offtasks data' }));
-  expect(alert).toHaveBeenCalledWith(
-    'Delete Offtasks data',
-    expect.stringContaining('shared Etlyn sign-in and data in other apps are kept'),
-    expect.arrayContaining([
-      expect.objectContaining({ text: 'Cancel', style: 'cancel' }),
-      expect.objectContaining({ text: 'Delete Offtasks Data', style: 'destructive' }),
-    ]),
-    { cancelable: true },
-  );
-  expect(deleteAccount).not.toHaveBeenCalled();
-  alert.mockRestore();
+  expect(screen.getByText('Person')).toBeOnTheScreen();
+  fireEvent.press(screen.getByLabelText('Light mode'));
+  expect(mockPreferences.toggleTheme).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByLabelText('Dark mode'));
+  expect(mockPreferences.toggleTheme).toHaveBeenCalledTimes(1);
+  expect(
+    screen.queryByRole('button', { name: 'Delete Offtasks data' }),
+  ).toBeNull();
+  fireEvent.press(screen.getByLabelText('Account and sync'));
+  expect(screen.getByText('Account destination')).toBeOnTheScreen();
 });
 
-test('failed sign-out reports an error without dismissing the drawer', async () => {
-  mockSession = { user: { id: 'test-user', email: 'test@example.com' } };
-  (supabaseClient.auth.signOut as jest.Mock).mockResolvedValue({
-    error: new Error('Offline'),
+test('failed sign-out is inline, retryable, and keeps the drawer open', async () => {
+  mockSession = { user: { id: 'owner', email: 'person@example.com' } };
+  (supabaseClient.auth.getSession as jest.Mock).mockResolvedValue({
+    data: { session: mockSession },
+    error: null,
   });
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  (supabaseClient.auth.signOut as jest.Mock)
+    .mockResolvedValueOnce({ error: new Error('Offline') })
+    .mockResolvedValueOnce({ error: null });
   render(<SideDrawerContent {...props} />);
-  fireEvent.press(screen.getByRole('button', { name: 'Log out' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
   await waitFor(() =>
-    expect(alert).toHaveBeenCalledWith('Sign out failed', 'Offline'),
+    expect(screen.getByText('Couldn’t sign out')).toBeOnTheScreen(),
   );
   expect(navigation.closeDrawer).not.toHaveBeenCalled();
-  alert.mockRestore();
+  fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
+  await waitFor(() => expect(navigation.closeDrawer).toHaveBeenCalledTimes(1));
 });
 
-test('compact drawer has top appearance controls, no wordmark, and account actions below', () => {
+test('a changed authenticated account is never signed out by a stale action', async () => {
+  mockSession = { user: { id: 'owner', email: 'person@example.com' } };
+  (supabaseClient.auth.getSession as jest.Mock).mockResolvedValue({
+    data: { session: { user: { id: 'other-owner' } } },
+    error: null,
+  });
   render(<SideDrawerContent {...props} />);
-  const controls = screen
-    .getAllByRole('button')
-    .map(node => node.props.accessibilityLabel);
-  expect(controls.indexOf('Statistics')).toBeLessThan(
-    controls.indexOf('Sign in for sync'),
+  fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
+  await waitFor(() =>
+    expect(screen.getByText('Couldn’t sign out')).toBeOnTheScreen(),
   );
-  expect(screen.queryByText('Preferences')).toBeNull();
-  expect(screen.queryByText('offtasks.')).toBeNull();
-  expect(screen.getByText('Sign in for sync')).toBeOnTheScreen();
-  expect(screen.getByText('Unfinished past tasks')).toBeOnTheScreen();
-  const styles = createStyles(getAppTheme('Light'));
-  expect(styles.themeTarget).toMatchObject({ width: 44, height: 44 });
-  expect(screen.getByTestId('drawer-theme-track')).toHaveStyle({
-    height: 32,
-    width: 88,
-  });
-  expect(styles.themeSelected).toMatchObject({
-    height: 28,
-    width: 40,
-    top: 8,
-    left: 2,
-  });
-  expect(styles.accountAction).toMatchObject({ minHeight: 44 });
-  expect(styles.switchTarget).toMatchObject({ width: 44, minHeight: 44 });
-  expect(styles.rowBody).not.toHaveProperty('borderBottomWidth');
+  expect(supabaseClient.auth.signOut).not.toHaveBeenCalled();
+});
+
+test('guest cleanup retries only cleanup and gates sign-in until finished', async () => {
+  mockCleanup.phase = 'confirmed';
+  mockCleanup.retry.mockResolvedValue(undefined);
+  render(<SideDrawerContent {...props} />);
+  expect(screen.getByText('Offtasks data deleted')).toBeOnTheScreen();
+  expect(
+    screen.getByRole('button', { name: 'Sign in for sync' }),
+  ).toBeDisabled();
+  fireEvent.press(screen.getByRole('button', { name: 'Retry device cleanup' }));
+  await waitFor(() => expect(mockCleanup.retry).toHaveBeenCalledTimes(1));
+  expect(supabaseClient.auth.signOut).not.toHaveBeenCalled();
+});
+
+test('a session change while sign-out preflight is pending blocks the stale sign-out', async () => {
+  mockSession = { user: { id: 'owner', email: 'person@example.com' } };
+  const original = mockSession;
+  let resolve: (value: unknown) => void = () => {};
+  (supabaseClient.auth.getSession as jest.Mock).mockReturnValue(
+    new Promise(done => {
+      resolve = done;
+    }),
+  );
+  const view = render(<SideDrawerContent {...props} />);
+  fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
+  mockSession = {
+    user: { id: 'replacement', email: 'replacement@example.com' },
+  };
+  view.rerender(<SideDrawerContent {...props} />);
+  resolve({ data: { session: original }, error: null });
+  await waitFor(() =>
+    expect(screen.getByText('replacement@example.com')).toBeOnTheScreen(),
+  );
+  expect(supabaseClient.auth.signOut).not.toHaveBeenCalled();
 });

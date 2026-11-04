@@ -8,6 +8,7 @@ import { enableScreens } from 'react-native-screens';
 
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { PreferencesProvider } from '@/providers/PreferencesProvider';
+import { RecoveryPasswordModal } from '@/providers/RecoveryPasswordModal';
 import { TasksProvider } from '@/providers/TasksProvider';
 import { RemindersProvider } from '@/providers/RemindersProvider';
 import { SplashScreen } from '@/components/SplashScreen';
@@ -58,13 +59,18 @@ const RootNavigator = ({
 };
 
 const AccountWorkspace = () => {
-  const { session } = useAuth();
+  const { session, recovering, recoveryOwner, finishRecovery } = useAuth();
   // Account changes remount preferences, not the launch experience.
   const [showSplash, setShowSplash] = React.useState(true);
   const finishSplash = React.useCallback(() => setShowSplash(false), []);
   return (
     <PreferencesProvider key={session?.user.id || GUEST_ID}>
       <RootNavigator showSplash={showSplash} onSplashFinish={finishSplash} />
+      <RecoveryPasswordModal
+        visible={recovering}
+        expectedOwner={recoveryOwner ?? undefined}
+        onComplete={finishRecovery}
+      />
     </PreferencesProvider>
   );
 };

@@ -1,4 +1,3 @@
-import { RecoveryPasswordModal } from './RecoveryPasswordModal';
 import React, {
   createContext,
   useContext,
@@ -13,6 +12,9 @@ import type { Session } from '@supabase/supabase-js';
 import { supabaseClient } from '@/lib/supabase';
 
 interface AuthContextValue {
+  recovering: boolean;
+  recoveryOwner: string | null;
+  finishRecovery: () => void;
   session: Session | null;
   loading: boolean;
   pendingGuestImport: boolean;
@@ -23,6 +25,9 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue>({
+  recovering: false,
+  recoveryOwner: null,
+  finishRecovery: () => {},
   session: null,
   loading: true,
   pendingGuestImport: false,
@@ -34,7 +39,13 @@ const AuthContext = createContext<AuthContextValue>({
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
-  const [recovering, setRecovering] = useState(false);
+  const [recoveryOwner, setRecoveryOwner] = useState<string | null>(null);
+  const recoveryIdentity = React.useRef<string | null>(null);
+  const recovering = recoveryOwner !== null;
+  const finishRecovery = React.useCallback(() => {
+    recoveryIdentity.current = null;
+    setRecoveryOwner(null);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [pendingGuestImport, setPendingGuestImport] = useState(false);
   const [callbackError, setCallbackError] = useState('');
@@ -52,13 +63,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     let active = true;
     let revision = 0;
     const restoredRevision = revision;
+    const recoveryLinks = new Set<string>();
     const onUrl = (url: string) => {
+      if (/^offtasks:\/\/auth\/recovery(?:[?#]|$)/.test(url)) {
+        // OS linking may redeliver a handled URL after a later account switch.
+        if (recoveryLinks.has(url)) return;
+        recoveryLinks.add(url);
+      }
       void completeNativeSignIn(url)
-        .then(handled => {
+        .then(async handled => {
           if (!active || !handled) return;
           setCallbackError('');
-          if (/^offtasks:\/\/auth\/recovery(?:[?#]|$)/.test(url))
-            setRecovering(true);
+          if (/^offtasks:\/\/auth\/recovery(?:[?#]|$)/.test(url)) {
+            const recoveryRevision = revision;
+            const { data, error } = await supabaseClient.auth.getSession();
+            if (!active || revision !== recoveryRevision || error) return;
+            const owner = data.session?.user.id;
+            if (owner) {
+              recoveryIdentity.current = owner;
+              setRecoveryOwner(owner);
+            }
+          }
         })
         .catch(() => {
           if (active)
@@ -103,6 +128,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: subscription } = supabaseClient.auth.onAuthStateChange(
       (_, nextSession) => {
         ++revision;
+        if (
+          recoveryIdentity.current &&
+          recoveryIdentity.current !== nextSession?.user.id
+        ) {
+          recoveryIdentity.current = null;
+          setRecoveryOwner(null);
+        }
         setSession(nextSession ?? null);
       },
     );
@@ -118,6 +150,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const value = useMemo(
     () => ({
+      recovering,
+      recoveryOwner,
+      finishRecovery,
       session,
       loading,
       pendingGuestImport,
@@ -127,6 +162,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       clearCallbackError,
     }),
     [
+      recovering,
+      recoveryOwner,
+      finishRecovery,
       session,
       loading,
       pendingGuestImport,
@@ -137,15 +175,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     ],
   );
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-      <RecoveryPasswordModal
-        visible={recovering}
-        onComplete={() => setRecovering(false)}
-      />
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => useContext(AuthContext);

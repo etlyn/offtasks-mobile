@@ -49,8 +49,10 @@ jest.mock('../src/lib/supabase', () => ({
 
 test('guest auth validation does not contact the backend', async () => {
   const screen = render(<LoginScreen />);
-  await waitFor(() => expect(screen.getByText('Sign in')).toBeTruthy());
-  fireEvent.press(screen.getByText('Sign in'));
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy(),
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Sign in' }));
   expect(screen.getByText('Enter a valid email address.')).toBeTruthy();
   expect(supabaseClient.auth.signInWithPassword).not.toHaveBeenCalled();
 });
