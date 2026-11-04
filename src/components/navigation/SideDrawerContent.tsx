@@ -278,7 +278,7 @@ export const SideDrawerContent = (props: DrawerContentComponentProps) => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
               styles.content,
-              { paddingBottom: Math.max(insets.bottom, 16) + 16 },
+              { paddingBottom: Math.max(insets.bottom, 16) + 2 },
             ]}
           >
             <View

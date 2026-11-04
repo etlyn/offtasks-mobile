@@ -129,7 +129,7 @@ export const createStyles = (theme: AppTheme) => {
       paddingTop: 12,
     },
     accountAction: { minHeight: 44 },
-    versionTarget: { minHeight: 36, paddingTop: 12, alignItems: 'center' },
+    versionTarget: { minHeight: 44, paddingVertical: 14, alignItems: 'center' },
     version: {
       fontSize: 12,
       lineHeight: 16,
