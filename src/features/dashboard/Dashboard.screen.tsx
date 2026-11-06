@@ -13,6 +13,7 @@ import {
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDrawerStatus } from '@react-navigation/drawer';
+import { Gesture } from 'react-native-gesture-handler';
 
 import { PlannerHeader } from '@/components/navigation/PlannerHeader';
 import { QuietEmpty, GentlePressable } from '@/components/ProductUI';
@@ -198,14 +199,15 @@ export const DashboardScreen = ({
     route?.params?.view === 'goal' ? route.params.category : undefined;
   const [calendarDay, setCalendarDay] = React.useState(getToday());
   const [calendarExpanded, setCalendarExpanded] = React.useState(true);
+  const scrollGesture = React.useMemo(() => Gesture.Native(), []);
+  const calendarGestureActive = React.useRef(false);
+  const setCalendarGestureActive = React.useCallback((active: boolean) => {
+    calendarGestureActive.current = active;
+  }, []);
   const { animateLayout: animateCalendarLayout } = useCalendarTransition();
-  const changeCalendarExpanded = React.useCallback(
-    (expanded: boolean) => {
-      animateCalendarLayout();
-      setCalendarExpanded(expanded);
-    },
-    [animateCalendarLayout],
-  );
+  const changeCalendarExpanded = React.useCallback((expanded: boolean) => {
+    setCalendarExpanded(expanded);
+  }, []);
   const resetCalendar = () => {
     animateCalendarLayout();
     setCalendarDay(getToday());
@@ -791,6 +793,8 @@ export const DashboardScreen = ({
           calendar
           search={searchPage}
           entranceProgress={searchPage ? searchTransition.progress : undefined}
+          scrollGesture={scrollGesture}
+          canScrollCollapse={() => !calendarGestureActive.current}
           onScrollUp={
             isCalendar && !searchPage && calendarExpanded
               ? () => changeCalendarExpanded(false)
@@ -818,6 +822,8 @@ export const DashboardScreen = ({
               tasks={allTasks}
               expanded={calendarExpanded}
               onExpandedChange={changeCalendarExpanded}
+              onGestureActive={setCalendarGestureActive}
+              scrollGesture={scrollGesture}
             />
           ) : null}
           {isCalendar && !searchPage ? (

@@ -741,6 +741,34 @@
               "action": "And the header add action should remain available on today's Calendar or Later"
             }
           ]
+        },
+        {
+          "id": "overview-tabs-drag-calendar-between-month-and-week",
+          "title": "Drag the calendar between month and week",
+          "priority": "high",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@overview",
+            "@gestures"
+          ],
+          "preconditions": [
+            "Use an isolated simulator or a disposable guest workspace with synthetic data; do not remove real user data."
+          ],
+          "steps": [
+            {
+              "action": "Swipe upward on the expanded calendar and downward on the collapsed calendar.",
+              "expected": "The calendar follows the finger and settles smoothly into the week or month view without changing the selected date."
+            },
+            {
+              "action": "Try a short or cancelled drag, then swipe horizontally across the calendar.",
+              "expected": "Cancelled movement restores the prior view and horizontal swipes continue changing months."
+            },
+            {
+              "action": "Repeat with Reduce Motion and enlarged text enabled.",
+              "expected": "The controls and selected week stay usable, and transitions honor reduced motion."
+            }
+          ]
         }
       ]
     },
@@ -1702,6 +1730,34 @@
               "action": "Then a task details alert should show content, scheduled date, section, priority, and status"
             }
           ]
+        },
+        {
+          "id": "task-composer-swipe-to-remove-a-task",
+          "title": "Swipe to remove a task",
+          "priority": "high",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@tasks",
+            "@gestures"
+          ],
+          "preconditions": [
+            "Use an isolated simulator or a disposable guest workspace with synthetic data; do not remove real user data."
+          ],
+          "steps": [
+            {
+              "action": "Swipe left on a disposable task.",
+              "expected": "A red action with a white trash icon is revealed; tapping it opens the existing removal confirmation."
+            },
+            {
+              "action": "Cancel the confirmation, then repeat and confirm.",
+              "expected": "Cancel preserves the task; confirmation removes only the selected task."
+            },
+            {
+              "action": "Use the row’s VoiceOver delete action.",
+              "expected": "The same removal confirmation is accessible without a swipe."
+            }
+          ]
         }
       ]
     },
@@ -1897,6 +1953,35 @@
             {
               "action": "Use VoiceOver and large text to add, toggle and delete note task bullets; inspect keyboard and bottom controls.",
               "expected": "Task state, labels and actions are announced; controls remain reachable without losing typed text."
+            }
+          ]
+        },
+        {
+          "id": "planner-swipe-to-remove-notes-and-empty-goals",
+          "title": "Swipe to remove notes and empty goals",
+          "priority": "high",
+          "tags": [
+            "@e2e",
+            "@mobile",
+            "@notes",
+            "@goals",
+            "@gestures"
+          ],
+          "preconditions": [
+            "Use an isolated simulator or a disposable guest workspace with synthetic data; do not remove real user data."
+          ],
+          "steps": [
+            {
+              "action": "Swipe left on a disposable note with an embedded task and tap the trash icon.",
+              "expected": "The red action and white icon appear, and the confirmation explains that linked tasks will be removed."
+            },
+            {
+              "action": "Swipe left on an empty goal and confirm its removal.",
+              "expected": "Only the selected goal is removed."
+            },
+            {
+              "action": "Swipe left on a goal that has tasks and tap the trash icon.",
+              "expected": "The goal and its tasks remain in place and the app explains that tasks must first be moved out."
             }
           ]
         }

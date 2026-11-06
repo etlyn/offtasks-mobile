@@ -178,22 +178,4 @@ export const createStyles = (theme: AppTheme, calendar = false) =>
       marginLeft: 8,
       marginTop: 4,
     },
-    deleteActionContainer: {
-      width: 72,
-      alignItems: 'flex-end',
-      justifyContent: 'center',
-      paddingRight: 6,
-      paddingVertical: 6,
-    },
-    deleteAction: {
-      width: 32,
-      height: 32,
-      borderRadius: 18,
-      backgroundColor: theme.colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    deleteActionPressed: {
-      opacity: 0.85,
-    },
   });

@@ -64,6 +64,8 @@ export const NotesScreen = ({
   const insets = useSafeAreaInsets();
   const [appearanceNote, setAppearanceNote] = useState<Note | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reload, setReload] = useState(0);
@@ -180,7 +182,7 @@ export const NotesScreen = ({
     busy.current = true;
     setSaving(true);
     try {
-      await writePlanner(userId, 'note', next, notes);
+      await writePlanner(userId, 'note', next, notesRef.current);
       const saved = await readPlanner(userId, 'note');
       if (alive.current && currentOwner.current === userId) {
         animateLayout();
@@ -222,9 +224,9 @@ export const NotesScreen = ({
     }
   };
 
-  const remove = () => {
-    if (!editor?.id || busy.current) return;
-    const id = editor.id;
+  const remove = (id: string, fromEditor = false) => {
+    if (busy.current || !notesRef.current.some(note => note.id === id)) return;
+    const owner = userId;
     Alert.alert(
       'Delete note?',
       userId === GUEST_ID
@@ -236,9 +238,13 @@ export const NotesScreen = ({
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
+            if (currentOwner.current !== owner) return;
             if (
-              (await persist(notes.filter(note => note.id !== id))) &&
-              alive.current
+              (await persist(
+                notesRef.current.filter(note => note.id !== id),
+              )) &&
+              alive.current &&
+              fromEditor
             )
               dismissEditor();
           },
@@ -344,6 +350,7 @@ export const NotesScreen = ({
               tasks: item.tasks,
             })
           }
+          onRemove={() => remove(item.id)}
           onOptions={() => {
             Keyboard.dismiss();
             setAppearanceNote(item);
@@ -658,7 +665,7 @@ export const NotesScreen = ({
                 styles.iconButton,
                 { marginHorizontal: 12, marginTop: 4 },
               ]}
-              onPress={remove}
+              onPress={() => editor?.id && remove(editor.id, true)}
             >
               <Feather name="trash-2" size={18} color={palette.danger} />
             </Pressable>
