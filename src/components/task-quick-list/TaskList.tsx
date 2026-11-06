@@ -176,6 +176,7 @@ const TaskListRow = ({
   scrollGesture,
 }: TaskListRowProps) => {
   const [pending, setPending] = React.useState(false);
+  const swipeGuard = React.useRef(false);
   const categoryLabel = task.label?.trim() || 'None';
   const hasCategory = !!task.label?.trim();
   const categoryColors = hasCategory
@@ -186,7 +187,7 @@ const TaskListRow = ({
   const reminderAt = useReminders().getReminder(task.id);
 
   const handleCheckboxPress = React.useCallback(async () => {
-    if (pending) {
+    if (pending || swipeGuard.current) {
       return;
     }
 
@@ -199,14 +200,14 @@ const TaskListRow = ({
   }, [onToggle, pending, task]);
 
   const handleRowPress = React.useCallback(() => {
-    if (pending) {
+    if (pending || swipeGuard.current) {
       return;
     }
     onPress?.(task);
   }, [onPress, pending, task]);
 
   const handleLongPress = React.useCallback(() => {
-    if (pending) {
+    if (pending || swipeGuard.current) {
       return;
     }
     onLongPress?.(task);
@@ -349,6 +350,7 @@ const TaskListRow = ({
       onDelete={handleDelete}
       disabled={pending}
       scrollGesture={scrollGesture}
+      pressGuard={swipeGuard}
     >
       {row}
     </SwipeDeleteRow>
