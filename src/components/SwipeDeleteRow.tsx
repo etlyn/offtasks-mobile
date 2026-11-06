@@ -19,12 +19,36 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { Trash2 } from 'lucide-react-native';
 
 const ACTION_WIDTH = 64;
+const REVEAL_WIDTH = 112;
 const TRANSITION_MS = 240;
 let closeOpenRow: (() => void) | null = null;
+const SwipeOffsetContext = React.createContext<SharedValue<number> | null>(
+  null,
+);
+
+/** Keep row details readable as the surrounding card slides offscreen. */
+export function SwipeRowContents({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const offset = React.useContext(SwipeOffsetContext);
+  const readableStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: Math.min(offset?.value ?? 0, REVEAL_WIDTH - 4) },
+    ],
+  }));
+  return (
+    <Animated.View style={[style, readableStyle]}>{children}</Animated.View>
+  );
+}
 
 /** Choose a safe resting point without performing the removal. */
 export function swipeRevealTarget({
@@ -45,7 +69,7 @@ export function swipeRevealTarget({
   const closing =
     initial > 0 && (translationX > ACTION_WIDTH / 2 || velocityX > 400);
   if (closing || projected <= ACTION_WIDTH / 2) return 0;
-  return projected > rowWidth * 0.45 ? rowWidth : ACTION_WIDTH;
+  return Math.min(REVEAL_WIDTH, rowWidth * 0.42);
 }
 
 /** Slide the item over a red removal surface; removal stays confirmed. */
@@ -229,7 +253,9 @@ export function SwipeDeleteRow({
           </Pressable>
         </Animated.View>
         <Animated.View style={contentStyle}>
-          {children}
+          <SwipeOffsetContext.Provider value={offset}>
+            {children}
+          </SwipeOffsetContext.Provider>
           {open ? (
             <Pressable
               accessible={false}

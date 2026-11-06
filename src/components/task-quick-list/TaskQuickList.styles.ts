@@ -45,13 +45,19 @@ export const createStyles = (theme: AppTheme, calendar = false) =>
       alignItems: 'center',
       paddingVertical: 4,
       paddingHorizontal: calendar ? 0 : 4,
-      gap: calendar ? 4 : 8,
+      overflow: 'hidden',
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: calendar
         ? theme.isDark
           ? 'rgba(255,255,255,0.10)'
           : 'rgba(21,45,37,0.10)'
         : theme.colors.border,
+    },
+    rowContents: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: calendar ? 4 : 8,
     },
     rowPriority: {
       backgroundColor: theme.colors.prioritySurface,

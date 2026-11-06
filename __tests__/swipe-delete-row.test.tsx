@@ -11,7 +11,7 @@ import {
   swipeRevealTarget,
 } from '../src/components/SwipeDeleteRow';
 
-test('swipes settle at a compact action, a full red row, or closed', () => {
+test('swipes settle with the action beside the row or close it', () => {
   const gesture = {
     offset: 48,
     initial: 0,
@@ -19,15 +19,16 @@ test('swipes settle at a compact action, a full red row, or closed', () => {
     translationX: -48,
     velocityX: 0,
   };
-  expect(swipeRevealTarget(gesture)).toBe(64);
+  expect(swipeRevealTarget(gesture)).toBe(112);
   expect(
     swipeRevealTarget({ ...gesture, offset: 180, translationX: -180 }),
-  ).toBe(320);
+  ).toBe(112);
+  expect(swipeRevealTarget({ ...gesture, rowWidth: 200 })).toBe(84);
   expect(
     swipeRevealTarget({
       ...gesture,
-      offset: 270,
-      initial: 320,
+      offset: 62,
+      initial: 112,
       translationX: 50,
     }),
   ).toBe(0);
@@ -45,7 +46,7 @@ async function swipe(translationX: number, state: State = State.END) {
   });
 }
 
-test('a wide swipe reveals the removal surface without deleting until tapped', async () => {
+test('a wide swipe reveals the removal surface alongside the item without deleting', async () => {
   const remove = jest.fn();
   render(
     <SwipeDeleteRow label="Delete task Example" onDelete={remove}>
@@ -58,6 +59,7 @@ test('a wide swipe reveals the removal surface without deleting until tapped', a
   });
   await swipe(-180);
   const action = screen.getByLabelText('Delete task Example');
+  expect(screen.getByText('Example')).toBeOnTheScreen();
   expect(action).toHaveStyle({ backgroundColor: '#D33B43', minHeight: 44 });
   expect(remove).not.toHaveBeenCalled();
   fireEvent.press(action);
