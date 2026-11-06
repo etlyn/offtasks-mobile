@@ -14,7 +14,7 @@ import { useAppTheme } from '@/theme/colors';
 import { useCalendarTransition } from '@/features/dashboard/components/useCalendarTransition';
 import { getNoteTone, type NoteTone } from '@/lib/noteAppearance';
 import type { Note } from '@/lib/notes';
-import { SwipeDeleteRow } from '@/components/SwipeDeleteRow';
+import { SwipeDeleteRow, SwipeRowContents } from '@/components/SwipeDeleteRow';
 
 /** Color updates ease from the current rendered value, even with rapid input. */
 export function NotePaper({
@@ -119,87 +119,91 @@ export function NoteCard({
       pressGuard={swipeGuard}
       style={s.swipe}
     >
-      <NotePaper tone={note.tone}>
-        <View style={s.row}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Open note ${note.title}`}
-            disabled={disabled}
-            onPress={() => {
-              if (!swipeGuard.current) onOpen();
-            }}
-            accessibilityActions={[{ name: 'delete', label: 'Delete note' }]}
-            onAccessibilityAction={({ nativeEvent }) => {
-              if (!disabled && nativeEvent.actionName === 'delete') onRemove();
-            }}
-            style={s.content}
-          >
-            <Text
-              numberOfLines={2}
-              style={[s.title, { color: theme.colors.textPrimary }]}
+      <NotePaper tone={note.tone} style={s.card}>
+        <SwipeRowContents>
+          <View style={s.row}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Open note ${note.title}`}
+              disabled={disabled}
+              onPress={() => {
+                if (!swipeGuard.current) onOpen();
+              }}
+              accessibilityActions={[{ name: 'delete', label: 'Delete note' }]}
+              onAccessibilityAction={({ nativeEvent }) => {
+                if (!disabled && nativeEvent.actionName === 'delete')
+                  onRemove();
+              }}
+              style={s.content}
             >
-              {note.title}
-            </Text>
-            {note.body ? (
               <Text
-                numberOfLines={3}
-                style={[s.body, { color: theme.colors.textSecondary }]}
+                numberOfLines={2}
+                style={[s.title, { color: theme.colors.textPrimary }]}
               >
-                {note.body}
+                {note.title}
               </Text>
-            ) : null}
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${note.pinned ? 'Unpin' : 'Pin'} ${
-              note.title
-            }`}
-            accessibilityState={{ selected: note.pinned, disabled }}
-            disabled={disabled}
-            onPress={() => {
-              if (!swipeGuard.current) onPin();
-            }}
-            style={s.action}
-          >
-            <Bookmark
-              size={16}
-              strokeWidth={1.7}
-              color={note.pinned ? brand : theme.colors.textMuted}
-              fill={note.pinned ? brand : 'none'}
-            />
-          </Pressable>
-        </View>
-        <View style={s.footer}>
-          <FileText size={12} strokeWidth={1.6} color={tone.accent} />
-          <Text style={[s.date, { color: theme.colors.textSecondary }]}>
-            {new Date(note.updatedAt).toLocaleDateString(undefined, {
-              month: 'short',
-              day: 'numeric',
-            })}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Appearance for ${note.title}`}
-            accessibilityHint="Choose a subtle paper color"
-            disabled={disabled}
-            onPress={() => {
-              if (!swipeGuard.current) onOptions();
-            }}
-            style={[s.action, s.options]}
-          >
-            <Ellipsis
-              size={17}
-              strokeWidth={1.6}
-              color={theme.colors.textSecondary}
-            />
-          </Pressable>
-        </View>
+              {note.body ? (
+                <Text
+                  numberOfLines={3}
+                  style={[s.body, { color: theme.colors.textSecondary }]}
+                >
+                  {note.body}
+                </Text>
+              ) : null}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${note.pinned ? 'Unpin' : 'Pin'} ${
+                note.title
+              }`}
+              accessibilityState={{ selected: note.pinned, disabled }}
+              disabled={disabled}
+              onPress={() => {
+                if (!swipeGuard.current) onPin();
+              }}
+              style={s.action}
+            >
+              <Bookmark
+                size={16}
+                strokeWidth={1.7}
+                color={note.pinned ? brand : theme.colors.textMuted}
+                fill={note.pinned ? brand : 'none'}
+              />
+            </Pressable>
+          </View>
+          <View style={s.footer}>
+            <FileText size={12} strokeWidth={1.6} color={tone.accent} />
+            <Text style={[s.date, { color: theme.colors.textSecondary }]}>
+              {new Date(note.updatedAt).toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+              })}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Appearance for ${note.title}`}
+              accessibilityHint="Choose a subtle paper color"
+              disabled={disabled}
+              onPress={() => {
+                if (!swipeGuard.current) onOptions();
+              }}
+              style={[s.action, s.options]}
+            >
+              <Ellipsis
+                size={17}
+                strokeWidth={1.6}
+                color={theme.colors.textSecondary}
+              />
+            </Pressable>
+          </View>
+        </SwipeRowContents>
       </NotePaper>
     </SwipeDeleteRow>
   );
 }
 const s = StyleSheet.create({
   swipe: { borderRadius: 20 },
+  card: { overflow: 'hidden' },
   paper: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 20,

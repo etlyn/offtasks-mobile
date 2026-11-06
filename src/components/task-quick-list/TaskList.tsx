@@ -2,7 +2,7 @@ import * as React from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
 import Feather from 'react-native-vector-icons/Feather';
-import { SwipeDeleteRow } from '@/components/SwipeDeleteRow';
+import { SwipeDeleteRow, SwipeRowContents } from '@/components/SwipeDeleteRow';
 import { Bell } from 'lucide-react-native';
 import type { NativeGesture } from 'react-native-gesture-handler';
 
@@ -219,129 +219,133 @@ const TaskListRow = ({
 
   const row = (
     <View style={[styles.row, isLast && styles.lastRow]}>
-      <Pressable
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: task.isComplete }}
-        accessibilityLabel={
-          task.isComplete ? 'Mark as incomplete' : 'Mark as complete'
-        }
-        onPress={handleCheckboxPress}
-        style={({ pressed }) => [
-          styles.checkboxTouchArea,
-          pressed && styles.checkboxPressed,
-        ]}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
-      >
-        <View
-          testID={`task-checkbox-${task.id}`}
-          style={[styles.checkbox, task.isComplete && styles.checkboxDone]}
+      <SwipeRowContents style={styles.rowContents}>
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: task.isComplete }}
+          accessibilityLabel={
+            task.isComplete ? 'Mark as incomplete' : 'Mark as complete'
+          }
+          onPress={handleCheckboxPress}
+          style={({ pressed }) => [
+            styles.checkboxTouchArea,
+            pressed && styles.checkboxPressed,
+          ]}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
         >
-          {pending ? (
-            <ActivityIndicator
-              size="small"
-              color={
-                task.isComplete
-                  ? theme.isDark
-                    ? '#101916'
-                    : '#FFFFFF'
-                  : theme.isDark
-                  ? '#D8F3E5'
-                  : '#152D25'
-              }
-            />
-          ) : task.isComplete ? (
-            <Feather
-              name="check"
-              size={14}
-              color={theme.isDark ? '#101916' : '#FFFFFF'}
-            />
-          ) : null}
-        </View>
-      </Pressable>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Task: ${task.content}`}
-        accessibilityHint="Tap to edit, long press for details"
-        accessibilityActions={
-          onDelete ? [{ name: 'delete', label: 'Delete task' }] : undefined
-        }
-        onAccessibilityAction={({ nativeEvent }) => {
-          if (nativeEvent.actionName === 'delete') handleDelete();
-        }}
-        onPress={handleRowPress}
-        onLongPress={handleLongPress}
-        style={({ pressed }) => [
-          styles.contentArea,
-          pressed && styles.contentAreaPressed,
-        ]}
-      >
-        <Text style={[styles.rowLabel, task.isComplete && styles.rowLabelDone]}>
-          {task.content}
-        </Text>
-
-        {task.noteTitle ? (
-          <Text style={styles.rowMeta}>Note: {task.noteTitle}</Text>
-        ) : null}
-        {!showBadges && task.label?.trim() ? (
-          <Text style={styles.rowMeta}>Goal: {task.label.trim()}</Text>
-        ) : null}
-
-        {secondaryText ? (
-          <Text style={styles.rowMeta}>{secondaryText}</Text>
-        ) : null}
-
-        {reminderAt && !task.isComplete ? (
           <View
-            testID={`task-reminder-${task.id}`}
-            accessible
-            accessibilityLabel={`Reminder ${formatReminder(reminderAt)}`}
-            style={styles.reminderRow}
+            testID={`task-checkbox-${task.id}`}
+            style={[styles.checkbox, task.isComplete && styles.checkboxDone]}
           >
-            <Bell
-              size={12}
-              strokeWidth={1.7}
-              color={theme.colors.textSecondary}
-            />
-            <Text style={styles.reminderText}>
-              {formatReminder(reminderAt)}
-            </Text>
+            {pending ? (
+              <ActivityIndicator
+                size="small"
+                color={
+                  task.isComplete
+                    ? theme.isDark
+                      ? '#101916'
+                      : '#FFFFFF'
+                    : theme.isDark
+                    ? '#D8F3E5'
+                    : '#152D25'
+                }
+              />
+            ) : task.isComplete ? (
+              <Feather
+                name="check"
+                size={14}
+                color={theme.isDark ? '#101916' : '#FFFFFF'}
+              />
+            ) : null}
           </View>
-        ) : null}
+        </Pressable>
 
-        {showBadges && (hasCategory || task.priority) ? (
-          <View style={styles.badgeRow}>
-            {hasCategory && categoryColors ? (
-              <View
-                style={[
-                  styles.categoryBadge,
-                  {
-                    borderColor: categoryColors.color,
-                    backgroundColor: categoryColors.background,
-                  },
-                ]}
-              >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Task: ${task.content}`}
+          accessibilityHint="Tap to edit, long press for details"
+          accessibilityActions={
+            onDelete ? [{ name: 'delete', label: 'Delete task' }] : undefined
+          }
+          onAccessibilityAction={({ nativeEvent }) => {
+            if (nativeEvent.actionName === 'delete') handleDelete();
+          }}
+          onPress={handleRowPress}
+          onLongPress={handleLongPress}
+          style={({ pressed }) => [
+            styles.contentArea,
+            pressed && styles.contentAreaPressed,
+          ]}
+        >
+          <Text
+            style={[styles.rowLabel, task.isComplete && styles.rowLabelDone]}
+          >
+            {task.content}
+          </Text>
+
+          {task.noteTitle ? (
+            <Text style={styles.rowMeta}>Note: {task.noteTitle}</Text>
+          ) : null}
+          {!showBadges && task.label?.trim() ? (
+            <Text style={styles.rowMeta}>Goal: {task.label.trim()}</Text>
+          ) : null}
+
+          {secondaryText ? (
+            <Text style={styles.rowMeta}>{secondaryText}</Text>
+          ) : null}
+
+          {reminderAt && !task.isComplete ? (
+            <View
+              testID={`task-reminder-${task.id}`}
+              accessible
+              accessibilityLabel={`Reminder ${formatReminder(reminderAt)}`}
+              style={styles.reminderRow}
+            >
+              <Bell
+                size={12}
+                strokeWidth={1.7}
+                color={theme.colors.textSecondary}
+              />
+              <Text style={styles.reminderText}>
+                {formatReminder(reminderAt)}
+              </Text>
+            </View>
+          ) : null}
+
+          {showBadges && (hasCategory || task.priority) ? (
+            <View style={styles.badgeRow}>
+              {hasCategory && categoryColors ? (
                 <View
                   style={[
-                    styles.categoryBadgeDot,
-                    { backgroundColor: categoryColors.color },
+                    styles.categoryBadge,
+                    {
+                      borderColor: categoryColors.color,
+                      backgroundColor: categoryColors.background,
+                    },
                   ]}
-                />
-                <Text style={styles.badgeText}>{categoryLabel}</Text>
-              </View>
-            ) : null}
+                >
+                  <View
+                    style={[
+                      styles.categoryBadgeDot,
+                      { backgroundColor: categoryColors.color },
+                    ]}
+                  />
+                  <Text style={styles.badgeText}>{categoryLabel}</Text>
+                </View>
+              ) : null}
 
-            {task.priority ? (
-              <View style={styles.priorityIndicatorWrap}>
-                <PriorityChevronIcon
-                  count={priorityMeta.count}
-                  color={priorityMeta.color}
-                />
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-      </Pressable>
+              {task.priority ? (
+                <View style={styles.priorityIndicatorWrap}>
+                  <PriorityChevronIcon
+                    count={priorityMeta.count}
+                    color={priorityMeta.color}
+                  />
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+        </Pressable>
+      </SwipeRowContents>
     </View>
   );
   return onDelete ? (
