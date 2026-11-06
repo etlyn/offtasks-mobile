@@ -1747,11 +1747,11 @@
           "steps": [
             {
               "action": "Swipe left on a disposable task.",
-              "expected": "The whole row slides to reveal a continuous red background with a white trash icon; tapping it opens the existing removal confirmation."
+              "expected": "The row slides to reveal a continuous red background with a white trash icon alongside the same task; tapping it opens the existing removal confirmation."
             },
             {
               "action": "Drag the row farther left before releasing.",
-              "expected": "The red background grows with the exposed area; a long swipe reveals the full red row without deleting the task."
+              "expected": "The red background grows with the exposed area; release settles with the task and red action on the same line without deleting the task."
             },
             {
               "action": "With several tasks visible, swipe a second row after opening the first.",
