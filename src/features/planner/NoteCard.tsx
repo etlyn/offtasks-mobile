@@ -108,6 +108,7 @@ export function NoteCard({
   disabled: boolean;
 }) {
   const theme = useAppTheme();
+  const swipeGuard = React.useRef(false);
   const brand = theme.isDark ? '#D8F3E5' : '#152D25';
   const tone = getNoteTone(note.tone);
   return (
@@ -115,6 +116,8 @@ export function NoteCard({
       label={`Delete note ${note.title}`}
       onDelete={onRemove}
       disabled={disabled}
+      pressGuard={swipeGuard}
+      style={s.swipe}
     >
       <NotePaper tone={note.tone}>
         <View style={s.row}>
@@ -122,7 +125,9 @@ export function NoteCard({
             accessibilityRole="button"
             accessibilityLabel={`Open note ${note.title}`}
             disabled={disabled}
-            onPress={onOpen}
+            onPress={() => {
+              if (!swipeGuard.current) onOpen();
+            }}
             accessibilityActions={[{ name: 'delete', label: 'Delete note' }]}
             onAccessibilityAction={({ nativeEvent }) => {
               if (!disabled && nativeEvent.actionName === 'delete') onRemove();
@@ -151,7 +156,9 @@ export function NoteCard({
             }`}
             accessibilityState={{ selected: note.pinned, disabled }}
             disabled={disabled}
-            onPress={onPin}
+            onPress={() => {
+              if (!swipeGuard.current) onPin();
+            }}
             style={s.action}
           >
             <Bookmark
@@ -175,7 +182,9 @@ export function NoteCard({
             accessibilityLabel={`Appearance for ${note.title}`}
             accessibilityHint="Choose a subtle paper color"
             disabled={disabled}
-            onPress={onOptions}
+            onPress={() => {
+              if (!swipeGuard.current) onOptions();
+            }}
             style={[s.action, s.options]}
           >
             <Ellipsis
@@ -190,6 +199,7 @@ export function NoteCard({
   );
 }
 const s = StyleSheet.create({
+  swipe: { borderRadius: 20 },
   paper: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 20,

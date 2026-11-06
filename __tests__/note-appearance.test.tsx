@@ -1,11 +1,17 @@
 import React from 'react';
 import { Alert, Modal } from 'react-native';
 import {
+  act,
   fireEvent,
   render,
   screen,
   waitFor,
 } from '@testing-library/react-native';
+import { State } from 'react-native-gesture-handler';
+import {
+  fireGestureHandler,
+  getByGestureTestId,
+} from 'react-native-gesture-handler/jest-utils';
 import { NoteAppearanceSheet } from '../src/features/planner/NoteAppearanceSheet';
 import { NoteCard } from '../src/features/planner/NoteCard';
 import { parseNotes, saveNote, type Note } from '../src/lib/notes';
@@ -75,6 +81,46 @@ test('note cards keep writing prominent and expose independent 44-point actions'
     width: 44,
     height: 44,
   });
+});
+
+test('swiping a note does not open or change it, and a later tap still works', async () => {
+  const open = jest.fn();
+  const pin = jest.fn();
+  const options = jest.fn();
+  render(
+    <NoteCard
+      note={note}
+      onOpen={open}
+      onRemove={jest.fn()}
+      onPin={pin}
+      onOptions={options}
+      disabled={false}
+    />,
+  );
+  const row = screen.getByTestId('swipe-delete-row-container');
+  const openNote = screen.getByLabelText('Open note Small ideas');
+  const pinNote = screen.getByLabelText('Unpin Small ideas');
+  const noteOptions = screen.getByLabelText('Appearance for Small ideas');
+  fireEvent(row, 'touchStart');
+  await act(async () => {
+    fireGestureHandler(getByGestureTestId('swipe-delete-row'), [
+      { state: State.BEGAN, translationX: 0, velocityX: 0 },
+      { state: State.ACTIVE, translationX: 0, velocityX: 0 },
+      { state: State.ACTIVE, translationX: -180, velocityX: 0 },
+      { state: State.END, translationX: -180, velocityX: 0 },
+    ]);
+    await Promise.resolve();
+  });
+  fireEvent.press(openNote);
+  fireEvent.press(pinNote);
+  fireEvent.press(noteOptions);
+  expect(open).not.toHaveBeenCalled();
+  expect(pin).not.toHaveBeenCalled();
+  expect(options).not.toHaveBeenCalled();
+
+  fireEvent(row, 'touchStart');
+  fireEvent.press(openNote);
+  expect(open).toHaveBeenCalledTimes(1);
 });
 
 test('appearance stages color choices and closes without saving', () => {

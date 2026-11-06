@@ -1747,7 +1747,11 @@
           "steps": [
             {
               "action": "Swipe left on a disposable task.",
-              "expected": "A red action with a white trash icon is revealed; tapping it opens the existing removal confirmation."
+              "expected": "The whole row slides to reveal a continuous red background with a white trash icon; tapping it opens the existing removal confirmation."
+            },
+            {
+              "action": "Drag the row farther left before releasing.",
+              "expected": "The red background grows with the exposed area; a long swipe reveals the full red row without deleting the task."
             },
             {
               "action": "With several tasks visible, swipe a second row after opening the first.",
@@ -1977,7 +1981,7 @@
           "steps": [
             {
               "action": "Swipe left on a disposable note with an embedded task and tap the trash icon.",
-              "expected": "The red action and white icon appear, and the confirmation explains that linked tasks will be removed."
+              "expected": "The note card slides over a continuous red background with a white trash icon, and the confirmation explains that linked tasks will be removed."
             },
             {
               "action": "Swipe left on an empty goal and confirm its removal.",

@@ -26,7 +26,29 @@ const ACTION_WIDTH = 64;
 const TRANSITION_MS = 240;
 let closeOpenRow: (() => void) | null = null;
 
-/** Reveal an action while keeping the item legible and its removal confirmed. */
+/** Choose a safe resting point without performing the removal. */
+export function swipeRevealTarget({
+  offset,
+  initial,
+  rowWidth,
+  translationX,
+  velocityX,
+}: {
+  offset: number;
+  initial: number;
+  rowWidth: number;
+  translationX: number;
+  velocityX: number;
+}): number {
+  'worklet';
+  const projected = offset - velocityX * 0.05;
+  const closing =
+    initial > 0 && (translationX > ACTION_WIDTH / 2 || velocityX > 400);
+  if (closing || projected <= ACTION_WIDTH / 2) return 0;
+  return projected > rowWidth * 0.45 ? rowWidth : ACTION_WIDTH;
+}
+
+/** Slide the item over a red removal surface; removal stays confirmed. */
 export function SwipeDeleteRow({
   children,
   label,
@@ -34,6 +56,7 @@ export function SwipeDeleteRow({
   disabled = false,
   style,
   scrollGesture,
+  pressGuard,
 }: {
   children: React.ReactNode;
   label: string;
@@ -41,12 +64,17 @@ export function SwipeDeleteRow({
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   scrollGesture?: NativeGesture;
+  pressGuard?: React.RefObject<boolean>;
 }) {
   const [open, setOpen] = React.useState(false);
   const offset = useSharedValue(0);
+  const rowWidth = useSharedValue(ACTION_WIDTH);
   const initial = useSharedValue(0);
   const dragging = useSharedValue(false);
   const interrupted = useSharedValue(false);
+  const pressGuardTimer = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const reduceMotion = useReducedMotion();
   const close = React.useCallback(() => {
     offset.value = reduceMotion
@@ -59,11 +87,20 @@ export function SwipeDeleteRow({
     if (closeOpenRow === close) closeOpenRow = null;
   }, [offset, reduceMotion]);
   const begin = React.useCallback(() => {
+    if (pressGuardTimer.current) clearTimeout(pressGuardTimer.current);
+    if (pressGuard) pressGuard.current = true;
     if (closeOpenRow && closeOpenRow !== close) closeOpenRow();
     closeOpenRow = close;
-  }, [close]);
+  }, [close, pressGuard]);
   const settle = React.useCallback(
     (next: boolean) => {
+      if (pressGuard) {
+        if (pressGuardTimer.current) clearTimeout(pressGuardTimer.current);
+        pressGuardTimer.current = setTimeout(() => {
+          pressGuard.current = false;
+          pressGuardTimer.current = null;
+        }, TRANSITION_MS);
+      }
       setOpen(next);
       if (next) {
         if (closeOpenRow && closeOpenRow !== close) closeOpenRow();
@@ -72,19 +109,20 @@ export function SwipeDeleteRow({
         closeOpenRow = null;
       }
     },
-    [close],
+    [close, pressGuard],
   );
   React.useEffect(
     () => () => {
       if (closeOpenRow === close) closeOpenRow = null;
+      if (pressGuardTimer.current) clearTimeout(pressGuardTimer.current);
     },
     [close],
   );
   const remove = React.useCallback(() => {
-    if (disabled) return;
+    if (disabled || pressGuard?.current) return;
     close();
     onDelete();
-  }, [close, disabled, onDelete]);
+  }, [close, disabled, onDelete, pressGuard]);
   const pan = React.useMemo(
     () =>
       Gesture.Pan()
@@ -108,23 +146,26 @@ export function SwipeDeleteRow({
           }
           offset.value = Math.max(
             0,
-            Math.min(ACTION_WIDTH, initial.value - event.translationX),
+            Math.min(rowWidth.value, initial.value - event.translationX),
           );
         })
         .onEnd((event, success) => {
           if (!success || interrupted.value) return;
-          const projected = offset.value - event.velocityX * 0.05;
-          const next = projected > ACTION_WIDTH / 2;
+          const target = swipeRevealTarget({
+            offset: offset.value,
+            initial: initial.value,
+            rowWidth: rowWidth.value,
+            translationX: event.translationX,
+            velocityX: event.velocityX,
+          });
           offset.value = reduceMotion
-            ? next
-              ? ACTION_WIDTH
-              : 0
-            : withTiming(next ? ACTION_WIDTH : 0, {
+            ? target
+            : withTiming(target, {
                 duration: TRANSITION_MS,
                 easing: Easing.inOut(Easing.cubic),
               });
           dragging.value = false;
-          runOnJS(settle)(next);
+          runOnJS(settle)(target > 0);
         })
         .onFinalize(() => {
           if (!dragging.value) return;
@@ -146,16 +187,29 @@ export function SwipeDeleteRow({
       offset,
       open,
       reduceMotion,
+      rowWidth,
       settle,
       scrollGesture,
     ],
   );
-  const contentStyle = useAnimatedStyle(() => ({ marginRight: offset.value }));
+  const contentStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: -offset.value }],
+  }));
   const actionStyle = useAnimatedStyle(() => ({ width: offset.value }));
 
   return (
     <GestureDetector gesture={pan}>
-      <View style={style}>
+      <View
+        testID="swipe-delete-row-container"
+        style={[styles.container, style]}
+        onTouchStart={() => {
+          if (pressGuard) pressGuard.current = false;
+        }}
+        onLayout={({ nativeEvent }) => {
+          const width = nativeEvent.layout.width;
+          if (width > 0) rowWidth.value = width;
+        }}
+      >
         <Animated.View
           style={[styles.actionSlot, actionStyle]}
           accessibilityElementsHidden={!open}
@@ -169,7 +223,9 @@ export function SwipeDeleteRow({
             onPress={remove}
             style={({ pressed }) => [styles.action, pressed && styles.pressed]}
           >
-            <Trash2 size={20} strokeWidth={1.8} color="#FFFFFF" />
+            <View style={styles.iconSlot}>
+              <Trash2 size={20} strokeWidth={1.8} color="#FFFFFF" />
+            </View>
           </Pressable>
         </Animated.View>
         <Animated.View style={contentStyle}>
@@ -190,6 +246,7 @@ export function SwipeDeleteRow({
 }
 
 const styles = StyleSheet.create({
+  container: { overflow: 'hidden' },
   actionSlot: {
     position: 'absolute',
     right: 0,
@@ -199,13 +256,17 @@ const styles = StyleSheet.create({
   },
   action: {
     position: 'absolute',
-    width: ACTION_WIDTH - 6,
+    left: 0,
     right: 0,
     top: 0,
     bottom: 0,
     minHeight: 44,
     backgroundColor: '#D33B43',
-    borderRadius: 15,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  iconSlot: {
+    width: ACTION_WIDTH,
     alignItems: 'center',
     justifyContent: 'center',
   },
