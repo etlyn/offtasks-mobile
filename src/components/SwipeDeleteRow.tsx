@@ -6,7 +6,11 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import {
+  Gesture,
+  GestureDetector,
+  type NativeGesture,
+} from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -29,12 +33,14 @@ export function SwipeDeleteRow({
   onDelete,
   disabled = false,
   style,
+  scrollGesture,
 }: {
   children: React.ReactNode;
   label: string;
   onDelete: () => void;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  scrollGesture?: NativeGesture;
 }) {
   const [open, setOpen] = React.useState(false);
   const offset = useSharedValue(0);
@@ -84,6 +90,7 @@ export function SwipeDeleteRow({
       Gesture.Pan()
         .withTestId('swipe-delete-row')
         .enabled(!disabled)
+        .blocksExternalGesture(...(scrollGesture ? [scrollGesture] : []))
         .maxPointers(1)
         .activeOffsetX(open ? [-12, 12] : [-12, 10000])
         .failOffsetY([-12, 12])
@@ -106,11 +113,7 @@ export function SwipeDeleteRow({
         })
         .onEnd((event, success) => {
           if (!success || interrupted.value) return;
-          const released = Math.max(
-            0,
-            Math.min(ACTION_WIDTH, initial.value - event.translationX),
-          );
-          const projected = released - event.velocityX * 0.05;
+          const projected = offset.value - event.velocityX * 0.05;
           const next = projected > ACTION_WIDTH / 2;
           offset.value = reduceMotion
             ? next
@@ -144,6 +147,7 @@ export function SwipeDeleteRow({
       open,
       reduceMotion,
       settle,
+      scrollGesture,
     ],
   );
   const contentStyle = useAnimatedStyle(() => ({ marginRight: offset.value }));

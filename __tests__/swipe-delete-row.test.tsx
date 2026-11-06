@@ -12,6 +12,7 @@ async function swipe(translationX: number, state: State = State.END) {
   await act(async () => {
     fireGestureHandler(getByGestureTestId('swipe-delete-row'), [
       { state: State.BEGAN, translationX: 0, velocityX: 0 },
+      { state: State.ACTIVE, translationX: 0, velocityX: 0 },
       { state: State.ACTIVE, translationX, velocityX: 0 },
       { state, translationX, velocityX: 0 },
     ]);
