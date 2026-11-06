@@ -28,6 +28,7 @@ export function GoalRow({
   disabled: boolean;
 }) {
   const theme = useAppTheme();
+  const swipeGuard = React.useRef(false);
   const color = goalColors[appearance.color] ?? goalColors[0];
   return (
     <SwipeDeleteRow
@@ -35,6 +36,7 @@ export function GoalRow({
       onDelete={onRemove}
       disabled={disabled}
       style={s.swipe}
+      pressGuard={swipeGuard}
     >
       <View
         testID="goal-row"
@@ -54,7 +56,9 @@ export function GoalRow({
           accessibilityRole="button"
           accessibilityLabel={`Open goal ${goal.name}, ${goal.completed} of ${goal.total} completed`}
           disabled={disabled}
-          onPress={onOpen}
+          onPress={() => {
+            if (!swipeGuard.current) onOpen();
+          }}
           accessibilityActions={[{ name: 'delete', label: 'Remove goal' }]}
           onAccessibilityAction={({ nativeEvent }) => {
             if (!disabled && nativeEvent.actionName === 'delete') onRemove();
@@ -88,7 +92,9 @@ export function GoalRow({
           accessibilityLabel={`Options for ${goal.name}`}
           accessibilityHint="Personalize this goal"
           disabled={disabled}
-          onPress={onOptions}
+          onPress={() => {
+            if (!swipeGuard.current) onOptions();
+          }}
           style={s.options}
         >
           <Ellipsis
@@ -102,7 +108,7 @@ export function GoalRow({
   );
 }
 const s = StyleSheet.create({
-  swipe: { marginBottom: 10 },
+  swipe: { marginBottom: 10, borderRadius: 22 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
