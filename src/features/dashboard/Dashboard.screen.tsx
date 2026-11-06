@@ -953,6 +953,7 @@ export const DashboardScreen = ({
           ) : (
             <TaskList
               calendar
+              scrollGesture={scrollGesture}
               showBadges={!!goal}
               tasks={displayTasks}
               onToggle={handleToggleTask}

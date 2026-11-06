@@ -4,6 +4,7 @@ import Svg, { Polyline } from 'react-native-svg';
 import Feather from 'react-native-vector-icons/Feather';
 import { SwipeDeleteRow } from '@/components/SwipeDeleteRow';
 import { Bell } from 'lucide-react-native';
+import type { NativeGesture } from 'react-native-gesture-handler';
 
 import type { Task, TaskWithOverdueFlag } from '@/types/task';
 import { useAppTheme } from '@/theme/colors';
@@ -66,6 +67,7 @@ export interface TaskListProps {
   emptyIcon?: string;
   emptyTitle?: string;
   emptyDescription?: string;
+  scrollGesture?: NativeGesture;
 }
 
 export const TaskList = ({
@@ -81,6 +83,7 @@ export const TaskList = ({
   emptyIcon,
   emptyTitle,
   emptyDescription,
+  scrollGesture,
 }: TaskListProps) => {
   const theme = useAppTheme();
   const styles = React.useMemo(
@@ -138,6 +141,7 @@ export const TaskList = ({
           onDelete={onDelete}
           getSecondaryText={getSecondaryText}
           showBadges={showBadges}
+          scrollGesture={scrollGesture}
         />
       ))}
     </View>
@@ -155,6 +159,7 @@ interface TaskListRowProps {
   onDelete?: (task: TaskType) => void;
   getSecondaryText?: (task: TaskType) => string | undefined;
   showBadges: boolean;
+  scrollGesture?: NativeGesture;
 }
 
 const TaskListRow = ({
@@ -168,6 +173,7 @@ const TaskListRow = ({
   onDelete,
   getSecondaryText,
   showBadges,
+  scrollGesture,
 }: TaskListRowProps) => {
   const [pending, setPending] = React.useState(false);
   const categoryLabel = task.label?.trim() || 'None';
@@ -342,6 +348,7 @@ const TaskListRow = ({
       label={`Delete task ${task.content}`}
       onDelete={handleDelete}
       disabled={pending}
+      scrollGesture={scrollGesture}
     >
       {row}
     </SwipeDeleteRow>

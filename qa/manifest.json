@@ -1750,6 +1750,10 @@
               "expected": "A red action with a white trash icon is revealed; tapping it opens the existing removal confirmation."
             },
             {
+              "action": "With several tasks visible, swipe a second row after opening the first.",
+              "expected": "The list still scrolls vertically and only the latest row has an open action."
+            },
+            {
               "action": "Cancel the confirmation, then repeat and confirm.",
               "expected": "Cancel preserves the task; confirmation removes only the selected task."
             },
