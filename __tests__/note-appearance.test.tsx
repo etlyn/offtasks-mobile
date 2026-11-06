@@ -58,6 +58,7 @@ test('note cards keep writing prominent and expose independent 44-point actions'
     <NoteCard
       note={note}
       onOpen={open}
+      onRemove={jest.fn()}
       onPin={pin}
       onOptions={appearance}
       disabled={false}
