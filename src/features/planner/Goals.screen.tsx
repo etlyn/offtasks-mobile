@@ -324,6 +324,14 @@ export const GoalsScreen = ({
             appearance={appearance.get(item.name)}
             disabled={saving || loading}
             onOpen={() => openGoal(item.name)}
+            onRemove={() => {
+              if (item.total > 0) {
+                Alert.alert(
+                  'Goal has tasks',
+                  'Move its tasks out of this goal before removing it.',
+                );
+              } else remove(item.name);
+            }}
             onOptions={() => {
               if (!appearance.ready || appearance.error) {
                 Alert.alert(

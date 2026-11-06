@@ -10,6 +10,12 @@ import {
   type GestureResponderEvent,
 } from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import {
+  GestureDetector,
+  type NativeGesture,
+} from 'react-native-gesture-handler';
+import Reanimated from 'react-native-reanimated';
+import { useCalendarDrag } from './useCalendarDrag';
 import { useAppTheme } from '@/theme/colors';
 import { getToday } from '@/hooks/useDate';
 import { getScheduledDateForTask } from '@/utils/taskScheduling';
@@ -43,12 +49,16 @@ export const MonthCalendar = ({
   tasks,
   expanded: expandedProp,
   onExpandedChange,
+  onGestureActive,
+  scrollGesture,
 }: {
   day: string;
   onChange: (day: string) => void;
   tasks: Task[];
   expanded?: boolean;
   onExpandedChange?: (expanded: boolean) => void;
+  onGestureActive?: (active: boolean) => void;
+  scrollGesture?: NativeGesture;
 }) => {
   const theme = useAppTheme();
   const [internalExpanded, setInternalExpanded] = useState(true);
@@ -61,12 +71,16 @@ export const MonthCalendar = ({
   // Derive new selections immediately so reset doesn't produce a second,
   // unanimated render of the previous month/week before the new dates appear.
   const visibleDay = viewport.selectedDay !== day ? day : viewport.visibleDay;
-  const setVisibleDay = (nextDay: string) =>
-    setViewport({ selectedDay: day, visibleDay: nextDay });
+  const setVisibleDay = React.useCallback(
+    (nextDay: string) => setViewport({ selectedDay: day, visibleDay: nextDay }),
+    [day],
+  );
   const { reduceMotion, animateLayout } = useCalendarTransition();
   const opacity = React.useRef(new Animated.Value(1)).current;
-  const lastContent = React.useRef(`${visibleDay}:${expanded}`);
+  const lastContent = React.useRef(visibleDay);
   const [yearPickerOpen, setYearPickerOpen] = useState(false);
+  const [rowHeight, setRowHeight] = useState(44);
+  const [toolbarHeight, setToolbarHeight] = useState(46);
   useEffect(() => {
     setViewport(current =>
       current.selectedDay === day
@@ -81,7 +95,7 @@ export const MonthCalendar = ({
     }
   }, [expanded, day]);
   useEffect(() => {
-    const content = `${visibleDay}:${expanded}`;
+    const content = visibleDay;
     const changed = lastContent.current !== content;
     lastContent.current = content;
     if (!changed && !reduceMotion) return;
@@ -100,17 +114,21 @@ export const MonthCalendar = ({
     });
     animation.start();
     return () => animation.stop();
-  }, [visibleDay, expanded, opacity, reduceMotion]);
+  }, [visibleDay, opacity, reduceMotion]);
 
   const date = dateFor(visibleDay);
-  const first = expanded
-    ? new Date(date.getFullYear(), date.getMonth(), 1, 12)
-    : date;
-  const start = offsetDay(keyFor(first), -((first.getDay() + 6) % 7));
+  const first = new Date(date.getFullYear(), date.getMonth(), 1, 12);
+  const offset = (first.getDay() + 6) % 7;
+  const start = offsetDay(keyFor(first), -offset);
   const lastOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0, 12);
-  const weeks = expanded
-    ? Math.ceil((((first.getDay() + 6) % 7) + lastOfMonth.getDate()) / 7)
-    : 1;
+  const weeks = Math.ceil((offset + lastOfMonth.getDate()) / 7);
+  const selectedDate = dateFor(day);
+  const anchor =
+    selectedDate.getFullYear() === date.getFullYear() &&
+    selectedDate.getMonth() === date.getMonth()
+      ? selectedDate
+      : date;
+  const selectedWeek = Math.floor((offset + anchor.getDate() - 1) / 7);
   const taskDates = new Set(tasks.map(getScheduledDateForTask).filter(Boolean));
   const foreground = theme.colors.textPrimary;
   const selectedBackground = theme.isDark ? '#D8F3E5' : '#152D25';
@@ -118,6 +136,27 @@ export const MonthCalendar = ({
   const markerColor = theme.isDark ? '#B2DBCA' : '#42715E';
   const todayBorderColor = theme.isDark ? '#709889' : '#86AD9C';
   const today = getToday();
+
+  const changeExpanded = React.useCallback(
+    (next: boolean) => {
+      if (!next) setVisibleDay(day);
+      setYearPickerOpen(false);
+      setExpanded(next);
+    },
+    [day, setExpanded, setVisibleDay],
+  );
+  const drag = useCalendarDrag({
+    expanded,
+    weeks,
+    selectedWeek,
+    rowHeight,
+    toolbarHeight,
+    reduceMotion,
+    enabled: !yearPickerOpen,
+    scrollGesture,
+    onChange: changeExpanded,
+    onGestureActive,
+  });
 
   const navigate = (direction: number) => {
     animateLayout();
@@ -193,233 +232,287 @@ export const MonthCalendar = ({
   );
 
   return (
-    <View testID="calendar-block" style={s.calendarBlock}>
-      <Animated.View
-        {...swipe.panHandlers}
-        onTouchStart={({ nativeEvent }) => {
-          if (nativeEvent.touches.length > 1) {
+    <GestureDetector gesture={drag.pan}>
+      <View testID="calendar-block" style={s.calendarBlock}>
+        <Animated.View
+          {...swipe.panHandlers}
+          onTouchStart={({ nativeEvent }) => {
+            if (nativeEvent.touches.length > 1) {
+              interruptedSwipe.current = true;
+              return;
+            }
+            touchStart.current = {
+              x: nativeEvent.pageX,
+              y: nativeEvent.pageY,
+              time: nativeEvent.timestamp,
+            };
+            claimedSwipe.current = false;
+            interruptedSwipe.current = false;
+          }}
+          onTouchCancel={() => {
             interruptedSwipe.current = true;
-            return;
-          }
-          touchStart.current = {
-            x: nativeEvent.pageX,
-            y: nativeEvent.pageY,
-            time: nativeEvent.timestamp,
-          };
-          claimedSwipe.current = false;
-          interruptedSwipe.current = false;
-        }}
-        onTouchCancel={() => {
-          interruptedSwipe.current = true;
-        }}
-        onTouchEnd={({ nativeEvent }) => {
-          // Very fast drags can arrive as start/end with coalesced move events.
-          // The responder handles regular swipes; this fallback handles only
-          // gestures it never claimed, without firing a second month change.
-          const startTouch = touchStart.current;
-          if (
-            !startTouch ||
-            claimedSwipe.current ||
-            interruptedSwipe.current ||
-            yearPickerOpen
-          )
-            return;
-          const dx = nativeEvent.pageX - startTouch.x;
-          const dy = nativeEvent.pageY - startTouch.y;
-          const direction = calendarSwipeDirection({
-            dx,
-            dy,
-            vx: dx / Math.max(1, nativeEvent.timestamp - startTouch.time),
-            numberActiveTouches: nativeEvent.touches.length,
-          });
-          if (direction) navigate(direction);
-        }}
-        testID={expanded ? 'calendar-month' : 'calendar-week'}
-        style={[
-          s.card,
-          !expanded && s.compactCard,
-          theme.isDark ? s.darkCard : s.lightCard,
-          { opacity },
-        ]}
-      >
-        {expanded ? (
-          <View style={s.toolbar}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Previous month"
-              onPress={event => {
-                if (!movedTouch(event)) navigate(-1);
-              }}
-              style={({ pressed }) => [s.arrow, pressed && s.pressed]}
-            >
-              <ChevronLeft size={18} color={foreground} />
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Choose calendar year"
-              accessibilityHint="Opens the year picker"
-              onPress={event => {
-                if (!movedTouch(event)) setYearPickerOpen(true);
-              }}
-              style={({ pressed }) => [s.monthControl, pressed && s.pressed]}
-            >
-              <Text style={[s.month, { color: foreground }]}>
-                {date.toLocaleDateString(undefined, {
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Next month"
-              onPress={event => {
-                if (!movedTouch(event)) navigate(1);
-              }}
-              style={({ pressed }) => [s.arrow, pressed && s.pressed]}
-            >
-              <ChevronRight size={18} color={foreground} />
-            </Pressable>
-          </View>
-        ) : null}
-        <View
-          style={s.weekdays}
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
+          }}
+          onTouchEnd={({ nativeEvent }) => {
+            // Very fast drags can arrive as start/end with coalesced move events.
+            // The responder handles regular swipes; this fallback handles only
+            // gestures it never claimed, without firing a second month change.
+            const startTouch = touchStart.current;
+            if (
+              !startTouch ||
+              claimedSwipe.current ||
+              interruptedSwipe.current ||
+              yearPickerOpen
+            )
+              return;
+            const dx = nativeEvent.pageX - startTouch.x;
+            const dy = nativeEvent.pageY - startTouch.y;
+            const direction = calendarSwipeDirection({
+              dx,
+              dy,
+              vx: dx / Math.max(1, nativeEvent.timestamp - startTouch.time),
+              numberActiveTouches: nativeEvent.touches.length,
+            });
+            if (direction) navigate(direction);
+          }}
+          testID={expanded ? 'calendar-month' : 'calendar-week'}
+          style={[s.card, theme.isDark ? s.darkCard : s.lightCard, { opacity }]}
         >
-          {Array.from({ length: 7 }, (_, index) => (
-            <Text
-              key={index}
-              style={[s.weekday, { color: theme.colors.textSecondary }]}
+          <Reanimated.View style={drag.cardStyle}>
+            <Reanimated.View
+              style={[s.clipped, drag.toolbarStyle]}
+              pointerEvents={expanded ? 'auto' : 'none'}
+              accessibilityElementsHidden={!expanded}
+              importantForAccessibility={
+                expanded ? 'auto' : 'no-hide-descendants'
+              }
             >
-              {dateFor(offsetDay(start, index)).toLocaleDateString(undefined, {
-                weekday: 'narrow',
-              })}
-            </Text>
-          ))}
-        </View>
-        {Array.from({ length: weeks }, (_week, week) => (
-          <View key={week} style={s.week}>
-            {Array.from({ length: 7 }, (_, index) => {
-              const dateKey = offsetDay(start, week * 7 + index);
-              const cellDate = dateFor(dateKey);
-              const selected = dateKey === day;
-              const outside =
-                expanded && cellDate.getMonth() !== date.getMonth();
-              const hasTask = taskDates.has(dateKey);
-              const dotColor = !hasTask
-                ? 'transparent'
-                : selected
-                ? selectedForeground
-                : markerColor;
-              return (
+              <View
+                style={s.toolbar}
+                onLayout={({ nativeEvent }) => {
+                  const next = nativeEvent.layout.height + 2;
+                  if (next > 2)
+                    setToolbarHeight(current =>
+                      current === next ? current : next,
+                    );
+                }}
+              >
                 <Pressable
-                  key={dateKey}
                   accessibilityRole="button"
-                  accessibilityLabel={`${cellDate.toLocaleDateString(
+                  accessibilityLabel="Previous month"
+                  onPress={event => {
+                    if (!movedTouch(event)) navigate(-1);
+                  }}
+                  style={({ pressed }) => [s.arrow, pressed && s.pressed]}
+                >
+                  <ChevronLeft size={18} color={foreground} />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Choose calendar year"
+                  accessibilityHint="Opens the year picker"
+                  onPress={event => {
+                    if (!movedTouch(event)) setYearPickerOpen(true);
+                  }}
+                  style={({ pressed }) => [
+                    s.monthControl,
+                    pressed && s.pressed,
+                  ]}
+                >
+                  <Text style={[s.month, { color: foreground }]}>
+                    {date.toLocaleDateString(undefined, {
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Next month"
+                  onPress={event => {
+                    if (!movedTouch(event)) navigate(1);
+                  }}
+                  style={({ pressed }) => [s.arrow, pressed && s.pressed]}
+                >
+                  <ChevronRight size={18} color={foreground} />
+                </Pressable>
+              </View>
+            </Reanimated.View>
+            <View
+              style={s.weekdays}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
+              {Array.from({ length: 7 }, (_, index) => (
+                <Text
+                  key={index}
+                  style={[s.weekday, { color: theme.colors.textSecondary }]}
+                >
+                  {dateFor(offsetDay(start, index)).toLocaleDateString(
                     undefined,
                     {
-                      weekday: 'long',
-                      month: 'long',
-                      day: 'numeric',
-                      year: 'numeric',
+                      weekday: 'narrow',
                     },
-                  )}${dateKey === today ? ', today' : ''}${
-                    hasTask ? ', has tasks' : ''
-                  }`}
-                  accessibilityState={{ selected }}
-                  onPress={event => {
-                    if (!movedTouch(event)) onChange(dateKey);
-                  }}
-                  style={({ pressed }) => [s.day, pressed && s.pressed]}
-                >
+                  )}
+                </Text>
+              ))}
+            </View>
+            <Reanimated.View style={[s.clipped, drag.gridStyle]}>
+              <Reanimated.View style={drag.rowsStyle}>
+                {Array.from({ length: weeks }, (_week, week) => (
                   <View
-                    testID={selected ? 'calendar-selected-day' : undefined}
-                    style={[
-                      s.daySurface,
-                      selected && { backgroundColor: selectedBackground },
-                      !selected &&
-                        dateKey === today && {
-                          borderColor: todayBorderColor,
-                        },
-                    ]}
+                    key={week}
+                    style={s.week}
+                    onLayout={
+                      week === 0
+                        ? ({ nativeEvent }) => {
+                            const next = nativeEvent.layout.height;
+                            if (next > 0)
+                              setRowHeight(current =>
+                                current === next ? current : next,
+                              );
+                          }
+                        : undefined
+                    }
+                    accessibilityElementsHidden={
+                      !expanded && week !== selectedWeek
+                    }
+                    importantForAccessibility={
+                      !expanded && week !== selectedWeek
+                        ? 'no-hide-descendants'
+                        : 'auto'
+                    }
                   >
-                    <Text
-                      style={[
-                        s.dayText,
-                        {
-                          color: selected
-                            ? selectedForeground
-                            : outside
-                            ? theme.colors.textMuted
-                            : foreground,
-                        },
-                      ]}
-                    >
-                      {cellDate.getDate()}
-                    </Text>
-                    <View
-                      testID={selected ? 'calendar-selected-marker' : undefined}
-                      style={[
-                        s.dot,
-                        {
-                          backgroundColor: dotColor,
-                        },
-                      ]}
-                    />
+                    {Array.from({ length: 7 }, (_, index) => {
+                      const dateKey = offsetDay(start, week * 7 + index);
+                      const cellDate = dateFor(dateKey);
+                      const selected = dateKey === day;
+                      const outside =
+                        expanded && cellDate.getMonth() !== date.getMonth();
+                      const hasTask = taskDates.has(dateKey);
+                      const dotColor = !hasTask
+                        ? 'transparent'
+                        : selected
+                        ? selectedForeground
+                        : markerColor;
+                      return (
+                        <Pressable
+                          key={dateKey}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${cellDate.toLocaleDateString(
+                            undefined,
+                            {
+                              weekday: 'long',
+                              month: 'long',
+                              day: 'numeric',
+                              year: 'numeric',
+                            },
+                          )}${dateKey === today ? ', today' : ''}${
+                            hasTask ? ', has tasks' : ''
+                          }`}
+                          accessibilityState={{ selected }}
+                          onPress={event => {
+                            if (!movedTouch(event)) onChange(dateKey);
+                          }}
+                          style={({ pressed }) => [s.day, pressed && s.pressed]}
+                        >
+                          <View
+                            testID={
+                              selected ? 'calendar-selected-day' : undefined
+                            }
+                            style={[
+                              s.daySurface,
+                              selected && {
+                                backgroundColor: selectedBackground,
+                              },
+                              !selected &&
+                                dateKey === today && {
+                                  borderColor: todayBorderColor,
+                                },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                s.dayText,
+                                {
+                                  color: selected
+                                    ? selectedForeground
+                                    : outside
+                                    ? theme.colors.textMuted
+                                    : foreground,
+                                },
+                              ]}
+                            >
+                              {cellDate.getDate()}
+                            </Text>
+                            <View
+                              testID={
+                                selected
+                                  ? 'calendar-selected-marker'
+                                  : undefined
+                              }
+                              style={[
+                                s.dot,
+                                {
+                                  backgroundColor: dotColor,
+                                },
+                              ]}
+                            />
+                          </View>
+                        </Pressable>
+                      );
+                    })}
                   </View>
-                </Pressable>
-              );
-            })}
+                ))}
+              </Reanimated.View>
+            </Reanimated.View>
+            <View testID="calendar-grabber-space" style={s.grabberSpace} />
+          </Reanimated.View>
+          {yearPickerOpen && expanded ? (
+            <CalendarYearPicker
+              year={date.getFullYear()}
+              reduceMotion={reduceMotion}
+              onClose={() => setYearPickerOpen(false)}
+              onSelect={year => {
+                setVisibleDay(keyFor(new Date(year, date.getMonth(), 1, 12)));
+                setYearPickerOpen(false);
+              }}
+            />
+          ) : null}
+        </Animated.View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            expanded ? 'Collapse calendar' : 'Expand calendar'
+          }
+          accessibilityState={{ expanded }}
+          accessibilityActions={[
+            { name: 'previousMonth', label: 'Previous month' },
+            { name: 'nextMonth', label: 'Next month' },
+          ]}
+          onAccessibilityAction={({ nativeEvent }) => {
+            if (nativeEvent.actionName === 'previousMonth') navigate(-1);
+            if (nativeEvent.actionName === 'nextMonth') navigate(1);
+          }}
+          accessibilityHint={
+            expanded
+              ? 'Show only the selected week'
+              : 'Show the full month and date navigation'
+          }
+          onPress={() => changeExpanded(!expanded)}
+          style={({ pressed }) => [s.expandControl, pressed && s.pressed]}
+        >
+          <View style={s.grabberVisualArea}>
+            <View
+              testID="calendar-grabber"
+              style={[
+                s.grabber,
+                { backgroundColor: theme.colors.textSecondary },
+              ]}
+            />
           </View>
-        ))}
-        <View testID="calendar-grabber-space" style={s.grabberSpace} />
-        {yearPickerOpen && expanded ? (
-          <CalendarYearPicker
-            year={date.getFullYear()}
-            reduceMotion={reduceMotion}
-            onClose={() => setYearPickerOpen(false)}
-            onSelect={year => {
-              setVisibleDay(keyFor(new Date(year, date.getMonth(), 1, 12)));
-              setYearPickerOpen(false);
-            }}
-          />
-        ) : null}
-      </Animated.View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={expanded ? 'Collapse calendar' : 'Expand calendar'}
-        accessibilityState={{ expanded }}
-        accessibilityActions={[
-          { name: 'previousMonth', label: 'Previous month' },
-          { name: 'nextMonth', label: 'Next month' },
-        ]}
-        onAccessibilityAction={({ nativeEvent }) => {
-          if (nativeEvent.actionName === 'previousMonth') navigate(-1);
-          if (nativeEvent.actionName === 'nextMonth') navigate(1);
-        }}
-        accessibilityHint={
-          expanded
-            ? 'Show only the selected week'
-            : 'Show the full month and date navigation'
-        }
-        onPress={() => {
-          // Controlled calendars animate alongside the surrounding task list.
-          if (!onExpandedChange) animateLayout();
-          if (expanded) setVisibleDay(day);
-          setYearPickerOpen(false);
-          setExpanded(!expanded);
-        }}
-        style={({ pressed }) => [s.expandControl, pressed && s.pressed]}
-      >
-        <View style={s.grabberVisualArea}>
-          <View
-            testID="calendar-grabber"
-            style={[s.grabber, { backgroundColor: theme.colors.textSecondary }]}
-          />
-        </View>
-      </Pressable>
-    </View>
+        </Pressable>
+      </View>
+    </GestureDetector>
   );
 };
 
@@ -431,10 +524,9 @@ const s = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     paddingHorizontal: 8,
-    paddingTop: 2,
     paddingBottom: 0,
   },
-  compactCard: { paddingTop: 10 },
+  clipped: { overflow: 'hidden' },
   lightCard: {
     backgroundColor: 'rgba(255,255,255,0.62)',
     borderColor: 'rgba(255,255,255,0.95)',

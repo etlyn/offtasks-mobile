@@ -29,6 +29,8 @@ import { DashboardTabBar } from '../src/navigation/DashboardTabBar';
 import { readPlanner, writePlanner, plannerKey } from '../src/lib/plannerSync';
 import type { Task } from '../src/types/task';
 
+let mockGoalTasks: Task[] = [];
+
 jest.mock('../src/providers/AuthProvider', () => ({
   useAuth: () => ({ session: { user: { id: 'screen-test-user' } } }),
 }));
@@ -44,7 +46,7 @@ jest.mock('../src/providers/PreferencesProvider', () => ({
 }));
 jest.mock('../src/providers/TasksProvider', () => ({
   useTasks: () => ({
-    tasks: { today: [], tomorrow: [], upcoming: [], close: [] },
+    tasks: { today: mockGoalTasks, tomorrow: [], upcoming: [], close: [] },
     refreshing: false,
     refresh: jest.fn(),
   }),
@@ -116,6 +118,7 @@ jest.setTimeout(15000);
 configure({ asyncUtilTimeout: 5000 });
 
 beforeEach(async () => {
+  mockGoalTasks = [];
   mockGoalTask.mockClear();
   await AsyncStorage.clear();
   jest.restoreAllMocks();
@@ -292,7 +295,9 @@ test('shows Calendar, Notes, Goals and Later in order and emits tab navigation',
 });
 
 test('global search requests open existing notes without modifying them', async () => {
-  jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+  jest
+    .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
+    .mockResolvedValue(true);
   const note = {
     id: 'search-note',
     title: 'Existing note',
@@ -327,12 +332,18 @@ test('global search requests open the matching goal detail', async () => {
 });
 
 test('creates, searches, pins, edits and deletes a note through the screen', async () => {
-  jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+  jest
+    .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
+    .mockResolvedValue(true);
   render(<NotesHarness />);
   await screen.findByText('No notes yet');
   await waitFor(() => expect(screen.getByLabelText('Add note')).toBeEnabled());
   fireEvent.press(screen.getByLabelText('Add note'));
-  await waitFor(() => expect(screen.UNSAFE_getAllByType(Modal).some(modal => modal.props.visible)).toBe(true));
+  await waitFor(() =>
+    expect(
+      screen.UNSAFE_getAllByType(Modal).some(modal => modal.props.visible),
+    ).toBe(true),
+  );
   fireEvent(
     screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
     'show',
@@ -375,6 +386,10 @@ test('creates, searches, pins, edits and deletes a note through the screen', asy
       'Updated note',
     ),
   );
+  await waitFor(() => expect(screen.queryByLabelText('Note body')).toBeNull());
+  await waitFor(() =>
+    expect(screen.getByLabelText('Open note App ideas')).toBeEnabled(),
+  );
   fireEvent.press(screen.getByLabelText('Open note App ideas'));
   fireEvent(
     screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
@@ -398,7 +413,11 @@ test('Notes search stays behind its header icon and preserves the pinned list un
   expect(screen.queryByLabelText('Add task')).toBeNull();
   await waitFor(() => expect(screen.getByLabelText('Add note')).toBeEnabled());
   fireEvent.press(screen.getByLabelText('Add note'));
-  await waitFor(() => expect(screen.UNSAFE_getAllByType(Modal).some(modal => modal.props.visible)).toBe(true));
+  await waitFor(() =>
+    expect(
+      screen.UNSAFE_getAllByType(Modal).some(modal => modal.props.visible),
+    ).toBe(true),
+  );
   fireEvent(
     screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
     'show',
@@ -435,8 +454,15 @@ test('Notes search stays behind its header icon and preserves the pinned list un
 test('failed saves preserve the draft and corrupted storage disables creation', async () => {
   const view = render(<NotesHarness />);
   await screen.findByText('No notes yet');
+  await waitFor(() =>
+    expect(screen.getByLabelText('Add note')).not.toBeDisabled(),
+  );
   fireEvent.press(screen.getByLabelText('Add note'));
-  await waitFor(() => expect(screen.UNSAFE_getAllByType(Modal).some(modal => modal.props.visible)).toBe(true));
+  await waitFor(() =>
+    expect(
+      screen.UNSAFE_getAllByType(Modal).some(modal => modal.props.visible),
+    ).toBe(true),
+  );
   fireEvent(
     screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
     'show',
@@ -647,12 +673,134 @@ test('note editor saves checkbox tasks with the note', async () => {
   render(<NotesHarness />);
   await waitFor(() => expect(screen.getByLabelText('Add note')).toBeEnabled());
   fireEvent.press(screen.getByLabelText('Add note'));
-  fireEvent(screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!, 'show');
+  fireEvent(
+    screen.UNSAFE_getAllByType(Modal).find(modal => modal.props.visible)!,
+    'show',
+  );
   await waitFor(() => expect(screen.getByLabelText('Note title')).toBeTruthy());
   fireEvent.changeText(screen.getByLabelText('Note title'), 'Project tasks');
-  fireEvent.changeText(screen.getByLabelText('New note task'), 'Sketch the idea');
+  fireEvent.changeText(
+    screen.getByLabelText('New note task'),
+    'Sketch the idea',
+  );
   fireEvent.press(screen.getByLabelText('Add note task'));
   expect(screen.getByLabelText('Complete Sketch the idea')).toBeTruthy();
   fireEvent.press(screen.getByLabelText('Save note'));
-  await waitFor(async () => expect((await readPlanner('screen-test-user', 'note')).some(note => note.tasks?.some(task => task.content === 'Sketch the idea'))).toBe(true));
+  await waitFor(async () =>
+    expect(
+      (
+        await readPlanner('screen-test-user', 'note')
+      ).some(note =>
+        note.tasks?.some(task => task.content === 'Sketch the idea'),
+      ),
+    ).toBe(true),
+  );
+});
+
+test('note removal from the row confirms the loss of note tasks before deleting', async () => {
+  const note = {
+    id: 'remove-note',
+    title: 'Swipe note',
+    body: 'A note',
+    pinned: false,
+    updatedAt: '2026-11-05T12:00:00.000Z',
+    tasks: [
+      {
+        id: 'note-task',
+        content: 'Keep until confirmed',
+        isComplete: false,
+        priority: 0,
+        target_group: 'upcoming' as const,
+        date: null,
+      },
+    ],
+  };
+  const other = {
+    id: 'keep-note',
+    title: 'Other note',
+    body: '',
+    pinned: false,
+    updatedAt: '2026-11-05T12:00:00.000Z',
+  };
+  await writePlanner('screen-test-user', 'note', [note, other]);
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  render(<NotesHarness />);
+  await screen.findByLabelText('Open note Swipe note');
+  fireEvent(
+    screen.getByLabelText('Open note Swipe note'),
+    'accessibilityAction',
+    { nativeEvent: { actionName: 'delete' } },
+  );
+  expect(alert).toHaveBeenCalledWith(
+    'Delete note?',
+    expect.stringContaining('note and its tasks'),
+    expect.any(Array),
+  );
+  expect(
+    (await readPlanner('screen-test-user', 'note')).map(item => item.id),
+  ).toContain('remove-note');
+  const actions = alert.mock.calls[0][2]!;
+  await act(async () => {
+    await actions.find(item => item.style === 'destructive')!.onPress!();
+  });
+  await waitFor(async () =>
+    expect(
+      (await readPlanner('screen-test-user', 'note')).map(item => item.id),
+    ).toEqual(['keep-note']),
+  );
+});
+
+test('an empty goal can be removed from the row after confirmation', async () => {
+  await writePlanner('screen-test-user', 'goal', ['Travel', 'Study']);
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  render(<GoalsHarness />);
+  const goal = await screen.findByLabelText(
+    'Open goal Travel, 0 of 0 completed',
+  );
+  fireEvent(goal, 'accessibilityAction', {
+    nativeEvent: { actionName: 'delete' },
+  });
+  expect(alert).toHaveBeenCalledWith(
+    'Remove empty goal?',
+    'Tasks will not be deleted.',
+    expect.any(Array),
+  );
+  expect(await readPlanner('screen-test-user', 'goal')).toContain('Travel');
+  const actions = alert.mock.calls[0][2]!;
+  await act(async () => {
+    await actions.find(item => item.style === 'destructive')!.onPress!();
+  });
+  await waitFor(async () =>
+    expect(await readPlanner('screen-test-user', 'goal')).toEqual(['Study']),
+  );
+});
+
+test('a goal with tasks cannot be removed without first moving its tasks', async () => {
+  mockGoalTasks = [
+    {
+      id: 'task-in-goal',
+      user_id: 'screen-test-user',
+      content: 'Book a trip',
+      isComplete: false,
+      priority: 0,
+      target_group: 'upcoming',
+      date: null,
+      label: 'Travel',
+    },
+  ];
+  await writePlanner('screen-test-user', 'goal', ['Travel']);
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  render(<GoalsHarness />);
+  const goal = await screen.findByLabelText(
+    'Open goal Travel, 0 of 1 completed',
+  );
+  await waitFor(() => expect(goal).toBeEnabled());
+  fireEvent(goal, 'accessibilityAction', {
+    nativeEvent: { actionName: 'delete' },
+  });
+  expect(alert).toHaveBeenCalledWith(
+    'Goal has tasks',
+    expect.stringContaining('Move its tasks'),
+  );
+  expect(await readPlanner('screen-test-user', 'goal')).toContain('Travel');
 });

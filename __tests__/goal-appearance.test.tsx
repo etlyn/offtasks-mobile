@@ -86,6 +86,7 @@ test('populated goals expose personalization and honest progress', () => {
     <GoalRow
       goal={{ name: 'Travel', total: 4, completed: 1 }}
       onOpen={jest.fn()}
+      onRemove={jest.fn()}
       onOptions={open}
       disabled={false}
       appearance={{ color: 2, emoji: '🌎' }}

@@ -10,90 +10,104 @@ import {
 } from '@/lib/goalAppearance';
 import { GoalAvatar } from './GoalAvatar';
 import { GoalProgress } from './GoalProgress';
+import { SwipeDeleteRow } from '@/components/SwipeDeleteRow';
 
 export function GoalRow({
   goal,
   appearance = defaultGoalAppearance(goal.name),
   onOpen,
   onOptions,
+  onRemove,
   disabled,
 }: {
   goal: { name: string; total: number; completed: number };
   appearance?: GoalAppearance;
   onOpen: () => void;
   onOptions: () => void;
+  onRemove: () => void;
   disabled: boolean;
 }) {
   const theme = useAppTheme();
   const color = goalColors[appearance.color] ?? goalColors[0];
   return (
-    <View
-      testID="goal-row"
-      style={[
-        s.row,
-        {
-          backgroundColor: theme.isDark
-            ? 'rgba(255,255,255,0.035)'
-            : 'rgba(255,255,255,0.56)',
-          borderColor: theme.isDark
-            ? 'rgba(255,255,255,0.07)'
-            : 'rgba(21,45,37,0.045)',
-        },
-      ]}
+    <SwipeDeleteRow
+      label={`Remove goal ${goal.name}`}
+      onDelete={onRemove}
+      disabled={disabled}
+      style={s.swipe}
     >
-      <GentlePressable
-        accessibilityRole="button"
-        accessibilityLabel={`Open goal ${goal.name}, ${goal.completed} of ${goal.total} completed`}
-        disabled={disabled}
-        onPress={onOpen}
-        style={s.main}
+      <View
+        testID="goal-row"
+        style={[
+          s.row,
+          {
+            backgroundColor: theme.isDark
+              ? 'rgba(255,255,255,0.035)'
+              : 'rgba(255,255,255,0.56)',
+            borderColor: theme.isDark
+              ? 'rgba(255,255,255,0.07)'
+              : 'rgba(21,45,37,0.045)',
+          },
+        ]}
       >
-        <GoalAvatar name={goal.name} appearance={appearance} />
-        <View style={s.copy}>
-          <Text
-            style={[s.title, { color: theme.colors.textPrimary }]}
-            numberOfLines={2}
-          >
-            {goal.name}
-          </Text>
-          <Text style={[s.meta, { color: theme.colors.textSecondary }]}>
-            {goal.total
-              ? `${goal.completed}/${goal.total} done`
-              : 'Ready for a first step'}
-          </Text>
-          {goal.total > 0 ? (
-            <GoalProgress
-              completed={goal.completed}
-              total={goal.total}
-              color={theme.isDark ? color.light : color.ink}
-            />
-          ) : null}
-        </View>
-      </GentlePressable>
-      <GentlePressable
-        accessibilityRole="button"
-        accessibilityLabel={`Options for ${goal.name}`}
-        accessibilityHint="Personalize this goal"
-        disabled={disabled}
-        onPress={onOptions}
-        style={s.options}
-      >
-        <Ellipsis
-          size={18}
-          strokeWidth={1.6}
-          color={theme.colors.textSecondary}
-        />
-      </GentlePressable>
-    </View>
+        <GentlePressable
+          accessibilityRole="button"
+          accessibilityLabel={`Open goal ${goal.name}, ${goal.completed} of ${goal.total} completed`}
+          disabled={disabled}
+          onPress={onOpen}
+          accessibilityActions={[{ name: 'delete', label: 'Remove goal' }]}
+          onAccessibilityAction={({ nativeEvent }) => {
+            if (!disabled && nativeEvent.actionName === 'delete') onRemove();
+          }}
+          style={s.main}
+        >
+          <GoalAvatar name={goal.name} appearance={appearance} />
+          <View style={s.copy}>
+            <Text
+              style={[s.title, { color: theme.colors.textPrimary }]}
+              numberOfLines={2}
+            >
+              {goal.name}
+            </Text>
+            <Text style={[s.meta, { color: theme.colors.textSecondary }]}>
+              {goal.total
+                ? `${goal.completed}/${goal.total} done`
+                : 'Ready for a first step'}
+            </Text>
+            {goal.total > 0 ? (
+              <GoalProgress
+                completed={goal.completed}
+                total={goal.total}
+                color={theme.isDark ? color.light : color.ink}
+              />
+            ) : null}
+          </View>
+        </GentlePressable>
+        <GentlePressable
+          accessibilityRole="button"
+          accessibilityLabel={`Options for ${goal.name}`}
+          accessibilityHint="Personalize this goal"
+          disabled={disabled}
+          onPress={onOptions}
+          style={s.options}
+        >
+          <Ellipsis
+            size={18}
+            strokeWidth={1.6}
+            color={theme.colors.textSecondary}
+          />
+        </GentlePressable>
+      </View>
+    </SwipeDeleteRow>
   );
 }
 const s = StyleSheet.create({
+  swipe: { marginBottom: 10 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 22,
-    marginBottom: 10,
     paddingLeft: 14,
     paddingRight: 4,
   },

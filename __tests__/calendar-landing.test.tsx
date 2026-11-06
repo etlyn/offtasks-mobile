@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   AccessibilityInfo,
+  Alert,
   Animated,
   LayoutAnimation,
   StyleSheet,
@@ -23,6 +24,7 @@ import { createStyles as taskStyles } from '../src/components/task-quick-list/Ta
 import type { Task } from '../src/types/task';
 
 const mockUpdate = jest.fn().mockResolvedValue(undefined);
+const mockDelete = jest.fn().mockResolvedValue(undefined);
 const mockRefresh = jest.fn().mockResolvedValue(undefined);
 const mockApply = jest.fn();
 let mockTasks: Task[] = [];
@@ -50,7 +52,7 @@ jest.mock('../src/lib/taskRepository', () => ({
   useTaskRepository: () => ({
     create: jest.fn(),
     update: mockUpdate,
-    remove: jest.fn(),
+    remove: mockDelete,
   }),
 }));
 jest.mock('../src/hooks/useTaskCategories', () => ({
@@ -497,7 +499,7 @@ test.each([false, true])(
       expect(timing).not.toHaveBeenCalled();
       expect(screen.getByTestId('calendar-week')).toHaveStyle({ opacity: 1 });
     } else {
-      expect(layout).toHaveBeenCalledTimes(4);
+      expect(layout).toHaveBeenCalledTimes(1);
       expect(layout).toHaveBeenLastCalledWith(
         expect.objectContaining({
           duration: 320,
@@ -809,4 +811,27 @@ test('an upward swipe also collapses a month when an empty page has little scrol
   expect(screen.getByTestId('calendar-month')).toBeTruthy();
   fireEvent(scroller, 'touchMove', { nativeEvent: { pageX: 154, pageY: 450 } });
   await waitFor(() => expect(screen.getByTestId('calendar-week')).toBeTruthy());
+});
+
+test('task removal from the row requires confirmation and removes only the selected task', async () => {
+  mockTasks = [task(), task({ id: 'other-task', content: 'Another task' })];
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  renderLanding();
+  fireEvent(
+    screen.getByLabelText('Task: Take a little time outside'),
+    'accessibilityAction',
+    { nativeEvent: { actionName: 'delete' } },
+  );
+  expect(alert).toHaveBeenCalledWith(
+    'Remove task',
+    expect.any(String),
+    expect.any(Array),
+  );
+  expect(mockDelete).not.toHaveBeenCalled();
+  const actions = alert.mock.calls[0][2]!;
+  await act(async () => {
+    await actions.find(item => item.style === 'destructive')!.onPress!();
+  });
+  expect(mockDelete).toHaveBeenCalledTimes(1);
+  expect(mockDelete).toHaveBeenCalledWith('landing-task');
 });
