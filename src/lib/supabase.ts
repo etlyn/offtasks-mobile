@@ -1,6 +1,6 @@
 import 'react-native-url-polyfill/auto';
 
-import {authStorage} from './authStorage';
+import { authStorage } from './authStorage';
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@env';
 
@@ -269,7 +269,7 @@ export const deleteTask = async (taskId: string) => {
 
 interface DeleteAccountResponse {
   success?: boolean;
-  deleted?: "app-data";
+  deleted?: 'app-data';
   identityRetained?: boolean;
   error?: string;
 }
@@ -306,12 +306,23 @@ const getFunctionErrorMessage = async (error: unknown): Promise<string> => {
     : 'Unable to delete account right now. Please try again.';
 };
 
-export const deleteAccount = async (): Promise<void> => {
+export const deleteAccount = async (expectedOwner?: string): Promise<void> => {
   const { data: sessionData } = await supabaseClient.auth.getSession();
+  if (expectedOwner && sessionData.session?.user.id !== expectedOwner) {
+    throw Object.assign(
+      new Error(
+        'The signed-in account changed. Review the account before deleting data.',
+      ),
+      { deletionRejected: true },
+    );
+  }
   const accessToken = sessionData.session?.access_token;
 
   if (!accessToken) {
-    throw new Error('You need to be signed in to delete your Offtasks data.');
+    throw Object.assign(
+      new Error('You need to be signed in to delete your Offtasks data.'),
+      { deletionRejected: true },
+    );
   }
 
   const { data, error } =
@@ -327,14 +338,18 @@ export const deleteAccount = async (): Promise<void> => {
 
   if (error) {
     console.error('Error deleting account', error);
-    throw new Error(await getFunctionErrorMessage(error));
+    const status = (error as { context?: { status?: number } }).context?.status;
+    throw Object.assign(new Error(await getFunctionErrorMessage(error)), {
+      deletionRejected:
+        status !== undefined && [400, 401, 403, 405].includes(status),
+    });
   }
 
   if (data?.error) {
     throw new Error(data.error);
   }
 
-  if (data?.deleted !== "app-data" || data.identityRetained !== true) {
+  if (data?.deleted !== 'app-data' || data.identityRetained !== true) {
     throw new Error('Offtasks data deletion did not complete.');
   }
 };

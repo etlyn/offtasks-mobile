@@ -178,10 +178,8 @@ const HomeNavigator = () => {
         drawerPosition: 'left',
         drawerType: 'front',
         drawerStyle: {
-          backgroundColor: theme.colors.background,
-          width: Math.min(360, width - 48),
-          borderTopRightRadius: 28,
-          borderBottomRightRadius: 28,
+          backgroundColor: theme.isDark ? '#101916' : theme.colors.surface,
+          width,
           overflow: 'hidden',
         },
         drawerActiveTintColor: palette.mint,

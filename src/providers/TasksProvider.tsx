@@ -54,6 +54,8 @@ interface TasksContextValue {
 
 interface RefreshOptions {
   showRefreshSpinner?: boolean;
+  /** Explicit account sync must report failures to its caller. */
+  throwOnError?: boolean;
 }
 
 const emptyState: TasksByGroup = {
@@ -342,6 +344,7 @@ export const TasksProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
           console.error('Failed to refresh tasks', error);
         }
+        if (options.throwOnError) throw error;
       } finally {
         endRefresh(showRefreshSpinner);
       }

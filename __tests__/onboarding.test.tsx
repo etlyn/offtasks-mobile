@@ -172,13 +172,17 @@ test('sign-up validates password and explains email confirmation without a dupli
   expect(supabaseClient.auth.signUp).not.toHaveBeenCalled();
   fireEvent.changeText(view.getByLabelText('Password'), 'a-valid-password');
   fireEvent.press(view.getByLabelText('Create account'));
-  await waitFor(() => expect(view.getByText('Check your inbox.')).toBeTruthy());
+  await waitFor(() => expect(view.getByText('Check your inbox')).toBeTruthy());
   expect(supabaseClient.auth.signUp).toHaveBeenCalledWith({
     email: 'person@example.com',
     password: 'a-valid-password',
     options: { emailRedirectTo: 'offtasks://auth/callback' },
   });
-  expect(view.getByText(/Follow the confirmation link/)).toBeTruthy();
+  expect(
+    view.getByText(
+      'Confirm person@example.com to finish creating your account.',
+    ),
+  ).toBeTruthy();
 });
 
 test('reset has its own email-only form and neutral confirmation', async () => {
@@ -192,15 +196,17 @@ test('reset has its own email-only form and neutral confirmation', async () => {
   fireEvent.press(view.getByLabelText('Send reset link'));
   await waitFor(() =>
     expect(
-      view.getByText(/If an account uses person@example.com/),
+      view.getByText(
+        'If this email can receive a reset link, one is on its way.',
+      ),
     ).toBeTruthy(),
   );
   expect(supabaseClient.auth.resetPasswordForEmail).toHaveBeenCalledWith(
     'person@example.com',
     { redirectTo: 'offtasks://auth/recovery' },
   );
-  fireEvent.press(view.getByText('Back to sign in'));
-  expect(view.getByText('Welcome back.')).toBeTruthy();
+  fireEvent.press(view.getByRole('button', { name: 'Back' }));
+  expect(view.getByRole('button', { name: 'Sign in' })).toBeTruthy();
 });
 
 test('a pending sign-in cannot send duplicate requests; server errors stay inline', async () => {

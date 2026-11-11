@@ -2,39 +2,84 @@ import { StyleSheet } from 'react-native';
 import { type AppTheme } from '@/theme/colors';
 
 export const createStyles = (theme: AppTheme) => {
-  const divider = theme.isDark
-    ? 'rgba(255,255,255,0.09)'
-    : 'rgba(21,45,37,0.08)';
+  const soft = theme.isDark ? 'rgba(216,243,229,0.06)' : 'rgba(21,45,37,0.04)';
+  const divider = theme.isDark ? 'rgba(216,243,229,0.1)' : 'rgba(21,45,37,0.1)';
   return StyleSheet.create({
-    shell: { flex: 1, backgroundColor: theme.colors.background },
-    backdrop: { ...StyleSheet.absoluteFillObject, opacity: 0.35 },
+    shell: {
+      flex: 1,
+      backgroundColor: theme.isDark ? '#101916' : theme.colors.surface,
+    },
     header: {
       paddingHorizontal: 24,
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingBottom: 8,
+      gap: 12,
+    },
+    identityName: {
+      fontSize: 17,
+      lineHeight: 22,
+      fontWeight: '600',
+      color: theme.colors.textPrimary,
+    },
+    identityDetail: {
+      fontSize: 12,
+      lineHeight: 16,
+      color: theme.colors.textSecondary,
+      marginTop: 4,
     },
     closeTarget: {
       width: 44,
       height: 44,
       alignItems: 'center',
       justifyContent: 'center',
-      marginRight: -4,
     },
-    content: { flexGrow: 1 },
-    controlsSurface: {},
+    content: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 36 },
+    controlsSurface: { marginRight: 32, gap: 4 },
+    utilityRow: {
+      minHeight: 52,
+      paddingVertical: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    preferenceRow: {
+      minHeight: 52,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    rowIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: soft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    rowBody: { flex: 1 },
+    rowText: { flex: 1 },
+    rowLabel: {
+      fontSize: 15,
+      lineHeight: 20,
+      fontWeight: '500',
+      color: theme.colors.textPrimary,
+    },
+    rowDetail: {
+      fontSize: 12,
+      lineHeight: 16,
+      color: theme.colors.textSecondary,
+    },
     sectionDivider: {
       height: StyleSheet.hairlineWidth,
       backgroundColor: divider,
-      marginLeft: 32,
     },
-    statisticsTarget: { minHeight: 48 },
-    accountSection: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: divider,
-      paddingTop: 14,
+    switchTarget: {
+      width: 44,
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
+    compactSwitch: { width: 51, height: 31, transform: [{ scale: 0.78 }] },
     appearanceControl: { width: 88, height: 44, flexDirection: 'row' },
     appearanceSurface: {
       position: 'absolute',
@@ -43,7 +88,7 @@ export const createStyles = (theme: AppTheme) => {
       width: 88,
       height: 32,
       borderRadius: 16,
-      borderColor: divider,
+      backgroundColor: soft,
     },
     themeTarget: {
       width: 44,
@@ -60,77 +105,35 @@ export const createStyles = (theme: AppTheme) => {
       borderRadius: 14,
       backgroundColor: theme.isDark
         ? 'rgba(216,243,229,0.13)'
-        : 'rgba(21,45,37,0.085)',
+        : 'rgba(255,255,255,0.65)',
     },
-    statisticsSurface: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      minHeight: 48,
-      paddingVertical: 10,
-    },
-    statisticsLabel: { flex: 1 },
-    progress: {
-      fontSize: 12,
-      color: theme.colors.textSecondary,
-      fontVariant: ['tabular-nums'],
-    },
-    sectionLabel: {
-      fontSize: 12,
-      fontWeight: '500',
-      color: theme.colors.textMuted,
-      marginBottom: 6,
-    },
-    preferenceRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      paddingVertical: 2,
-    },
-    rowIcon: { width: 20, alignItems: 'center', justifyContent: 'center' },
-    rowBody: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      minHeight: 52,
-      paddingVertical: 7,
-    },
-    rowText: { flex: 1 },
-    rowLabel: {
-      fontSize: 15,
-      fontWeight: '500',
-      color: theme.colors.textPrimary,
-    },
-    rowDetail: {
-      fontSize: 12,
-      lineHeight: 17,
-      marginTop: 3,
-      color: theme.colors.textSecondary,
-    },
-    switchTarget: {
-      width: 44,
+    noticeSpace: { minHeight: 374 },
+    feedback: { gap: 8 },
+    cleanupRetry: {
+      width: 280,
+      maxWidth: '100%',
       minHeight: 44,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    footer: { marginTop: 'auto', paddingTop: 32 },
-    accountChevron: { marginLeft: 'auto' },
-    accountActions: { gap: 2 },
-    accountAction: {
-      minHeight: 44,
-      paddingVertical: 10,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 16,
+    cleanupRetryLabel: {
+      fontSize: 13,
+      lineHeight: 20,
+      color: theme.colors.textSecondary,
     },
-    deleteLabel: { fontSize: 13, fontWeight: '500' },
+    footer: { marginTop: 'auto', paddingTop: 32 },
+    accountSection: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: divider,
+      paddingTop: 12,
+    },
+    accountAction: { minHeight: 44 },
+    versionTarget: { minHeight: 44, paddingVertical: 14, alignItems: 'center' },
     version: {
-      fontSize: 11,
+      fontSize: 12,
+      lineHeight: 16,
       color: theme.colors.textMuted,
-      marginTop: 18,
-      textAlign: 'left',
-      marginLeft: 32,
+      textAlign: 'center',
     },
   });
 };
