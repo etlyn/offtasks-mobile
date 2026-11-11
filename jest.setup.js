@@ -21,7 +21,7 @@ jest.mock('react-native-inappbrowser-reborn', () => ({
 jest.mock('react-native-device-info', () => ({
   __esModule: true,
   default: {
-    getVersion: jest.fn(() => '1.06'),
+    getVersion: jest.fn(() => '1.07'),
     getBuildNumber: jest.fn(() => '2'),
   },
 }));
@@ -35,4 +35,8 @@ jest.mock('react-native-keychain', () => ({
   getGenericPassword: jest.fn().mockResolvedValue(false),
   setGenericPassword: jest.fn().mockResolvedValue(true),
   resetGenericPassword: jest.fn().mockResolvedValue(true),
+}));
+
+jest.mock('react-native-image-picker', () => ({
+  launchImageLibrary: jest.fn(),
 }));

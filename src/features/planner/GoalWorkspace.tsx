@@ -6,6 +6,9 @@ import { DashboardScreen } from '@/features/dashboard/Dashboard.screen';
 import { useCalendarTransition } from '@/features/dashboard/components/useCalendarTransition';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAppTheme } from '@/theme/colors';
+import type { GoalAppearance } from '@/lib/goalAppearance';
+import type { GoalLogo } from '@/lib/goalLogo';
+import { GoalAvatar } from './GoalAvatar';
 import {
   goalIntegration,
   integrationError,
@@ -18,10 +21,16 @@ export function GoalWorkspace({
   name,
   onBack,
   onBusyChange,
+  appearance,
+  logo,
+  onCustomize,
 }: {
   name: string;
   onBack: () => void;
   onBusyChange?: (busy: boolean) => void;
+  appearance?: GoalAppearance;
+  logo?: GoalLogo;
+  onCustomize?: () => void;
 }) {
   const owner = useAuth().session?.user.id;
   const theme = useAppTheme();
@@ -139,39 +148,57 @@ export function GoalWorkspace({
   const brand = theme.isDark ? '#D8F3E5' : '#152D25';
   const toolbar = (
     <View style={s.toolbar}>
-      <View accessibilityRole="tablist" style={s.tabs}>
-        {(['tasks', 'brief', 'plan'] as const).map(value => (
+      <View style={s.controls}>
+        {appearance && onCustomize ? (
           <Pressable
-            key={value}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: tab === value }}
+            accessibilityRole="button"
+            accessibilityLabel={`Appearance for ${name}`}
+            onPress={onCustomize}
             disabled={saving}
-            onPress={() => {
-              animateLayout();
-              setTab(value);
-            }}
             style={s.touch}
           >
-            <Text
-              style={[
-                s.label,
-                tab === value ? { color: brand, fontWeight: '600' } : muted,
-              ]}
-            >
-              {value === 'tasks'
-                ? 'Tasks'
-                : value === 'brief'
-                ? 'Brief'
-                : 'Plan'}
-            </Text>
-            <View
-              style={[
-                s.underline,
-                { backgroundColor: tab === value ? brand : 'transparent' },
-              ]}
+            <GoalAvatar
+              name={name}
+              appearance={appearance}
+              logo={logo}
+              size={28}
             />
           </Pressable>
-        ))}
+        ) : null}
+        <View accessibilityRole="tablist" style={s.tabs}>
+          {(['tasks', 'brief', 'plan'] as const).map(value => (
+            <Pressable
+              key={value}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: tab === value }}
+              disabled={saving}
+              onPress={() => {
+                animateLayout();
+                setTab(value);
+              }}
+              style={s.touch}
+            >
+              <Text
+                style={[
+                  s.label,
+                  tab === value ? { color: brand, fontWeight: '600' } : muted,
+                ]}
+              >
+                {value === 'tasks'
+                  ? 'Tasks'
+                  : value === 'brief'
+                  ? 'Brief'
+                  : 'Plan'}
+              </Text>
+              <View
+                style={[
+                  s.underline,
+                  { backgroundColor: tab === value ? brand : 'transparent' },
+                ]}
+              />
+            </Pressable>
+          ))}
+        </View>
       </View>
       {tab === 'tasks' && owner ? (
         <Pressable
@@ -375,6 +402,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
+  controls: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   tabs: { flexDirection: 'row', gap: 12 },
   touch: {
     minHeight: 44,

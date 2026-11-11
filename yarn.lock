@@ -5873,6 +5873,11 @@ react-native-get-random-values@1.11.0:
   dependencies:
     fast-base64-decode "^1.0.0"
 
+react-native-image-picker@8.3.0:
+  version "8.3.0"
+  resolved "https://registry.yarnpkg.com/react-native-image-picker/-/react-native-image-picker-8.3.0.tgz#03f88af9c30fe2ece6668a253f01ef4c8add6619"
+  integrity sha512-f45QERBBWAFS8BEIKeQ9bcuBQFr3myWaNlkTnG4bY8BtsYJa/ChM0jzN6V9xBKzNPjMo9uFyUuNKjQWddNKZ9w==
+
 react-native-inappbrowser-reborn@3.7.0:
   version "3.7.0"
   resolved "https://registry.yarnpkg.com/react-native-inappbrowser-reborn/-/react-native-inappbrowser-reborn-3.7.0.tgz#849a43c3c7da22b65147649fe596836bcb494083"
