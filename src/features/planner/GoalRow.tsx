@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Ellipsis } from 'lucide-react-native';
 import { GentlePressable } from '@/components/ProductUI';
 import { useAppTheme } from '@/theme/colors';
+import type { GoalLogo } from '@/lib/goalLogo';
 import {
   defaultGoalAppearance,
   goalColors,
@@ -15,6 +16,7 @@ import { SwipeDeleteRow, SwipeRowContents } from '@/components/SwipeDeleteRow';
 export function GoalRow({
   goal,
   appearance = defaultGoalAppearance(goal.name),
+  logo,
   onOpen,
   onOptions,
   onRemove,
@@ -22,6 +24,7 @@ export function GoalRow({
 }: {
   goal: { name: string; total: number; completed: number };
   appearance?: GoalAppearance;
+  logo?: GoalLogo;
   onOpen: () => void;
   onOptions: () => void;
   onRemove: () => void;
@@ -66,7 +69,7 @@ export function GoalRow({
             }}
             style={s.main}
           >
-            <GoalAvatar name={goal.name} appearance={appearance} />
+            <GoalAvatar name={goal.name} appearance={appearance} logo={logo} />
             <View style={s.copy}>
               <Text
                 style={[s.title, { color: theme.colors.textPrimary }]}

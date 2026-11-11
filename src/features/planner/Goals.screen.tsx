@@ -38,6 +38,7 @@ import { GoalRow } from './GoalRow';
 import { GoalAvatar } from './GoalAvatar';
 import { GoalAppearanceSheet } from './GoalAppearanceSheet';
 import { useGoalAppearance } from '@/hooks/useGoalAppearance';
+import { useGoalLogos } from '@/hooks/useGoalLogos';
 import { HeaderLayer } from '@/navigation/SharedHeader';
 import { useTaskCreation } from '@/navigation/TaskCreationContext';
 import { TaskSearchHeader } from '@/features/dashboard/components/TaskSearch';
@@ -57,7 +58,11 @@ export const GoalsScreen = ({
   const { categories, addCategory, removeCategory, loading, error, reload } =
     useTaskCategories();
   const appearance = useGoalAppearance();
+  const logos = useGoalLogos();
   const [customizing, setCustomizing] = useState<string | null>(null);
+  React.useEffect(() => {
+    setCustomizing(null);
+  }, [logos.owner]);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
@@ -199,6 +204,16 @@ export const GoalsScreen = ({
           try {
             await removeCategory(goal);
             setCustomizing(null);
+            if (logos.guest) {
+              try {
+                await logos.save(goal, null);
+              } catch {
+                Alert.alert(
+                  'Could not clear the logo',
+                  'The goal was removed.',
+                );
+              }
+            }
           } catch {
             Alert.alert('Could not remove goal', 'Please try again.');
           } finally {
@@ -215,6 +230,17 @@ export const GoalsScreen = ({
     setSelected(goal);
     setDetailVisible(true);
   };
+  const openAppearance = (goalName: string) => {
+    if (!appearance.ready || appearance.error) {
+      Alert.alert(
+        'Appearance unavailable',
+        appearance.error ?? 'Please try again in a moment.',
+      );
+      return;
+    }
+    setCustomizing(goalName);
+  };
+
   const renderList = (searchPage: boolean) => (
     <>
       {error ? (
@@ -240,7 +266,10 @@ export const GoalsScreen = ({
         refreshControl={
           <BrandedRefreshControl
             refreshing={refreshing}
-            onRefresh={() => refresh({ showRefreshSpinner: true })}
+            onRefresh={() => {
+              logos.refresh();
+              return refresh({ showRefreshSpinner: true });
+            }}
           />
         }
         contentContainerStyle={[
@@ -322,6 +351,7 @@ export const GoalsScreen = ({
           <GoalRow
             goal={item}
             appearance={appearance.get(item.name)}
+            logo={logos.get(item.name)}
             disabled={saving || loading}
             onOpen={() => openGoal(item.name)}
             onRemove={() => {
@@ -332,16 +362,7 @@ export const GoalsScreen = ({
                 );
               } else remove(item.name);
             }}
-            onOptions={() => {
-              if (!appearance.ready || appearance.error) {
-                Alert.alert(
-                  'Appearance unavailable',
-                  appearance.error ?? 'Please try again in a moment.',
-                );
-                return;
-              }
-              setCustomizing(item.name);
-            }}
+            onOptions={() => openAppearance(item.name)}
           />
         )}
       />
@@ -451,6 +472,9 @@ export const GoalsScreen = ({
             <GoalWorkspace
               key={selected}
               name={selected}
+              appearance={appearance.get(selected)}
+              logo={logos.get(selected)}
+              onCustomize={() => openAppearance(selected)}
               onBusyChange={setWorkspaceBusy}
               onBack={() => setDetailVisible(false)}
             />
@@ -458,9 +482,15 @@ export const GoalsScreen = ({
         </Animated.View>
       ) : null}
       <GoalAppearanceSheet
+        key={logos.owner}
         name={customizing}
         total={goals.find(goal => goal.name === customizing)?.total ?? 0}
         initial={appearance.get(customizing ?? '')}
+        logo={customizing ? logos.get(customizing) : undefined}
+        logoOnDevice={logos.guest}
+        onSaveLogo={async logo => {
+          if (customizing) await logos.save(customizing, logo);
+        }}
         onClose={() => setCustomizing(null)}
         onSave={async value => {
           if (customizing) await appearance.save(customizing, value);

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Check, Shuffle, Trash2 } from 'lucide-react-native';
+import { Check, ImagePlus, Shuffle, Trash2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DetachedSheet } from '@/components/DetachedSheet';
 import { SheetHeader } from '@/components/SheetHeader';
@@ -14,11 +14,16 @@ import {
   type GoalAppearance,
 } from '@/lib/goalAppearance';
 import { GoalAvatar } from './GoalAvatar';
+import { pickGoalLogo } from '@/lib/pickGoalLogo';
+import type { GoalLogo } from '@/lib/goalLogo';
 
 export function GoalAppearanceSheet({
   name,
   total,
   initial,
+  logo,
+  logoOnDevice = false,
+  onSaveLogo,
   onClose,
   onSave,
   onRemove,
@@ -26,6 +31,9 @@ export function GoalAppearanceSheet({
   name: string | null;
   total: number;
   initial: GoalAppearance;
+  logo?: GoalLogo;
+  logoOnDevice?: boolean;
+  onSaveLogo?: (logo: GoalLogo | null) => Promise<void>;
   onClose: () => void;
   onSave: (appearance: GoalAppearance) => Promise<void>;
   onRemove: () => void;
@@ -37,35 +45,82 @@ export function GoalAppearanceSheet({
   const { reduceMotion, animateLayout } = useCalendarTransition();
   const [draft, setDraft] = React.useState(initial);
   const [saving, setSaving] = React.useState(false);
+  const [choosing, setChoosing] = React.useState(false);
+  const [logoChange, setLogoChange] = React.useState<GoalLogo | null>();
+  const [logoError, setLogoError] = React.useState('');
+  const displayedLogo = logoChange === undefined ? logo : logoChange;
+  const mounted = React.useRef(true);
+  React.useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const busy = React.useRef(false);
   const previousName = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (name && name !== previousName.current) setDraft(initial);
+    if (name && name !== previousName.current) {
+      setDraft(initial);
+      setLogoChange(undefined);
+      setLogoError('');
+    }
     previousName.current = name;
   }, [name, initial]);
   const change = (value: GoalAppearance) => {
     animateLayout();
     setDraft(value);
   };
+  const chooseLogo = async () => {
+    if (busy.current || !name) return;
+    busy.current = true;
+    setChoosing(true);
+    setLogoError('');
+    try {
+      const next = await pickGoalLogo();
+      if (next && mounted.current) setLogoChange(next);
+    } catch (error) {
+      if (mounted.current)
+        setLogoError(
+          error instanceof Error
+            ? error.message
+            : 'The photo could not be opened.',
+        );
+    } finally {
+      busy.current = false;
+      if (mounted.current) setChoosing(false);
+    }
+  };
   const save = async () => {
     if (busy.current || !name) return;
     busy.current = true;
     setSaving(true);
+    setLogoError('');
     try {
       await onSave(draft);
-      onClose();
+      if (onSaveLogo && logoChange !== undefined) {
+        try {
+          await onSaveLogo(logoChange);
+        } catch {
+          if (mounted.current)
+            setLogoError('Could not save the logo. Try again.');
+          return;
+        }
+      }
+      if (mounted.current) onClose();
     } catch {
-      Alert.alert(
-        'Could not save appearance',
-        'Your choices are still here. Please try again.',
-      );
+      if (mounted.current)
+        Alert.alert(
+          'Could not save appearance',
+          'Your choices are still here. Please try again.',
+        );
     } finally {
       busy.current = false;
-      setSaving(false);
+      if (mounted.current) setSaving(false);
     }
   };
   const ink = theme.colors.textPrimary;
   const muted = theme.colors.textSecondary;
+  const editing = saving || choosing;
   const close = () => {
     if (!busy.current) onClose();
   };
@@ -85,7 +140,7 @@ export function GoalAppearanceSheet({
         saveLabel="Save goal appearance"
         action="Done"
         busy={saving}
-        disabled={false}
+        disabled={choosing}
       />
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -96,6 +151,7 @@ export function GoalAppearanceSheet({
           <GoalAvatar
             name={display.current.name ?? ''}
             appearance={draft}
+            logo={displayedLogo}
             size={64}
           />
           <View style={s.copy}>
@@ -105,7 +161,7 @@ export function GoalAppearanceSheet({
             <Text style={[s.caption, { color: muted }]}>Make it yours</Text>
           </View>
           <Pressable
-            disabled={saving}
+            disabled={editing}
             accessibilityRole="button"
             accessibilityLabel="Surprise me"
             accessibilityHint="Choose a new color and emoji"
@@ -115,10 +171,52 @@ export function GoalAppearanceSheet({
             <Shuffle size={18} color={ink} strokeWidth={1.7} />
           </Pressable>
         </View>
+        {onSaveLogo ? (
+          <>
+            <View style={s.logoActions}>
+              <Pressable
+                disabled={editing}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  displayedLogo ? 'Replace goal logo' : 'Add goal logo'
+                }
+                onPress={chooseLogo}
+                style={s.logoAction}
+              >
+                <ImagePlus size={16} color={ink} strokeWidth={1.7} />
+                <Text style={[s.caption, { color: ink }]}>
+                  {displayedLogo ? 'Replace logo' : 'Add logo'}
+                </Text>
+              </Pressable>
+              {displayedLogo ? (
+                <Pressable
+                  disabled={editing}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove goal logo"
+                  onPress={() => {
+                    setLogoChange(null);
+                    setLogoError('');
+                  }}
+                  style={s.logoAction}
+                >
+                  <Text style={[s.caption, { color: muted }]}>Remove logo</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {logoError ? (
+              <Text
+                accessibilityRole="alert"
+                style={[s.caption, { color: ink }]}
+              >
+                {logoError}
+              </Text>
+            ) : null}
+          </>
+        ) : null}
         <View style={s.sectionHeading}>
           <Text style={[s.label, { color: muted }]}>Icon</Text>
           <Pressable
-            disabled={saving}
+            disabled={editing}
             accessibilityRole="button"
             accessibilityLabel="Use initials avatar"
             accessibilityState={{ selected: draft.emoji === null }}
@@ -133,7 +231,7 @@ export function GoalAppearanceSheet({
           {goalEmoji.map(emoji => (
             <Pressable
               key={emoji}
-              disabled={saving}
+              disabled={editing}
               accessibilityRole="button"
               accessibilityLabel={`Use ${emoji} emoji`}
               accessibilityState={{ selected: draft.emoji === emoji }}
@@ -164,7 +262,7 @@ export function GoalAppearanceSheet({
           {goalColors.map((color, index) => (
             <Pressable
               key={color.name}
-              disabled={saving}
+              disabled={editing}
               accessibilityRole="button"
               accessibilityLabel={`${color.name} color`}
               accessibilityState={{ selected: draft.color === index }}
@@ -189,11 +287,13 @@ export function GoalAppearanceSheet({
           ))}
         </View>
         <Text style={[s.local, { color: muted }]}>
-          Appearance is saved on this device.
+          {onSaveLogo && !logoOnDevice
+            ? 'Logos sync to your account. Colors and emoji stay on this device.'
+            : 'Appearance is saved on this device.'}
         </Text>
         {display.current.total === 0 ? (
           <Pressable
-            disabled={saving}
+            disabled={editing}
             accessibilityRole="button"
             accessibilityLabel={`Remove empty goal ${name}`}
             onPress={onRemove}
@@ -236,6 +336,13 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  logoActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  logoAction: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: -8 },
   emojiTouch: {
